@@ -1,0 +1,14 @@
+{
+ "person_16.png": {
+  "frame": 16,
+  "cols": "frames 0-1",
+  "rows": [
+   "down",
+   "left",
+   "right",
+   "up"
+  ]
+ },
+ "bush_full.png": "16x16 with berries",
+ "bush_empty.png": "16x16 eaten/regrowing"
+}

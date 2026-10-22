@@ -1,0 +1,14 @@
+// Optional art manifest. Only files listed here are requested (a missing entry = drawn in code,
+// so nothing 404s). Paths are relative to index.html. Artist delivery 16:05 is in data/art/.
+//   tiles: { meadow: "...png", woods, sand, river, lake }  (16x16 each, optional)
+//   person: { src, frame, rows: [dir...], frames }  sprite sheet, frames across, one row per facing
+//   bush / bushEmpty: 16x16 (ripe / bare)
+(function (G) {
+  G.data = G.data || {};
+  G.data.art = {
+    tiles: {},
+    person: { src: "data/art/person_16.png", frame: 16, frames: 2, rows: ["down", "left", "right", "up"] },
+    bush: "data/art/bush_full.png",
+    bushEmpty: "data/art/bush_empty.png"
+  };
+})(this.GS = this.GS || {});

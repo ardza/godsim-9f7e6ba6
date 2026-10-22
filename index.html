@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Godsim (week 1)</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #10151c; color: #dfe6ee; font: 13px/1.35 system-ui, sans-serif; }
+  body { display: flex; flex-direction: column; height: 100dvh; }
+  #top { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; padding: 6px 8px; background: #19212c; border-bottom: 1px solid #2a3442; }
+  #clock { font-weight: 600; min-width: 15em; }
+  #seedshow { color: #8b98a8; }
+  button { background: #2a3646; color: #dfe6ee; border: 1px solid #3a4a5e; border-radius: 4px; padding: 4px 8px; font: inherit; cursor: pointer; touch-action: manipulation; }
+  button.on { background: #e0b84a; color: #1a1a1a; border-color: #e0b84a; }
+  #speeds, #files { display: flex; gap: 4px; }
+  input { width: 7.5em; background: #0f141b; color: #dfe6ee; border: 1px solid #3a4a5e; border-radius: 4px; padding: 4px; font: inherit; }
+  #main { flex: 1; display: flex; min-height: 0; }
+  #stage { flex: 1; min-width: 0; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 4px; }
+  #cv { image-rendering: pixelated; image-rendering: crisp-edges; display: block; touch-action: none; background: #000; }
+  #side { width: 270px; display: flex; flex-direction: column; border-left: 1px solid #2a3442; background: #151c25; min-height: 0; }
+  #info { position: relative; padding: 8px 10px; border-bottom: 1px solid #2a3442; }
+  #info h3 { margin: 0; font-size: 15px; } .sub { color: #9aa7b6; } .sec { margin-top: 6px; color: #e0b84a; font-size: 11px; text-transform: uppercase; }
+  #info-close { position: absolute; right: 6px; top: 6px; padding: 0 6px; }
+  .row { display: grid; grid-template-columns: 6.5em 1fr 2.6em; gap: 6px; align-items: center; } .row b { text-align: right; font-weight: 500; }
+  .bar { height: 8px; background: #0c1016; border-radius: 3px; overflow: hidden; } .bar i { display: block; height: 100%; background: #6cc070; }
+  .bar.hot i { background: #e06a4a; } .bar.trait i { background: #6a9be0; }
+  #logwrap { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 6px 10px; }
+  #log { flex: 1; overflow-y: auto; font-size: 12px; } #log time { color: #8b98a8; }
+  #hint { color: #8b98a8; font-size: 11px; padding: 4px 0; }
+  #toast { position: fixed; left: 50%; top: 52px; transform: translateX(-50%); background: #e0b84a; color: #111; padding: 4px 12px; border-radius: 4px; opacity: 0; transition: opacity .3s; pointer-events: none; }
+  @media (orientation: portrait) { #main { flex-direction: column; } #stage { flex: 0 0 auto; } #side { width: auto; flex: 1; border-left: 0; border-top: 1px solid #2a3442; } #clock { min-width: 0; width: 100%; } }
+  @media (max-height: 460px) and (orientation: landscape) { #side { width: 220px; } #top { padding: 3px 6px; } button { padding: 2px 6px; } }
+</style>
+</head><body>
+<div id="top">
+  <span id="clock">-</span>
+  <span id="speeds"></span>
+  <span id="files"><button id="btn-save">Save</button><button id="btn-load">Load</button><input id="seed" placeholder="seed" aria-label="seed"><button id="btn-new">New world</button></span>
+  <span id="seedshow"></span>
+</div>
+<div id="main">
+  <div id="stage"><canvas id="cv"></canvas></div>
+  <div id="side">
+    <div id="info" hidden><button id="info-close" aria-label="close">×</button><div id="info-body"></div></div>
+    <div id="logwrap"><div id="hint">Tap a person to watch them. Space pauses/resumes; 0 pause, 1 = 1x, 2 = 10x, 3 = 60x.</div><div id="log"></div></div>
+  </div>
+</div>
+<div id="toast"></div>
+<script src="data/config.js"></script>
+<script src="data/tiles.js"></script>
+<script src="data/names.js"></script>
+<script src="data/art.js"></script>
+<script src="src/rng.js"></script>
+<script src="src/world.js"></script>
+<script src="src/agent.js"></script>
+<script src="src/sim.js"></script>
+<script src="src/save.js"></script>
+<script src="src/render.js"></script>
+<script src="src/ui.js"></script>
+<script src="src/main.js"></script>
+</body></html>
