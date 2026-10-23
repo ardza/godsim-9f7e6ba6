@@ -11,10 +11,22 @@
     const seed = String(seedText || "").trim() ? G.RNG.seedFrom(seedText) : (Math.random() * 4294967296) >>> 0;
     app.sim = G.Sim.create(seed); app.acc = 0; app.selected = null; app.save(false); G.UI.toast("New world " + seed); G.UI.update(app);
   };
-  app.clickTile = (tx, ty) => { // nearest person within ~1 tile of the tap
-    let best = null; for (const a of app.sim.agents) { const p = (G.Render.screen && G.Render.screen[a.id]) || a.pos, d = Math.hypot(p.x + 0.5 - tx, p.y + 0.5 - ty); if (d < 1.3 && (!best || d < best.d)) best = { id: a.id, d }; }
+  app.clickTile = (tx, ty) => { // nearest person, animal or body within ~1 tile of the tap (people first, then animals, then bodies when equally near)
+    let best = null; const S = G.Render.screen || {};
+    const consider = (o, pos, pen) => { const p = S[o.id] || pos, d = Math.hypot(p.x + 0.5 - tx, p.y + 0.5 - ty) + pen; if (d < 1.3 + pen && (!best || d < best.d)) best = { id: o.id, d }; };
+    for (const a of app.sim.agents) consider(a, a.pos, 0);
+    for (const a of app.sim.animals || []) consider(a, a.pos, 0.15);
+    for (const b of app.sim.bodies || []) consider(b, { x: b.x, y: b.y }, 0.3);
     app.select(best ? best.id : null);
   };
+  // Test-only console hooks (not in the UI): hold a person's water / fullness at 0 so a need-death and the decay can be watched (README).
+  G.debug = {
+    drainWater: id => hold(id, "water"), drainFullness: id => hold(id, "fullness"),
+    release: id => { const a = person(id); if (a) delete a.hold; return !!a; },
+    ageTo: (id, years) => { const a = person(id); if (a) a.age = years; return a ? a.lifespan : null; }   // e.g. ageTo(id, lifespan - 0.001) to see an old-age death
+  };
+  function person(id) { return app.sim.agents.find(a => a.id === (id == null ? app.selected : id)); }
+  function hold(id, need) { const a = person(id); if (!a) return false; a.hold = need; a.needs[need] = 0; G.UI.update(app); return a.id; }
 
   function boot() {
     G.Render.init(document.getElementById("cv"));

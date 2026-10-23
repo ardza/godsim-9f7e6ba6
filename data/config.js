@@ -2,7 +2,7 @@
 (function (G) {
   G.data = G.data || {};
   G.data.config = {
-    saveVersion: 5,                 // v5: needs flipped to fullness / water / energy, all 100 = good; older saves are rejected
+    saveVersion: 6,                 // v6: aging and death, bodies (fresh / rotting / bones), grazers and scavengers; older saves are rejected
     saveKey: "godsim.save",
     map: {
       w: 60, h: 40, tilePx: 16,      // map is 960x640 art px, scaled to fit the screen
@@ -26,7 +26,7 @@
     pop: { maxPeople: 60, maxAnimals: 40, startPeople: [5, 8], clusterRadius: 3 },  // the seed picks 5-8 founders, placed on distinct tiles near the middle meadow
     person: {
       walkMinutesPerTile: 8,          // at speed 50. Actual = 8 / (0.5 + speed/100): speed 0 -> 16, 50 -> 8, 100 -> 5.33 min/tile
-      startAge: [16, 40], lifespan: [60, 100], // founders' ages (years; 1 year = 4 seasons x 7 days = 28 days). Ages do nothing yet
+      startAge: [16, 40], lifespan: [60, 100], // years; 1 year = 4 seasons x 7 days = 28 game days. Each person gets a seeded lifespan and dies of old age on reaching it
       traits: {                       // the only traits; integers 0-100, 50 = average; rolled as 50 + gaussian*spread, rounded, clamped (full 0-100 allowed)
         speed: "walk time per tile = 8 min / (0.5 + speed/100)",
         appetite: "fullness drain x (0.5 + appetite/100): full (85) to hungry (50) in ~6 h at 50, ~12 h at 0, ~4 h at 100"
@@ -45,14 +45,14 @@
         mealFillTo: 85,               // ...but a normal (hungry) meal stops at 85 = "full"
         // Overeating: a meal started at or above threshold (a snack), or the bedtime meal, adds the full 40, capped at 100 ("overfull").
         snackAbove: null,             // set e.g. 50: a person above this who sees a ripe bush close by eats it (off = no snacking)
-        start: [65, 90], min: 0       // holds at 0; logs "is starving" once on reaching 0; no death
+        start: [65, 90], min: 0       // holds at 0; logs "is starving" once on reaching 0; dies after 7 game days at 0 (person.death)
       },
       water: {
         // water: 0 = parched, 50 = thirsty, 100 = just drank. Not scaled by a trait (there is no thirst trait).
         threshold: 50,                // goes to drink below this (= actAt)
         minutesFullToThirsty: 240,    // 100 -> 50 in 4 game h => drain 50/240 = 0.208 per min (0 after 8 h)
         planFrom: 75,                 // like fullness.planFrom: leaves early if the nearest known shore is far
-        start: [70, 95], min: 0       // holds at 0; logs "is parched" once; no death
+        start: [70, 95], min: 0       // holds at 0; logs "is parched" once; dies after 1 full game day at 0 (person.death)
       },
       drinkMinutes: 10,               // drink from any land tile next to water (4-neighbour); water rises linearly to 100
       energy: {
@@ -60,11 +60,14 @@
         drainMinutes: 960,            // 100 -> 0 over 16 waking hours
         refillMinutes: 480,           // 0 -> 100 over 8 hours of sleep
         sleepBelow: 50,               // lies down (anywhere, when idle) after dusk if energy is under this
+        restedAt: 80,                 // panel word: "rested" at 80+, "fine" from sleepBelow, "tired" below that, "exhausted" at 0
         nightFrom: 1080, dawnAt: 360, // 18:00 .. 06:00 is "after dusk"; a sleeper with full energy gets up at dawn
         wakeIfNeedBelow: 10,          // a sleeper wakes early if fullness or water drops below this (also: a food/water goal is dropped for the other need below this)
         asleepNeedRate: 0.25,         // fullness and water drain at a quarter of the waking rate while asleep
         start: [90, 100]              // energy 0 logs "is exhausted" once and they lie down where they are, day or night
       },
+      // Dying of need: a full game day at water 0, or 7 game days at fullness 0 (the clock restarts once the need is above 0). Energy 0 never kills.
+      death: { waterZeroMinutes: 1440, fullnessZeroMinutes: 10080 },
       bedtimeMin: 25,                 // before lying down she drinks/eats first if that need would drop below this by the time she wakes
       bedtimeTripTiles: 6,            // ...but only if the water / a known ripe bush is within this many tiles of path (else she sleeps)
       mealMinutes: 15,                // one ripe bush = one meal, eaten in one sitting; fullness rises linearly by mealAdds
@@ -72,17 +75,53 @@
       explore: { min: 15, max: 32, candidates: 8,
         farTiles: 999, pathCandidates: 8, nearMin: 5, nearMax: 12 }  // known bush > 20 tiles of path away? first look nearby (5-12 tiles), then go
     },
+    // A death leaves a body on the tile where the person was (no grave). It decays: fresh (fixed time) -> rotting (until its flesh is gone) -> bones.
+    // Bones stay as a lasting object tagged with the primitive material "bone" (its properties come in step 10) and weather away over many years.
+    // People ignore bodies. Bodies and bones are inspectable and saved.
+    body: {
+      freshMinutes: 1440,             // fresh for 1 game day (flesh can already be eaten by scavengers)
+      rotMinutes: 10080,              // rotting: the flesh (0-100) decays 100 -> 0 in 7 game days on its own; scavengers feeding make it go sooner (~2 days)
+      bonesWeatherYears: 20,          // bones' condition falls 100 -> 0 over 20 game years, then they are gone
+      material: "bone"                // primitive material the bones are (data only for now)
+    },
+    // Animals (no names, no deaths or births yet). All count toward pop.maxAnimals (40). They flee people: when a person is within fleeWithin tiles
+    // they run (at fleeMinutesPerTile) to a tile at least fleeTo tiles from every person.
+    animals: {
+      grazer: {
+        start: 15, herds: 3, herdRadius: 3,   // ~15 in 3 herds placed on meadow, away from the founders (>= startAway tiles)
+        startAway: 12,
+        walkMinutesPerTile: 10, fleeMinutesPerTile: 3, fleeWithin: 4, fleeTo: 6,
+        fullness: { minutesFullToEmpty: 1440, grazeBelow: 50, grazeMinutes: 60, start: [55, 100] },  // fullness 0-100 (100 = good); grazes on a meadow tile for an hour (fills linearly to 100)
+        idleMin: 20, idleMax: 90, nightIdleScale: 3,   // stands about (rests) between moves; longer at night
+        drift: { everyMinutes: 180, min: 3, max: 6 }  // the herd's home spot drifts to another meadow tile 3-6 tiles away every ~3 h; members wander within herdRadius of it
+      },
+      scavenger: {
+        start: 4, startAway: 10,
+        walkMinutesPerTile: 6, fleeMinutesPerTile: 3, fleeWithin: 4, fleeTo: 6,
+        noticeTiles: 15,              // notices a body with flesh within this many tiles (and goes to eat it unless a person is within fleeWithin of it)
+        fullness: { minutesFullToEmpty: 1440, feedBelow: 70, fillPerMinute: 1, fleshPerFullness: 0.15, start: [20, 60] }, // fullness 0-100; feeds on flesh at +1/min until 100, each point taking 0.15 of the body's flesh (0-100); holds at 0, no death.
+                                      // Tuned so a body the scavengers find is bones ~2 days into rotting (10-seed mean ~1.7 d, range 0.3-3.6 d) instead of 7
+        wanderRadius: 8, idleMin: 30, idleMax: 120, nightIdleScale: 1
+      }
+    },
     bushes: { count: 60, regrowMinutes: 1440, startRipe: 0.85, minSpacing: 4,   // eaten bush is ripe again 1 game day later
       weights: { edge: 6, meadow: 1, woods: 0.4 } }, // edge = meadow/woods border
     log: { max: 200,
       // log line colours: first matching rule wins, else "info". Tabs filter the log; a tab with no match shows everything.
-      kinds: [{ kind: "warn", match: "is starving|is hungry|bush bare|bush was bare|bush taken|is thirsty|is parched|is exhausted|woke up (hungry|thirsty)" }],
+      kinds: [{ kind: "warn", match: "has died|is starving|is hungry|bush bare|bush was bare|bush taken|is thirsty|is parched|is exhausted|woke up (hungry|thirsty)" }],
       tabs: [{ key: "all", label: "All" },
              { key: "food", label: "Food", match: "bush|berr|meal|hungry|starving" },
              { key: "water", label: "Water", match: "water|drink|thirst|parched|lake|river" },
              { key: "sleep", label: "Sleep", match: "sleep|woke|exhausted" },
+             { key: "death", label: "Death", match: "died|lies still|body|bones" },
              { key: "events", label: "Events", rest: true }]  // rest = every line no other tab matches
     },
+    // Side-panel tab bar (view only, not in the sim save). Each entry is one tab button; pressing it opens/closes that panel (one open at a time).
+    // Adding a tab is just a new entry here: { key, label, el?, open? }. el = id of an existing element in index.html; without el an empty
+    // <div id="panel-KEY" class="panel"> is created in the side panel, and GS.UI.panelRender[KEY](app, div) (if defined) fills it on each update.
+    // open = open on a first visit. Which panel is open is remembered in localStorage "godsim.ui" (separate from the save).
+    ui: { prefsKey: "godsim.ui",
+      panels: [{ key: "log", label: "Log", el: "logwrap", open: true }] },
     render: {                         // view only: nothing here is saved or affects the sim
       stepsPerTile: 2,                // walk frame flips every 0.5 tile actually covered; standing = frame 0
       zoom: { max: 4, wheelStep: 50, pinchStep: 1.35, tapSlop: 8 }  // whole-number zoom 1x (fit) .. 4x; wheel deltaY per step; pinch distance ratio per step; px of movement before a press becomes a pan

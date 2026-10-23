@@ -52,5 +52,28 @@
    "up"
   ],
   "cols": "frames 0-1"
+ },
+ "items_16.png": {
+  "frame": 16,
+  "cols": [
+   "rock",
+   "stick",
+   "flint",
+   "bone",
+   "bone_shard"
+  ],
+  "note": "ground items, also draw at half size over a hand when carried"
+ },
+ "fx_16.png": {
+  "frame": 16,
+  "cols": [
+   "spark",
+   "fire_0",
+   "fire_1",
+   "ember",
+   "ash",
+   "scorched_tile"
+  ],
+  "note": "fire_0/fire_1 animate; scorched_tile is a full ground tile"
  }
 }

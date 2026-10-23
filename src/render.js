@@ -11,31 +11,40 @@
     if (A.person && A.person.src) loadImg(A.person.src, im => art.person = im);
     if (A.founders && A.founders.src) loadImg(A.founders.src, im => art.founders = im);
     loadImg(A.bush, im => art.bush = im); loadImg(A.bushEmpty, im => art.bushEmpty = im);
+    for (const k of ["body", "grazer", "scavenger"]) if (A[k] && A[k].src) loadImg(A[k].src, im => art[k] = im);
   };
   R.art = () => art;
 
   R.init = function (canvas) {
     const M = G.data.config.map;
     cv = canvas; cx = cv.getContext("2d"); tp = M.tilePx; sc = Math.max(1, Math.round(M.renderScale || 1));
-    mw = M.w * tp; mh = M.h * tp; cv.width = mw * sc; cv.height = mh * sc; cx.imageSmoothingEnabled = false;
+    mw = M.w * tp; mh = M.h * tp; cv.width = mw * sc; cv.height = mh * sc; cx.imageSmoothingEnabled = false; view.bw = mw; view.bh = mh;
     R.loadArt();
   };
 
   // ---- view (zoom + pan). View state only: never saved, never touches the sim. ----
   // z = whole-number zoom (1 = whole map fits, up to render.zoom.max); ox, oy = top-left of the visible area in art px.
-  const view = R.view = { z: 1, ox: 0, oy: 0 };
+  // bw, bh = the art-px window shown at z = 1: the whole map, or (phone portrait with the Log closed) a full-height slice shaped like the canvas
+  const view = R.view = { z: 1, ox: 0, oy: 0, bw: 0, bh: 0 };
   const ZC = () => G.data.config.render.zoom;
-  function clampView() { view.ox = Math.max(0, Math.min(mw - mw / view.z, view.ox)); view.oy = Math.max(0, Math.min(mh - mh / view.z, view.oy)); }
+  function clampView() { view.ox = Math.max(0, Math.min(mw - view.bw / view.z, view.ox)); view.oy = Math.max(0, Math.min(mh - view.bh / view.z, view.oy)); }
   // step zoom by whole numbers, keeping the map point under canvas fraction (fx, fy) fixed
   R.zoomTo = function (z, fx, fy) {
     z = Math.max(1, Math.min(ZC().max, Math.round(z))); if (fx === undefined) { fx = 0.5; fy = 0.5; }
-    const wx = view.ox + fx * mw / view.z, wy = view.oy + fy * mh / view.z;
-    view.z = z; view.ox = wx - fx * mw / z; view.oy = wy - fy * mh / z; clampView(); return z;
+    const wx = view.ox + fx * view.bw / view.z, wy = view.oy + fy * view.bh / view.z;
+    view.z = z; view.ox = wx - fx * view.bw / z; view.oy = wy - fy * view.bh / z; clampView(); return z;
   };
   R.zoomBy = (d, fx, fy) => R.zoomTo(view.z + d, fx, fy);
   // pan by a drag of (dx, dy) CSS px on the canvas
-  R.panBy = function (dx, dy) { const r = cv.getBoundingClientRect(); view.ox -= dx / r.width * mw / view.z; view.oy -= dy / r.height * mh / view.z; clampView(); };
-  R.resetView = () => { view.z = 1; view.ox = 0; view.oy = 0; };
+  R.panBy = function (dx, dy) { const r = cv.getBoundingClientRect(); view.ox -= dx / r.width * view.bw / view.z; view.oy -= dy / r.height * view.bh / view.z; clampView(); };
+  R.resetView = () => { view.z = 1; view.ox = 0; view.oy = 0; clampView(); };
+  // canvas shape changed (Log opened/closed): aspect = canvas w/h, or null for the whole 3:2 map. Keeps the view centre, zoom and the pan clamp.
+  R.setViewport = function (aspect) {
+    const bw = aspect && aspect < mw / mh ? Math.max(tp, Math.round(mh * aspect)) : mw, bh = mh;
+    if (bw === view.bw && bh === view.bh) return false;
+    const cxw = view.ox + view.bw / (2 * view.z); view.bw = bw; view.bh = bh; view.ox = cxw - bw / (2 * view.z);
+    cv.width = bw * sc; cv.height = bh * sc; cx.imageSmoothingEnabled = false; clampView(); return true;
+  };
   R.frac = (clientX, clientY) => { const r = cv.getBoundingClientRect(); return { fx: (clientX - r.left) / r.width, fy: (clientY - r.top) / r.height }; };
 
   // per-person walk animation, render-only: step frame advances with distance actually drawn, not with time
@@ -123,6 +132,39 @@
     if (facing !== "up") { cx.fillStyle = "#1c120a"; const ex = facing === "left" ? 5 : facing === "right" ? 8 : 6; cx.fillRect(px + ex, py + 4, 1, 1); if (facing === "down") cx.fillRect(px + 9, py + 4, 1, 1); }
   }
 
+  // Bodies: one frame per stage (fresh / rotting / bones); code fallback when body_stages_16.png is missing.
+  function drawBody(b, sel) {
+    const px = b.x * tp, py = b.y * tp, B = G.data.art.body;
+    if (sel) { cx.strokeStyle = "#fff6b0"; cx.lineWidth = 1.5; cx.strokeRect(px + 0.5, py + 0.5, tp - 1, tp - 1); cx.lineWidth = 1; }
+    if (b.stage === "bones") cx.globalAlpha = 0.45 + 0.55 * b.condition / 100;   // weathering fades them slowly over the years
+    if (art.body && B) cx.drawImage(art.body, Math.max(0, B.cols.indexOf(b.stage)) * B.frame, 0, B.frame, B.frame, px, py, tp, tp);
+    else if (b.stage === "bones") { cx.fillStyle = "#e8e0c8"; cx.fillRect(px + 3, py + 9, 10, 1); cx.fillRect(px + 4, py + 7, 1, 5); cx.fillRect(px + 7, py + 7, 1, 5); cx.fillRect(px + 10, py + 7, 1, 5); cx.fillRect(px + 12, py + 7, 3, 3); }
+    else { cx.fillStyle = "rgba(0,0,0,0.3)"; cx.beginPath(); cx.ellipse(px + 8, py + 12, 7, 2.5, 0, 0, 7); cx.fill();
+      cx.fillStyle = b.stage === "fresh" ? "hsl(" + ((b.look || 0) * 45) % 360 + ",35%,38%)" : "#5b5a3a"; cx.fillRect(px + 2, py + 8, 10, 4);
+      cx.fillStyle = b.stage === "fresh" ? "#b08868" : "#7d7a52"; cx.fillRect(px + 11, py + 7, 4, 4); }
+    cx.globalAlpha = 1;
+  }
+  // Animals: sheet rows by facing, 2 walk frames; code fallback = a small body shape.
+  function drawAnimal(a, x, y, frame, facing) {
+    const px = x * tp, py = y * tp, A = G.data.art[a.species], im = art[a.species], gz = a.species === "grazer";
+    cx.fillStyle = "rgba(0,0,0,0.3)"; cx.beginPath(); cx.ellipse(px + 8, py + 14, gz ? 5.5 : 4, 1.8, 0, 0, 7); cx.fill();
+    if (im && A) { cx.drawImage(im, (frame % A.frames) * A.frame, Math.max(0, A.rows.indexOf(facing)) * A.frame, A.frame, A.frame, px, py - 1, tp, tp); return; }
+    const bob = frame % 2 ? 1 : 0, side = facing === "left" || facing === "right", dir = facing === "left" ? -1 : 1;
+    cx.fillStyle = gz ? "#8a6a44" : "#5a5550";
+    if (side) { cx.fillRect(px + 3, py + (gz ? 7 : 9), 10, gz ? 5 : 4); cx.fillRect(px + (dir > 0 ? 12 : 1), py + (gz ? 5 : 8), 3, 3);
+      cx.fillRect(px + 4, py + 12 + bob, 1, 2); cx.fillRect(px + 11, py + 12 - bob, 1, 2); }
+    else { cx.fillRect(px + 5, py + (gz ? 4 : 7), 6, gz ? 9 : 6); cx.fillRect(px + 5, py + 13 + bob, 1, 1); cx.fillRect(px + 10, py + 13 - bob, 1, 1); }
+    if (gz) { cx.fillStyle = "#e8dcc0"; cx.fillRect(px + (side ? (dir > 0 ? 12 : 2) : 7), py + (side ? 4 : 4), 2, 1); }
+  }
+  function animState(sim, a, x, y) {
+    let st = anim[a.id]; if (!st || st.sim !== sim) st = anim[a.id] = { sim, x, y, dist: 0, frame: 0, facing: a.facing };
+    const dx = x - st.x, dy = y - st.y, d = Math.hypot(dx, dy), walking = a.act.type === "walk";
+    if (d > 2) st.dist = 0; else if (walking) st.dist += d;
+    if (!walking) { st.dist = 0; st.facing = a.facing; }
+    else if (d > 1e-6 && d <= 2) st.facing = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : (dy > 0 ? "down" : "up");
+    st.frame = walking ? Math.floor(st.dist * G.data.config.render.stepsPerTile) : 0; st.x = x; st.y = y; return st;
+  }
+
   // alpha = fraction of the way to the next tick (the main loop's tick accumulator), for smooth movement between ticks.
   // Position, step frame and facing are computed here only; the sim stays tick-based and deterministic.
   R.draw = function (sim, alpha, time, selectedId) {
@@ -132,6 +174,13 @@
     cx.drawImage(terrain, 0, 0); drawWater(sim.world, time);
     for (const b of sim.bushes) drawBush(b);
     R.screen = {};
+    for (const b of sim.bodies || []) { R.screen[b.id] = { x: b.x, y: b.y }; drawBody(b, b.id === selectedId); }
+    for (const a of sim.animals || []) {
+      const p = sim.prev[a.id] || a.pos, x = p.x + (a.pos.x - p.x) * alpha, y = p.y + (a.pos.y - p.y) * alpha, st = animState(sim, a, x, y);
+      R.screen[a.id] = { x, y };
+      if (a.id === selectedId) { cx.strokeStyle = "#fff6b0"; cx.lineWidth = 1.5; cx.beginPath(); cx.ellipse(x * tp + 8, y * tp + 14, 7, 3, 0, 0, 7); cx.stroke(); cx.lineWidth = 1; }
+      drawAnimal(a, x, y, st.frame, st.facing);
+    }
     const spt = G.data.config.render.stepsPerTile;
     for (const a of sim.agents) {
       const p = sim.prev[a.id] || a.pos, x = p.x + (a.pos.x - p.x) * alpha, y = p.y + (a.pos.y - p.y) * alpha;
@@ -156,7 +205,7 @@
   };
 
   // canvas client px -> tile coords (zoom/pan aware), and back (used by tests)
-  R.toTile = function (clientX, clientY) { const f = R.frac(clientX, clientY); return { x: (view.ox + f.fx * mw / view.z) / tp, y: (view.oy + f.fy * mh / view.z) / tp }; };
-  R.toClient = function (tx, ty) { const r = cv.getBoundingClientRect(); return { x: r.left + ((tx * tp - view.ox) * view.z / mw) * r.width, y: r.top + ((ty * tp - view.oy) * view.z / mh) * r.height }; };
+  R.toTile = function (clientX, clientY) { const f = R.frac(clientX, clientY); return { x: (view.ox + f.fx * view.bw / view.z) / tp, y: (view.oy + f.fy * view.bh / view.z) / tp }; };
+  R.toClient = function (tx, ty) { const r = cv.getBoundingClientRect(); return { x: r.left + ((tx * tp - view.ox) * view.z / view.bw) * r.width, y: r.top + ((ty * tp - view.oy) * view.z / view.bh) * r.height }; };
   G.Render = R;
 })(this.GS = this.GS || {});

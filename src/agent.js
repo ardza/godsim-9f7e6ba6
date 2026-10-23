@@ -14,7 +14,8 @@
       age: r2(rng.range(p.startAge[0], p.startAge[1])), lifespan: r2(rng.range(p.lifespan[0], p.lifespan[1])),
       needs: { fullness: r2(rng.range(p.fullness.start[0], p.fullness.start[1])), water: r2(rng.range(p.water.start[0], p.water.start[1])), energy: r2(rng.range(p.energy.start[0], p.energy.start[1])) },
       traits, knowledge: { bushes: {}, water: {} }, relations: {},
-      act: { type: "idle", until: 0 }, stats: { meals: 0, drinks: 0, sleeps: 0 }
+      act: { type: "idle", until: 0 }, stats: { meals: 0, drinks: 0, sleeps: 0 },
+      zero: { water: 0, fullness: 0 }   // game minutes in a row at water 0 / fullness 0 (death after a day / a week)
     };
   };
 
@@ -26,6 +27,7 @@
   Agent.waterThreshold = a => P().water.threshold;
   // state words for the panel
   Agent.fullnessWord = v => { const f = P().fullness; return v <= 0 ? "starving" : v < f.threshold ? "hungry" : v < f.mealFillTo ? "fed" : v <= f.mealFillTo + 1e-9 ? "full" : "overfull"; };
+  Agent.energyWord = v => { const E = P().energy; return v <= 0 ? "exhausted" : v < E.sleepBelow ? "tired" : v < E.restedAt ? "fine" : "rested"; };
   Agent.waterWord = v => v <= 0 ? "parched" : v < P().water.threshold ? "thirsty" : "watered";
   Agent.energyDrainPerTick = a => 100 / P().energy.drainMinutes * G.data.config.time.tickGameMinutes;
   Agent.energyRefillPerTick = a => 100 / P().energy.refillMinutes * G.data.config.time.tickGameMinutes;
@@ -211,13 +213,13 @@
       if (b && b.ripe) { a.act = { type: "eat", bush: b.id, t: 0, from: a.needs.fullness, over: !!a.act.over || a.needs.fullness >= Agent.fullnessThreshold(a) }; return; }
       G.Sim.log(sim, a.name + " found the bush bare");
       if (b) a.knowledge.bushes[b.id].ripe = false;
-      seekFood(sim, a, b && b.id); return;
+      if (Agent.want(a) === "water") seekWater(sim, a); else seekFood(sim, a, b && b.id); return;
     }
     if (g === "water") { startDrink(sim, a, a.act.water); return; }
     if (g === "collapse") { startSleep(sim, a); return; }
     if (g === "settle") { startIdle(sim, a, a.act.scale); return; }
     if (g === "exploreWater" && Agent.want(a) === "water") { seekWater(sim, a); return; }
-    if (g === "explore" && a.needs.fullness < Agent.fullnessThreshold(a)) { seekFood(sim, a, null, true); return; } // looked nearby; now accept a far bush
+    if (g === "explore" && a.needs.fullness < Agent.fullnessThreshold(a) && Agent.want(a) !== "water") { seekFood(sim, a, null, true); return; } // looked nearby; now accept a far bush
     startIdle(sim, a);
   }
 
@@ -239,7 +241,7 @@
   Agent.mealEnd = (from, over) => { const f = P().fullness; return Math.max(from, Math.min(over ? 100 : f.mealFillTo, from + f.mealAdds)); };
   function eat(sim, a) {
     const act = a.act, p = P(), b = sim.bushes.find(q => q.id === act.bush), n = p.mealMinutes / G.data.config.time.tickGameMinutes;
-    if (!b || !b.ripe) { seekFood(sim, a, act.bush); return; }
+    if (!b || !b.ripe) { if (Agent.want(a) === "water") seekWater(sim, a); else seekFood(sim, a, act.bush); return; }
     act.t++; const end = Agent.mealEnd(act.from, act.over);
     a.needs.fullness = Math.round((act.from + (end - act.from) * Math.min(1, act.t / n)) * 1e9) / 1e9;
     if (act.t >= n) {
@@ -249,6 +251,10 @@
     }
   }
 
+  // Why this person dies now (null = alive): a full day at water 0, a week at fullness 0, or reaching their lifespan. Energy never kills.
+  Agent.deathCause = a => { const D = P().death, z = a.zero || {};
+    if (z.water >= D.waterZeroMinutes) return "thirst"; if (z.fullness >= D.fullnessZeroMinutes) return "hunger"; if (a.age >= a.lifespan) return "old age"; return null; };
+
   Agent.step = function (sim, a) {
     const p = P(), E = p.energy, n = a.needs, thr = Agent.fullnessThreshold(a), tthr = Agent.waterThreshold(a), h0 = n.fullness, t0 = n.water, e0 = n.energy;
     const asleep = a.act.type === "sleep", k = asleep ? E.asleepNeedRate : 1;
@@ -257,16 +263,22 @@
     n.energy = asleep ? Math.min(100, e0 + Agent.energyRefillPerTick(a)) : Math.max(0, e0 - Agent.energyDrainPerTick(a));
     n.fullness = Math.round(n.fullness * 1e9) / 1e9; n.water = Math.round(n.water * 1e9) / 1e9; n.energy = Math.round(n.energy * 1e9) / 1e9; // keep saves exact
     a.age += G.data.config.time.tickGameMinutes / (1440 * G.Time.daysPerYear());
-    if (h0 >= thr && n.fullness < thr) G.Sim.log(sim, a.name + " is hungry");
-    if (h0 > p.fullness.min && n.fullness <= p.fullness.min) G.Sim.log(sim, a.name + " is starving");
-    if (t0 >= tthr && n.water < tthr) G.Sim.log(sim, a.name + " is thirsty");
-    if (t0 > p.water.min && n.water <= p.water.min) G.Sim.log(sim, a.name + " is parched");
+    if (a.hold) n[a.hold] = 0;   // test-only (GS.debug.drainWater / drainFullness): hold that need at 0
+    const tm = G.data.config.time.tickGameMinutes, z = a.zero || (a.zero = { water: 0, fullness: 0 });
+    // test-only hold: once the held need has sat at 0 since last tick, a drink/meal in between is undone by the hold, so don't re-log it (logs once, like play)
+    const hf = a.hold === "fullness" && z.fullness > 0, hw = a.hold === "water" && z.water > 0;
+    z.water = n.water <= 0 ? z.water + tm : 0; z.fullness = n.fullness <= 0 ? z.fullness + tm : 0;
+    if (!hf && h0 >= thr && n.fullness < thr) G.Sim.log(sim, a.name + " is hungry");
+    if (!hf && (h0 > p.fullness.min || a.hold === "fullness") && n.fullness <= p.fullness.min) G.Sim.log(sim, a.name + " is starving");
+    if (!hw && t0 >= tthr && n.water < tthr) G.Sim.log(sim, a.name + " is thirsty");
+    if (!hw && (t0 > p.water.min || a.hold === "water") && n.water <= p.water.min) G.Sim.log(sim, a.name + " is parched");
     if (e0 > 0 && n.energy <= 0) G.Sim.log(sim, a.name + " is exhausted");
     if (asleep) return sleep(sim, a);
     if (a.wokeEarly && !Agent.isNight(sim.tick)) a.wokeEarly = false;
     const seen = sense(sim, a), act = a.act, want = Agent.want(a), goalNeed = { food: "food", explore: "food", water: "water", exploreWater: "water" }[act.goal];
-    // keep going for the need she set off for unless the other one has dropped below wakeIfNeedBelow (no flip-flopping between food and water)
-    const stay = goalNeed && want && want !== goalNeed && (goalNeed === "water" ? n.water : n.fullness) < p.actAt && (want === "water" ? n.water : n.fullness) >= E.wakeIfNeedBelow;
+    // on the way to water she keeps going even if fullness dips lower (no flip-flopping), unless fullness falls below wakeIfNeedBelow.
+    // On the way to food she never carries on once water is the lower need under actAt: water wins (Director call, 6:26 PM).
+    const stay = goalNeed === "water" && want === "food" && n.water < p.actAt && n.fullness >= E.wakeIfNeedBelow;
     // exhausted (energy 0): lies down where she is, day or night, unless a need is below wakeIfNeedBelow
     if (n.energy <= 0 && act.type !== "eat" && act.type !== "drink" && act.goal !== "collapse" && n.fullness >= E.wakeIfNeedBelow && n.water >= E.wakeIfNeedBelow) {
       if (act.type !== "walk" || act.i >= act.path.length) return startSleep(sim, a);

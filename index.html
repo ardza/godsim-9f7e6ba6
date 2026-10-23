@@ -2,12 +2,12 @@
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
-<title>Godsim (week 1)</title>
+<title>Godsim</title>
 <style>
   /* Earthy theme to match the pixel art. Palette from the Artist: panels #2b2118 with a 2px #6b4a2c frame and 4px radius,
      text #f1e6cf, dim #b9a585, active/selected #7fb04a, inactive buttons #3d2f22, warn #c42848, info #4a86c6. All text >= 16px. */
   :root { --bg: #1d1610; --panel: #2b2118; --panel2: #33271c; --frame: #6b4a2c; --text: #f1e6cf; --dim: #b9a585;
-    --on: #7fb04a; --btn: #3d2f22; --warn: #c42848; --info: #4a86c6; --wheat: #d9b65d; --peek: 52px; }
+    --on: #7fb04a; --btn: #3d2f22; --warn: #c42848; --info: #4a86c6; --wheat: #d9b65d; --peek: 52px; --bar: 56px; }
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--text);
     font: 16px/1.35 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
@@ -28,26 +28,36 @@
   #btn-menu { display: none; margin-left: auto; }
   input { width: 7.5em; background: #1b140d; color: var(--text); border: 2px solid var(--frame); border-radius: 4px; padding: 5px 8px; min-height: 36px; font: inherit; font-size: 16px; }
   input::placeholder { color: var(--dim); }
-  #main { flex: 1; display: flex; min-height: 0; }
+  #main { flex: 1; display: flex; flex-direction: column; min-height: 0; }
   #stage { flex: 1; min-width: 0; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 6px; }
   #mapbox { position: relative; border-radius: 4px; box-shadow: 0 0 0 2px var(--frame), 0 4px 14px rgba(0,0,0,.5); line-height: 0; }
   #cv { image-rendering: pixelated; image-rendering: crisp-edges; display: block; touch-action: none; background: #000; border-radius: 4px; cursor: grab; }
   #cv.panning { cursor: grabbing; }
   #zoom { position: absolute; right: 8px; bottom: 8px; display: flex; flex-direction: column; gap: 6px; line-height: 1.2; }
   #zoom button { width: 44px; height: 44px; padding: 0; font-size: 24px; font-weight: 700; background: rgba(43,33,24,.88); }
-  #side { width: 340px; display: flex; flex-direction: column; background: var(--panel); border-left: 2px solid var(--frame); min-height: 0; }
+  /* panel area ABOVE the bottom tab bar (all sizes): inspect card left, open panel right; just one of them = full width (.solo) */
+  #side { flex: 0 0 clamp(190px, 32%, 320px); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); background: var(--panel); border-top: 2px solid var(--frame); min-height: 0; }
+  #side.solo > * { grid-column: 1 / -1; }
+  /* no panel open and nothing inspected: the panel area goes away and the map takes the room (UI.layout) */
+  #side.bare { display: none; }
   #sheet-handle { display: none; }
-  #info { position: relative; margin: 8px; padding: 10px 12px; background: var(--panel2); border: 2px solid var(--frame); border-radius: 4px; }
-  #info h3 { margin: 0 44px 2px 0; font-size: 19px; } .sub { color: var(--dim); }
+  #info { position: relative; margin: 8px; padding: 10px 12px; overflow-y: auto; min-height: 0; background: var(--panel2); border: 2px solid var(--frame); border-radius: 4px; }
+  #info h3 { margin: 0 44px 2px 0; font-size: 19px; } .sub { color: var(--dim); } .sub.hot { color: var(--warn); }
   .sec { margin-top: 8px; color: var(--wheat); font-size: 16px; font-weight: 650; text-transform: uppercase; letter-spacing: .03em; }
   #info-close { position: absolute; right: 8px; top: 8px; width: 36px; padding: 0; font-size: 20px; }
   .row { display: grid; grid-template-columns: 5.6em 1fr 4.2em; gap: 8px; align-items: center; margin-top: 3px; } .row b { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
   .bar { height: 10px; background: #1b140d; border: 1px solid var(--frame); border-radius: 3px; overflow: hidden; } .bar i { display: block; height: 100%; background: var(--on); }
   .bar.hot i { background: var(--warn); } .bar.trait i { background: var(--wheat); } .bar.water i { background: var(--info); } .bar.energy i { background: #d9b44a; }
   .row.need .bar { position: relative; height: 22px; } .row.need .bar em { position: absolute; left: 6px; top: 0; line-height: 20px; font-style: normal; font-size: 16px; color: var(--text, #f1e6cf); text-shadow: 0 1px 2px #000, 0 0 2px #000; white-space: nowrap; }
+  /* bottom tab bar, full width along the bottom of the screen on every size; built from config.ui.panels */
+  #panelbar { flex: 0 0 auto; position: relative; z-index: 20; display: flex; gap: 6px; align-items: center; height: var(--bar); padding: 0 10px; background: var(--panel); border-top: 2px solid var(--frame); }
+  #panelbar button { min-height: 44px; min-width: 44px; padding: 4px 16px; color: var(--dim); }
+  #panelbar button.on { background: var(--on); border-color: var(--on); color: #1b140d; }
+  .panel { flex: 1; min-height: 0; overflow-y: auto; padding: 6px 8px; }
+  #side .closed { display: none !important; }
   #logwrap { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-  #tabs { display: flex; gap: 4px; padding: 8px 8px 0; border-bottom: 2px solid var(--frame); }
-  #tabs button { border-radius: 4px 4px 0 0; border-bottom: 0; margin-bottom: 0; min-height: 36px; padding: 4px 8px; color: var(--dim); flex: 1 1 auto; min-width: 0; white-space: nowrap; }
+  #tabs { display: flex; gap: 3px; padding: 8px 6px 0; border-bottom: 2px solid var(--frame); }
+  #tabs button { border-radius: 4px 4px 0 0; border-bottom: 0; margin-bottom: 0; min-height: 36px; padding: 4px 5px; color: var(--dim); flex: 1 1 auto; min-width: 0; white-space: nowrap; }
   #tabs button.on { background: var(--on); border-color: var(--on); color: #1b140d; }
   #log { flex: 1; overflow-y: auto; padding: 6px 8px; }
   .ev { margin: 4px 0; padding: 4px 8px; border-left: 4px solid var(--info); background: rgba(0,0,0,.18); border-radius: 0 4px 4px 0; }
@@ -64,28 +74,29 @@
     #files { display: none; position: absolute; top: calc(100% + 2px); right: 8px; max-width: calc(100vw - 16px); padding: 10px; background: var(--panel); border: 2px solid var(--frame); border-radius: 4px; box-shadow: 0 6px 18px rgba(0,0,0,.5); }
     #top.menu-open #files { display: flex; }
     .desk-only { display: none; } .touch-only { display: inline; }
-    #side { width: auto; border-left: 0; border-top: 2px solid var(--frame); border-radius: 4px 4px 0 0; box-shadow: 0 -6px 18px rgba(0,0,0,.45); }
+    #side { border-radius: 4px 4px 0 0; box-shadow: 0 -6px 18px rgba(0,0,0,.45); }
     #hint { display: none; }
   }
   @media (max-width: 700px) and (orientation: portrait) {
-    #main { flex-direction: column; } #stage { flex: 0 0 auto; }
-    #side { flex: 1; } #clock { width: 100%; }
+    #stage { flex: 0 0 auto; }
+    #side { flex: 1 1 0; display: flex; flex-direction: column; } #info { flex: 0 1 auto; } #clock { width: 100%; }
+    body.log-off #stage { flex: 1 1 0; } body.log-off #side { flex: 0 0 auto; max-height: 50%; overflow-y: auto; }
   }
   @media (max-height: 500px) and (orientation: landscape) {
     #top { padding: 6px 10px; }
-    #main { padding-bottom: var(--peek); }
-    #side { position: fixed; left: 0; right: 0; bottom: 0; z-index: 15; height: var(--peek); }
-    #side.open { height: calc(100dvh - 56px); }
-    #side:not(.open) #info, #side:not(.open) #logwrap { display: none; }
+    #main { padding-bottom: var(--peek); } body.side-off #main { padding-bottom: 0; }
+    /* sheet sits on top of the bottom tab bar */
+    #side { position: fixed; left: 0; right: 0; bottom: var(--bar); z-index: 15; height: var(--peek); border-bottom: 0; }
+    #side.open { height: calc(100dvh - 56px - var(--bar)); }
+    #side:not(.open) > :not(#sheet-handle) { display: none !important; }
     #sheet-handle { display: flex; align-items: center; gap: 10px; width: 100%; min-height: calc(var(--peek) - 2px); border: 0; border-radius: 4px 4px 0 0; background: var(--panel); text-align: left; padding: 6px 12px; }
     #sheet-handle .grip { flex: 0 0 36px; height: 5px; border-radius: 3px; background: var(--frame); }
     #sheet-peek { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--dim); }
     #side.open #sheet-peek { color: var(--text); }
     /* open sheet: inspect card on the left, log tabs + log on the right, so both fit in 390px of height */
-    #side.open { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+    #side { grid-template-rows: auto minmax(0, 1fr); }
     #sheet-handle { grid-column: 1 / -1; }
-    #info { margin: 6px 8px; overflow-y: auto; min-height: 0; }
-    #info[hidden] + #logwrap { grid-column: 1 / -1; }
+    #info { margin: 6px 8px; }
   }
 </style>
 </head><body>
@@ -102,9 +113,10 @@
     <button id="sheet-handle" aria-expanded="false"><span class="grip"></span><span id="sheet-peek">Log</span><span id="sheet-arrow">▲</span></button>
     <div id="info" hidden><button id="info-close" aria-label="close">×</button><div id="info-body"></div></div>
     <div id="logwrap"><div id="tabs" role="tablist"></div><div id="log" role="log"></div>
-      <div id="hint">Click a person to inspect. Wheel or +/− zooms, drag pans. Space pauses; 0 pause, 1 = 1x, 2 = 10x, 3 = 60x.</div></div>
+      <div id="hint">Click a person, animal or body to inspect. Wheel or +/− zooms, drag pans. Space pauses; 0 pause, 1 = 1x, 2 = 10x, 3 = 60x.</div></div>
   </div>
 </div>
+<div id="panelbar" role="tablist" aria-label="panels"></div>
 <div id="toast"></div>
 <script src="data/config.js"></script>
 <script src="data/tiles.js"></script>
@@ -113,6 +125,7 @@
 <script src="src/rng.js"></script>
 <script src="src/world.js"></script>
 <script src="src/agent.js"></script>
+<script src="src/animal.js"></script>
 <script src="src/sim.js"></script>
 <script src="src/save.js"></script>
 <script src="src/render.js"></script>
