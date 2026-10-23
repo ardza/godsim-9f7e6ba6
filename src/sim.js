@@ -43,6 +43,7 @@
     sim.lrng = new G.RNG((seed ^ 0x1EA2C0DE) >>> 0); sim.learnStats = G.Learn.newStats();
     sim.groups = []; sim.nextGroup = 1; sim.socStats = { took: 0 };   // step 18 (no random draws)
     G.Family.init(sim);   // step 19: sex per founder, pairs, babies - its own stream (frng), so the others are unchanged
+    G.Faith.init(sim);    // step 21: faith per founder, prayers - its own stream (prng)
     return sim;
   };
   // Seeded names with no repeats until the list is used up, then a fresh shuffle (reuse is fine past the list).
@@ -60,6 +61,15 @@
     const names = [].concat((s.agents || []).map(a => a.name), (s.babies || []).map(b => b.name), (s.bodies || []).filter(b => !b.species).map(b => b.name));
     for (const nm of names) if (nm) { const m = String(nm).match(/^(.*?) ([IVXLCDM]+)$/), base = m ? m[1] : nm; C[base] = (C[base] || 0) + 1; }
     s.nameCount = C; s.version = 14; return s;
+  };
+  // v14 -> v15: everyone gets a faith trait (from a stream seeded by seed and tick, so a load is repeatable), the prayer state starts empty
+  Sim.migrate15 = function (o) {
+    if (!o || o.version !== 14) return o; const s = JSON.parse(JSON.stringify(o)), r = new G.RNG((s.seed ^ 0xFA17B0DE ^ s.tick) >>> 0), sp = CFG().person.traitSpread;
+    const roll = () => Math.round(Math.max(0, Math.min(100, 50 + r.gauss() * sp)));
+    for (const a of s.agents || []) if (a.traits && a.traits.faith == null) a.traits.faith = roll();
+    for (const b of s.babies || []) if (b.traits && b.traits.faith == null) b.traits.faith = roll();
+    for (const a of s.agents || []) if (a.preg && a.preg.ftraits && a.preg.ftraits.faith == null) a.preg.ftraits.faith = roll();
+    s.prng = r.s; s.faith = G.Faith.newState(); s.prayers = []; s.version = 15; return s;
   };
   // One log line. who = the person(s) involved (person/body objects or ids): the line is tagged with their ids and also goes into each one's own
   // log (sim.plog[id], last log.personMax kept, saved). k = an optional kind for the personal log ("death", "birth", "disc").
@@ -81,6 +91,7 @@
     for (const b of sim.bushes) if (!b.ripe && (b.regrow = Math.round((b.regrow + rate) * 1e6) / 1e6) >= B.regrowMinutes / CFG().time.tickGameMinutes - 1e-9) { b.ripe = true; b.regrow = 0; b.burnt = false; sim.regrown = (sim.regrown || 0) + 1; }
     for (const a of sim.agents) { sim.prev[a.id] = { x: a.pos.x, y: a.pos.y }; G.Agent.step(sim, a); }
     for (const a of sim.agents.slice()) { const c = G.Agent.deathCause(a); if (c) Sim.die(sim, a, c); }
+    G.Faith.step(sim);   // step 21: prayer bouts (own stream prng)
     G.Social.step(sim);   // step 18: familiarity, liking, daily groups
     G.Family.step(sim);   // step 19: pairs (daily), conception (2 AM), births, carried babies
     G.Animal.stepAll(sim);
@@ -97,6 +108,7 @@
     Sim.log(sim, a.name + " lies still. " + a.name + " has died of " + cause + ".", a, "death");
     if (a.carry != null) G.Items.drop(sim, a);
     G.Family.onDeath(sim, a);
+    G.Faith.onDeath(sim, a);   // step 21: those awake close by saw it
     sim.agents.splice(sim.agents.indexOf(a), 1); delete sim.prev[a.id];
     const b = G.Body.create(sim, a, cause); sim.bodies.push(b); return b;
   };
@@ -111,10 +123,12 @@
       lrng: sim.lrng.s, learnStats: sim.learnStats, huntStats: sim.huntStats || null,
       brng: sim.brng ? sim.brng.s : null, grazerBirths: sim.grazerBirths || 0, cookStats: sim.cookStats || null,
       groups: sim.groups || [], nextGroup: sim.nextGroup || 1, socStats: sim.socStats || null,
-      frng: sim.frng.s, babies: sim.babies, famStats: sim.famStats };
+      frng: sim.frng.s, babies: sim.babies, famStats: sim.famStats,
+      prng: sim.prng.s, faith: sim.faith, prayers: sim.prayers || [] };
   };
   Sim.deserialize = function (o) {
-    if (o && o.version === 13 && CFG().saveVersion === 14) o = Sim.migrate(o);
+    if (o && o.version === 13) o = Sim.migrate(o);
+    if (o && o.version === 14 && CFG().saveVersion === 15) o = Sim.migrate15(o);
     if (!o || o.version !== CFG().saveVersion) throw new Error("unsupported save version " + (o && o.version));
     const s = JSON.parse(JSON.stringify(o));
     const world = { w: s.world.w, h: s.world.h, seed: s.seed, attempt: s.world.attempt, spawn: s.world.spawn, hills: s.world.hills, info: s.world.info, tiles: s.world.tiles.split("").map(c => TILE_CH.indexOf(c)) };
@@ -125,7 +139,8 @@
       lrng: new G.RNG(s.lrng), learnStats: s.learnStats, huntStats: s.huntStats || undefined,
       brng: s.brng != null ? new G.RNG(s.brng) : undefined, grazerBirths: s.grazerBirths || 0, cookStats: s.cookStats || undefined,
       groups: s.groups || [], nextGroup: s.nextGroup || 1, socStats: s.socStats || { took: 0 },
-      frng: new G.RNG(s.frng), babies: s.babies || [], famStats: s.famStats };
+      frng: new G.RNG(s.frng), babies: s.babies || [], famStats: s.famStats,
+      prng: new G.RNG(s.prng), faith: s.faith || G.Faith.newState(), prayers: s.prayers || [] };
   };
 
   G.Time = Time; G.Sim = Sim;

@@ -113,12 +113,24 @@
 
   // When she is cold and seeking warmth: an ember in sight (or a fire within fireSight) may draw her over. Returns
   //   {stay: true} if she is already sitting close enough, {x, y, s} = a free tile near it to walk to, or null (keeps away / no fire / roll failed).
+  // a tile within sit range of a burning stick that is clear of the flames (fleeTiles)
+  function brandSeat(sim, a, it, sit, flee) { const R = Math.ceil(sit[1]);
+    for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) { const d = Math.hypot(dx, dy); if (d < sit[0] - 1e-9 || d > sit[1] + 1e-9) continue;
+      const x = it.x + dx, y = it.y + dy; const f = sim.fire[x + "," + y]; if (G.World.walkable(sim.world, x, y) && !(f && (f.s === "fire" || f.s === "ember")) && G.Fire.fearedFlame(sim, a, x, y) >= flee) return true; }
+    return false; }
   Learn.fireSpot = function (sim, a, free) {
     const F = L().fire, Fc = CF().fire, sight = CF().person.sightTiles;
     const em = Learn.nearestFire(sim, a.pos.x, a.pos.y, ["ember"]), fi = Learn.nearestFire(sim, a.pos.x, a.pos.y, ["fire"]);
     const LT = CF().fire.lightning, emSight = em && em.hold && LT ? Math.max(sight, LT.smokeTiles) : sight;   // step 16: a smouldering tree's smoke is seen from farther
-    const t = (fi && fi.d <= F.fireSight) ? fi : (em && em.d <= emSight) ? em : null; if (!t) return null;
-    const lo = t.s === "ember" ? F.sitTiles[0] : Fc.fleeTiles, hi = t.s === "ember" ? F.sitTiles[1] : F.fireSitTiles + 0.5;
+    let t = (fi && fi.d <= F.fireSight) ? fi : (em && em.d <= emSight) ? em : null;
+    // step 21: a burning stick lying on the ground warms like an ember; the nearest one in sight with a sitting tile clear of the flames
+    // draws her when it is nearer than the fire / ember (or there is none)
+    const B = Fc.brand, bs = B && B.sitTiles && G.Fire.groundBrands ? G.Fire.groundBrands(sim) : [];
+    if (bs.length) { let bb = null; for (const it of bs) { const d = Math.hypot(it.x - a.pos.x, it.y - a.pos.y); if (d > sight || (bb && d >= bb.d) || (t && d > t.d + 1e-9)) continue;
+        if (d > B.sitTiles[1] + 1e-9 && !brandSeat(sim, a, it, B.sitTiles, Fc.fleeTiles)) continue; bb = { s: "brand", x: it.x, y: it.y, d }; }
+      if (bb) t = bb; }
+    if (!t) return null;
+    const lo = t.s === "ember" ? F.sitTiles[0] : t.s === "brand" ? B.sitTiles[0] : Fc.fleeTiles, hi = t.s === "ember" ? F.sitTiles[1] : t.s === "brand" ? B.sitTiles[1] : F.fireSitTiles + 0.5;
     if (t.d >= lo - 1e-9 && t.d <= hi + 1e-9) return Learn.score(a, "fire") >= F.stayMin ? { stay: true, s: t.s } : null;
     const seek = G.Agent.warmthSeekBelow(a), cold = clamp(0.5 + (seek - a.needs.warmth) / Math.max(1, seek), 0.5, 1.5);
     const p = clamp(F.approachChance * Math.pow(Learn.score(a, "fire") / 50, 2) * (1.5 - a.traits.fireFear / 100) * cold, 0, 1);
@@ -126,6 +138,7 @@
     const R = Math.ceil(hi), c = [];
     for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) { const x = t.x + dx, y = t.y + dy, d = Math.hypot(dx, dy);
       if (d < lo - 1e-9 || d > hi + 1e-9 || sim.fire[x + "," + y] && (sim.fire[x + "," + y].s === "fire" || sim.fire[x + "," + y].s === "ember") || !free(x, y)) continue;
+      if (t.s === "brand" && G.Fire.fearedFlame(sim, a, x, y) < Fc.fleeTiles) continue;   // not a seat by a stick that is still next to flames
       c.push({ x, y, s: t.s, fx: t.x, fy: t.y, k: Math.hypot(x - a.pos.x, y - a.pos.y) }); }
     c.sort((p, q) => p.k - q.k || p.x - q.x || p.y - q.y);
     return c.length ? c : null;

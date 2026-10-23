@@ -43,10 +43,21 @@
     let c = Climate.airC(sim.tick); const sheltered = G.World.tile(sim.world, x, y) === T().WOODS; if (sheltered) c += Wm.shelterC; else c += Wm.sunC * (1 - G.Time.darkness(sim.tick));
     let hud = 0; for (const b of sim.agents) if (b !== a && Math.hypot(b.pos.x - a.pos.x, b.pos.y - a.pos.y) <= Wm.huddleTiles) hud++;
     hud = Math.min(hud, Wm.huddleMax); c += hud * Wm.huddleC;
+    // step 20: at night a partner / group member / guardian (or ward) within bondTiles adds bondC (once)
+    const sh = Wm.sleepHeat, sleepers = sh && a.act.type === "sleep" ? Climate.sleepersNear(sim, a) : 0;
+    const sleepC = sleepers + 1 >= (sh ? sh.groupMin : Infinity) ? sh.groupC : sleepers >= 1 ? sh.pairC : 0; c += sleepC;   // Director (21): sleeping together
+    const bond = !sleepC && Wm.bondC && G.Agent && G.Agent.isNight(sim.tick) ? Climate.bondNear(sim, a) : null; if (bond) c += Wm.bondC;
     const heat = G.Fire ? G.Fire.heatAt(sim, a.pos.x, a.pos.y) : 0; c += heat;
     if (a.act.type === "walk") c += Wm.walkingC; else if (a.act.type === "sleep") c += Wm.asleepC;
-    return { c: Math.round(c * 100) / 100, sheltered, huddle: hud, heat };
+    return { c: Math.round(c * 100) / 100, sheltered, huddle: hud, heat, bond: bond ? bond.name : null, sleepers, sleepC };
   };
+  // step 20: is b someone she keeps with (partner, same group, her guardian or the child she guards)?
+  Climate.bonded = (a, b) => b !== a && (a.mate === b.id || b.mate === a.id || (a.group != null && a.group === b.group) || a.guard === b.id || b.guard === a.id);
+  Climate.bondNear = function (sim, a) { const R = CF().person.warmth.bondTiles;
+    for (const b of sim.agents) if (Climate.bonded(a, b) && Math.hypot(b.pos.x - a.pos.x, b.pos.y - a.pos.y) <= R) return b; return null; };
+  // Director (21): other people asleep within sleepHeat.tiles of her
+  Climate.sleepersNear = function (sim, a) { const R = CF().person.warmth.sleepHeat.tiles; let n = 0;
+    for (const b of sim.agents) if (b !== a && b.act.type === "sleep" && Math.hypot(b.pos.x - a.pos.x, b.pos.y - a.pos.y) <= R) n++; return n; };
   // warmth change per minute for a felt temperature
   Climate.warmthRate = function (feltC) { const Wm = CF().person.warmth, d = feltC - Wm.neutralC; return (d >= 0 ? d * Wm.gainPerDegreeHour : d * Wm.lossPerDegreeHour) / 60; };
   G.Climate = Climate;

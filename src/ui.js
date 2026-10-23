@@ -125,7 +125,7 @@
     window.addEventListener("resize", UI.layout); UI.layout(); UI.fit();
   };
   // ---- person card helpers: trait names, experience scores (step 13-14), chips, and the personal log (.plog, only this person's events) ----
-  const TRAIT = { speed: "Speed", appetite: "Appetite", curiosity: "Curiosity", coldFear: "Cold fear", fireFear: "Fire fear" };
+  const TRAIT = { speed: "Speed", appetite: "Appetite", curiosity: "Curiosity", coldFear: "Cold fear", fireFear: "Fire fear", faith: "Faith" };
   const EXP = { fire: "Fire", huddle: "Huddling", shelter: "Shelter" };
   const traitName = k => TRAIT[k] || k;
   const chip = (t, cls) => '<span class="chip' + (cls ? " " + cls : "") + '">' + t + '</span>';
@@ -252,12 +252,12 @@
         need("Fullness", n.fullness, n.fullness < A.fullnessThreshold(a) ? "hot" : "", A.fullnessWord(n.fullness), "100 = stuffed, " + PC.fullness.mealFillTo + " = full after a meal; eats below " + A.fullnessThreshold(a) + "; 0 = starving") +
         need("Water", n.water, n.water < A.waterThreshold(a) ? "hot" : "water", A.waterWord(n.water), "100 = just drank; drinks below " + A.waterThreshold(a) + "; 0 = parched") +
         need("Energy", n.energy, n.energy < 25 ? "hot" : "energy", A.energyWord(n.energy), "100 = rested (" + PC.energy.restedAt + "+ reads rested); sleeps after dusk under " + PC.energy.sleepBelow) +
-        need("Warmth", n.warmth, n.warmth < 30 ? "hot" : "warm", A.warmthWord(n.warmth), "100 = warm; seeks shelter or company below " + Math.round(A.warmthSeekBelow(a)) + "; a full day at 0 is fatal" + (a.felt ?  " · feels like " + G.Time.tempF(a.felt.c) + (a.felt.sheltered ? ", under trees" : "") + (a.felt.huddle ? ", huddled with " + a.felt.huddle : "") + (a.felt.heat ? ", fire nearby" : "") : "")) +
+        need("Warmth", n.warmth, n.warmth < 30 ? "hot" : "warm", A.warmthWord(n.warmth), "100 = warm; seeks shelter or company below " + Math.round(A.warmthSeekBelow(a)) + "; a full day at 0 is fatal" + (a.felt ?  " · feels like " + G.Time.tempF(a.felt.c) + (a.felt.sheltered ? ", under trees" : "") + (a.felt.huddle ? ", huddled with " + a.felt.huddle : "") + (a.felt.bond ? ", close to " + esc(a.felt.bond) : "") + (a.felt.heat ? ", fire nearby" : "") : "")) +
         (a.zero && (a.zero.water > 0 || a.zero.fullness > 0 || a.zero.warmth > 0) ? '<div class="sub hot">' + [a.zero.water > 0 ? 'no water for ' + (a.zero.water / 60).toFixed(1) + ' h' : '', a.zero.fullness > 0 ? 'no food for ' + (a.zero.fullness / 60).toFixed(1) + ' h' : '', a.zero.warmth > 0 ? 'freezing for ' + (a.zero.warmth / 60).toFixed(1) + ' h' : ''].filter(Boolean).join(' · ') + '</div>' : '') +
         (a.act.type === "sleep" ? '<div class="sub">asleep since ' + G.Time.hhmm(G.Time.at(a.act.since)) + '</div>' : '') +
         '<div class="sec">Experience (0-100, ' + G.data.config.learn.start + ' = untried)</div>' + expRows(sim, a) + learnedRow(sim, a) +
         '<div class="sec">Traits (0-100, 50 = avg' + (a.inh ? '; ▲▼ vs parents' : '') + ')</div>' + traitRows(a) +
-        familyRows(sim, a) + relRows(sim, a) +
+        prayRows(a) + familyRows(sim, a) + relRows(sim, a) +
         '<div class="sec">Knows</div><div class="chips">' + chip(known + ' berry bush' + (known === 1 ? "" : "es")) + chip(waterKnown(a)) +
           chip('carrying ' + (G.Items.held(sim, a) ? esc(G.Items.label(G.Items.held(sim, a))) : 'nothing')) +
           (sim.discoveries || []).filter(d => d.who === a.name).map(d => chip(esc(d.action + " " + d.materials.slice(0, 2).join(" / ") + " → " + d.result), "disc")).join("") + '</div>' +
@@ -273,6 +273,28 @@
     }
     if (UI.zoomUI) UI.zoomUI();
     UI.layout();
+  };
+  // ---- step 21: the prayer forms she has used, with counts (* = liked: a need rose after it) and where a copied one came from ----
+  function prayRows(a) {
+    const P = a.prayForms || {}, ks = Object.keys(P).filter(f => P[f].n > 0 || P[f].from).sort((p, q) => P[q].n - P[p].n || (p < q ? -1 : 1));
+    if (!ks.length) return '';
+    return '<div class="sec">Prayer forms (Faith ' + Math.round(a.traits.faith || 0) + '; * = liked)</div><div class="chips">' +
+      ks.map(f => chip(esc(G.Faith.formWords(f) + " ×" + P[f].n + (P[f].like > 0 ? " *" : "") + (P[f].from ? " (from " + P[f].from + ")" : "")), "pray")).join("") + '</div>';
+  }
+  // ---- Prayers tab (step 21): action lines only, newest first, filter by group; the last feedMax lines are kept and saved ----
+  UI.prayFilter = "all";
+  UI.panelRender.prayers = function (app, el) {
+    const sim = app.sim, L = sim.prayers || [], last = L[L.length - 1], gs = (sim.groups || []).map(g => g.id);
+    if (UI.prayFilter !== "all" && UI.prayFilter !== "none" && gs.indexOf(UI.prayFilter) < 0 && !L.some(e => e.g === UI.prayFilter)) UI.prayFilter = "all";
+    const key = L.length + "|" + (last && last.t) + "|" + sim.seed + "|" + UI.prayFilter + "|" + gs.join(",");
+    if (el._key === key) return; el._key = key;
+    const ids = []; for (const g of gs) ids.push(g); for (const e of L) if (e.g != null && ids.indexOf(e.g) < 0) ids.push(e.g);
+    const btn = (v, t) => '<button data-pf="' + v + '"' + (UI.prayFilter === v ? ' class="on" aria-pressed="true"' : ' aria-pressed="false"') + '>' + esc(t) + '</button>';
+    const rows = L.filter(e => UI.prayFilter === "all" || (UI.prayFilter === "none" ? e.g == null : e.g === UI.prayFilter)).slice().reverse();
+    el.innerHTML = '<div class="sec">Prayers</div><div class="pfilt" role="group" aria-label="group filter">' + btn("all", "All") +
+      ids.map(g => btn(g, "Group " + g)).join("") + btn("none", "No group") + '</div>' +
+      (rows.length ? rows.map(e => '<div class="prl"><time>' + G.Time.stamp(e.t) + '</time>' + esc(e.text) + '</div>').join("") : '<div class="empty">No one has prayed yet.</div>');
+    el.querySelectorAll("button[data-pf]").forEach(b => b.onclick = () => { const v = b.getAttribute("data-pf"); UI.prayFilter = v === "all" || v === "none" ? v : +v; el._key = null; UI.panelRender.prayers(app, el); });
   };
   // ---- Discoveries tab (step 10): every first combination of action, materials and result, in order ----
   UI.panelRender.discoveries = function (app, el) {

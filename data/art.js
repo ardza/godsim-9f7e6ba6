@@ -31,6 +31,14 @@
     smoke: { src: "data/art/smoke_16.png", frame: 16, cols: ["wisp_0", "wisp_1", "smoulder_0", "smoulder_1"] },   // 64x16
     // Artist 03:55 (step 19): carried_* drawn on top of the carrier at the same origin, matching her facing; lying = a baby on the ground
     // (beside a sleeping carrier, or left alone). Code fallback in render.js when the sheet is missing.
+    // step 21 (Artist): prayer poses, one row per founder look (same order as founders_16), front-facing, feet on the founder line.
+    // poses: which column each prayer action shows. "sleep" = the founders/child sleep row; "walk" = the normal walk rows (facing);
+    // [a, b] = alternate a/b every half second; afterKneel = the column for that action straight after a kneel. offer = kneel + the item in front.
+    pray: { src: "data/art/pray_16.png", frame: 16, variants: 8, cols: ["kneel", "arms_up", "kneel_arms_up", "sway_left", "sway_right"],
+      poses: { kneel: "kneel", raise: "arms_up", sway: ["sway_left", "sway_right"], offer: "kneel", still: "sleep", face: "walk", circle: "walk" }, afterKneel: { raise: "kneel_arms_up" } },   // 80x128
+    childPray: { src: "data/art/child_pray_16.png", frame: 16, variants: 8 },   // 80x128, same columns and poses as pray, 75% figure
+    // prayer spots on the map: few stones / more stones / a cairn, by how many prayers were made there (spot.n >= at[i])
+    spot: { src: "data/art/prayer_spot_16.png", frame: 16, cols: ["few", "more", "many"], at: [0, 6, 12] },   // 48x16
     baby: { src: "data/art/baby_16.png", frame: 16, cols: ["carried_down", "carried_left", "carried_right", "carried_up", "lying"] }   // 80x16
   };
   G.data.artItems = G.data.art.items.cols;   // which item frames exist (a sharp bone uses bone_shard; other shards use their material)

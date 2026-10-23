@@ -11,7 +11,7 @@
     if (A.person && A.person.src) loadImg(A.person.src, im => art.person = im);
     if (A.founders && A.founders.src) loadImg(A.founders.src, im => art.founders = im);
     loadImg(A.bush, im => art.bush = im); loadImg(A.bushEmpty, im => art.bushEmpty = im);
-    for (const k of ["body", "grazer", "scavenger", "items", "fx", "food", "carcass", "smoke", "baby", "child"]) if (A[k] && A[k].src) loadImg(A[k].src, im => art[k] = im);
+    for (const k of ["body", "grazer", "scavenger", "items", "fx", "food", "carcass", "smoke", "baby", "child", "pray", "childPray", "spot"]) if (A[k] && A[k].src) loadImg(A[k].src, im => art[k] = im);
   };
   R.art = () => art;
 
@@ -122,8 +122,35 @@
     drawPersonBody(a, px, py, frame, facing, time, asleep, F, A);
     if (R.groupDot) { const X = px + 6, Y = py - (asleep ? 0 : 6); cx.fillStyle = "rgba(0,0,0,.8)"; cx.fillRect(X, Y, 5, 5); cx.fillStyle = R.groupDot; cx.fillRect(X + 1, Y + 1, 3, 3); }
   }
+  // step 21: the pose for the prayer action being done now (data/art.js pray.poses); null = not praying
+  R.prayPose = function (a, time) {
+    const act = a.act, P = G.data.art.pray; if (!act || act.type !== "pray" || !P) return null;
+    const acts = act.done || act.acts, i = Math.min(acts.length - 1, Math.floor(act.t / (act.per || 1))), step = acts[Math.max(0, i)] || "still", k = step.split(":")[0];
+    let col = (i > 0 && acts[i - 1] === "kneel" && P.afterKneel && P.afterKneel[k]) || P.poses[k] || "walk";
+    if (Array.isArray(col)) col = col[Math.floor((time || 0) * 2) % col.length];
+    // 'circle' and 'face' use the walk rows: circling turns down/right/up/left with the step frame; facing the fire turns toward it, the sun = away (up)
+    let facing = null, frame = 0;
+    if (k === "circle") { const q = Math.floor((time || 0) * 2); facing = ["down", "right", "up", "left"][q % 4]; frame = q; }
+    else if (k === "face") { facing = "up";
+      if (step === "face:fire" && R.sim && G.Learn && G.Learn.nearestFire) { const e = G.Learn.nearestFire(R.sim, a.pos.x, a.pos.y, ["ember", "fire"]);
+        if (e && e.x != null) { const dx = e.x - a.pos.x, dy = e.y - a.pos.y; if (dx || dy) facing = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : (dy > 0 ? "down" : "up"); } } }
+    return { step, col, item: k === "offer" ? step.slice(6) : null, facing, frame };
+  };
   function drawPersonBody(a, px, py, frame, facing, time, asleep, F, A) {
     const kid = G.Family && G.Family.isChild(a), CA = G.data.art.child; R.lastKid = kid ? (art.child && CA ? "sheet" : "scaled") : R.lastKid;
+    const pose = R.prayPose(a, time);
+    if (pose && pose.col === "walk" && pose.facing) { facing = pose.facing; frame = pose.frame; R.lastPray = pose.step.split(":")[0] + ":" + facing; }
+    if (pose && pose.col === "sleep") { asleep = true; R.lastPray = "still"; }   // lie still = the sleep row (no z)
+    else if (pose && pose.col !== "walk") {
+      const P = G.data.art.pray, im = kid ? art.childPray : art.pray, c = P.cols.indexOf(pose.col);
+      if (im && c >= 0) { R.lastPray = pose.col; cx.drawImage(im, c * P.frame, ((a.look || 0) % P.variants) * P.frame, P.frame, P.frame, px, py - 2, tp, tp);
+        if (pose.item) drawItemAt({ material: pose.item, form: "whole" }, px + 4, py + 7, 8);   // the offering held out in front
+        return; }
+    }
+    if (pose && asleep) {   // lying still in prayer: the sleep row without the z
+      const S = kid && art.child && CA ? [art.child, CA] : art.founders && F ? [art.founders, F] : null;
+      if (S) { cx.drawImage(S[0], ((a.look || 0) % S[1].variants) * S[1].blockW, S[1].rows.indexOf("sleep") * S[1].frame, S[1].frame, S[1].frame, px, py - 2, tp, tp); return; }
+    }
     if (kid && art.child && CA) {   // step 20: the Artist's child strip (same layout as founders)
       const row = asleep ? CA.rows.indexOf("sleep") : Math.max(0, CA.rows.indexOf(facing)), fr = asleep ? 0 : frame % CA.frames, bx = ((a.look || 0) % CA.variants) * CA.blockW;
       cx.drawImage(art.child, bx + fr * CA.frame, row * CA.frame, CA.frame, CA.frame, px, py - 2, tp, tp);
@@ -247,6 +274,14 @@
   function drawSparks(sim, time) {   // a spark is a brief flash: shown for the tick it happens and the next, flickering
     for (const f of sim.fx || []) if (f.k === "spark" && sim.tick - f.t < 2 && Math.floor(time * 12) % 3) drawFx("spark", f.x * tp, f.y * tp - 4);
   }
+  // step 21: prayer spots (few stones / more stones / cairn by spot.n); code fallback = small grey stones
+  function drawSpots(sim) {
+    const S = G.data.art.spot, spots = (sim.faith && sim.faith.spots) || []; R.spotsDrawn = 0;
+    for (const q of spots) { let lv = 0; if (S) for (let i = 0; i < S.at.length; i++) if (q.n >= S.at[i]) lv = i;
+      const px = q.x * tp, py = q.y * tp; R.spotsDrawn++;
+      if (art.spot && S) { cx.drawImage(art.spot, lv * S.frame, 0, S.frame, S.frame, px, py, tp, tp); continue; }
+      cx.fillStyle = "#8a8378"; for (let k = 0; k <= lv + 1; k++) cx.fillRect(px + 3 + k * 3, py + 11 - (k % 2) * 2, 3, 3); }
+  }
   function drawItems(sim, selectedId) {
     for (const it of sim.items || []) { if (it.heldBy != null) continue;
       if (it.id === selectedId) { cx.strokeStyle = "#fff6b0"; cx.lineWidth = 1.5; cx.strokeRect(it.x * tp + 0.5, it.y * tp + 0.5, tp - 1, tp - 1); cx.lineWidth = 1; }
@@ -264,7 +299,7 @@
     drawFire(sim, time);
     for (const b of sim.bushes) drawBush(b);
     R.screen = {};
-    drawItems(sim, selectedId);
+    drawSpots(sim); drawItems(sim, selectedId);
     for (const b of sim.bodies || []) { R.screen[b.id] = { x: b.x, y: b.y }; drawBody(b, b.id === selectedId); }
     for (const a of sim.animals || []) {
       const p = sim.prev[a.id] || a.pos, x = p.x + (a.pos.x - p.x) * alpha, y = p.y + (a.pos.y - p.y) * alpha, st = animState(sim, a, x, y);

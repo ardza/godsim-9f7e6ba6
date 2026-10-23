@@ -150,10 +150,23 @@
       if (c) { b.pos.x = c.pos.x; b.pos.y = c.pos.y; b.facing = c.facing; b.group = c.group != null ? c.group : null;
         b.needs = Object.assign({}, c.needs); b.zero = Object.assign({}, c.zero); continue; }
       if (b.orphanAt == null) { b.orphanAt = sim.tick; b.pos = { x: Math.round(b.pos.x), y: Math.round(b.pos.y) }; G.Sim.log(sim, b.name + " lies alone", b); }
-      const adult = sim.agents.filter(q => (q.group != null && q.group === b.group || b.parents.indexOf(q.id) >= 0) && q.age >= 16 && Math.hypot(q.pos.x - b.pos.x, q.pos.y - b.pos.y) <= F.adoptTiles)
-        .sort((p, q) => Math.hypot(p.pos.x - b.pos.x, p.pos.y - b.pos.y) - Math.hypot(q.pos.x - b.pos.x, q.pos.y - b.pos.y) || p.id - q.id)[0];
-      if (adult) { b.orphanAt = null; b.carrier = adult.id; b.carrierName = adult.name; sim.famStats.adoptions++;
-        G.Sim.log(sim, adult.name + " picks up " + b.name + " and carries the baby", [adult, b], "birth"); continue; }
+      // Director (21): the group member who likes the dead carrier most heads for the baby from up to seekTiles; with no group member
+      // in range, any adult within anyTiles may take it (each hour: odds = curiosity - fireFear, %). Whoever reaches adoptTiles lifts it.
+      const near = (q, R) => q.age >= 16 && Math.hypot(q.pos.x - b.pos.x, q.pos.y - b.pos.y) <= R, dead0 = { id: b.carrier };
+      const adult = sim.agents.filter(q => (q.id === b.rescuer || q.group != null && q.group === b.group || b.parents.indexOf(q.id) >= 0) && near(q, F.adoptTiles))
+        .sort((p, q) => (q.id === b.rescuer) - (p.id === b.rescuer) || Math.hypot(p.pos.x - b.pos.x, p.pos.y - b.pos.y) - Math.hypot(q.pos.x - b.pos.x, q.pos.y - b.pos.y) || p.id - q.id)[0];
+      if (adult) { b.orphanAt = null; b.rescuer = null; b.carrier = adult.id; b.carrierName = adult.name; sim.famStats.adoptions++; if (adult.act.goal === "baby") G.Agent.startIdle(sim, adult);
+        G.Sim.log(sim, adult.name + " lifts the baby and carries it", [adult, b], "birth"); continue; }
+      let r = b.rescuer != null ? byId(sim, b.rescuer) : null;
+      if (r && !(r.act.type === "walk" && r.act.goal === "baby" && r.act.baby === b.id)) r = null;   // she turned to something else: choose again
+      if (!r) { b.rescuer = null;
+        const mem = sim.agents.filter(q => q.group != null && q.group === b.group && near(q, F.seekTiles) && q.act.type !== "sleep")
+          .sort((p, q) => G.Social.like(q, dead0) - G.Social.like(p, dead0) || p.id - q.id);
+        let pick = mem[0] || null;
+        if (!pick && !sim.agents.some(q => q.group != null && q.group === b.group && near(q, F.seekTiles)) && (sim.tick - b.orphanAt) % Math.max(1, Math.round(60 / tm)) === 0)
+          for (const q of sim.agents) { if (!near(q, F.anyTiles) || q.act.type === "sleep") continue; if (sim.prng.chance(Math.max(0, q.traits.curiosity - q.traits.fireFear) / 100)) { pick = q; break; } }
+        if (pick && G.Agent.walkTo(sim, pick, Math.round(b.pos.x), Math.round(b.pos.y), "baby", { baby: b.id })) { b.rescuer = pick.id; sim.famStats.rescues = (sim.famStats.rescues || 0) + 1; }
+      }
       if (sim.tick - b.orphanAt >= F.orphanMinutes / tm) dead.push(b);
     }
     for (const b of grown) Family.becomeChild(sim, b);

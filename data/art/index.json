@@ -119,5 +119,43 @@
   "frame": 16,
   "layout": "same as founders_16.png: 8 variants, 32x80 block each at x=32*i; rows down,left,right,up,sleep; 2 frames per row",
   "note": "figure ~75% of founder, feet on the same line; use the parent's variant"
+ },
+ "pray_16.png": {
+  "frame": 16,
+  "layout": "8 rows (one per founder variant, same order as founders_16.png); cols: kneel, arms_up, kneel_arms_up, sway_left, sway_right; front-facing, feet on founder line"
+ },
+ "child_pray_16.png": {
+  "frame": 16,
+  "layout": "8 rows (one per founder variant, same order as founders_16.png); cols: kneel, arms_up, kneel_arms_up, sway_left, sway_right; front-facing, feet on founder line",
+  "note": "75% child version"
+ },
+ "prayer_spot_16.png": {
+  "frame": 16,
+  "cols": [
+   "few",
+   "more",
+   "many (cairn with stick)"
+  ],
+  "note": "marks a spot where people often prayed"
+ },
+ "rain_16.png": {
+  "frame": 16,
+  "cols": [
+   "fall_0",
+   "fall_1",
+   "fall_2",
+   "fall_3"
+  ],
+  "note": "tileable, semi-transparent; tile over every tile in the rain circle, advance a frame every ~150ms"
+ },
+ "shelter_16.png": {
+  "frame": 16,
+  "cols": [
+   "cave",
+   "overhang",
+   "(blank, hollow dropped)",
+   "thicket"
+  ],
+  "note": "transparent overlays drawn on top of the tile under them (meadow, woods or sand); keeps the live tile art underneath"
  }
 }
