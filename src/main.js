@@ -4,7 +4,7 @@
   const app = G.app = { sim: null, speed: 1, lastSpeed: 1, selected: null, acc: 0, ticksLastFrame: 0 };
 
   app.setSpeed = s => { if (s) app.lastSpeed = s; app.speed = s; G.UI.update(app); };
-  app.select = id => { app.selected = id; G.UI.update(app); };
+  app.select = id => { app.selected = id; if (id != null) G.UI.openSheet(true); G.UI.update(app); };
   app.save = manual => { const ok = G.Save.save(app.sim); if (manual) G.UI.toast(ok ? "Saved" : "Save failed"); return ok; };
   app.load = () => { const s = G.Save.load(); if (s) { app.sim = s; app.acc = 0; app.selected = null; G.UI.toast("Loaded"); } else G.UI.toast("No save"); G.UI.update(app); return !!s; };
   app.newWorld = seedText => {
@@ -33,7 +33,7 @@
       let n = 0; while (app.acc >= 1 && n < max) { G.Sim.step(app.sim); app.acc -= 1; n++; }
       if (app.acc > 1) app.acc = 1; // can't keep up: drop time rather than spiral
       app.ticksLastFrame = n;
-      G.Render.draw(app.sim, app.speed ? Math.min(1, app.acc) : 1, now / 1000, app.selected);
+      G.Render.draw(app.sim, Math.min(1, app.acc), now / 1000, app.selected); // acc is kept while paused, so pausing never makes her jump
       if (now - uiT > 200) { uiT = now; G.UI.update(app); }
       requestAnimationFrame(frame);
     }

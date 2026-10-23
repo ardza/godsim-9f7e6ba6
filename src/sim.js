@@ -21,13 +21,17 @@
     const world = G.World.generate(seed), rng = new G.RNG((seed ^ 0xA5A5A5A5) >>> 0);
     const sim = { version: CFG().saveVersion, seed, tick: 0, nextId: 1, world, rng, bushes: G.World.placeBushes(world, rng), agents: [], log: [],
       nameBag: rng.shuffle(G.data.names.map((_, i) => i)), nameRound: 0, prev: {} };
-    // first person starts on a walkable meadow tile near the middle
+    // founders start around a walkable meadow tile near the middle
     const cx = world.w >> 1, cy = world.h >> 1; let best = null;
     for (let y = 0; y < world.h; y++) for (let x = 0; x < world.w; x++) if (G.World.tile(world, x, y) === G.data.T.MEADOW) {
       const d = Math.hypot(x - cx, y - cy) + rng.float() * 6; if (!best || d < best.d) best = { x, y, d }; }
-    for (let i = 0; i < CFG().pop.startPeople && sim.agents.length < CFG().pop.maxPeople; i++) {
-      const a = G.Agent.createPerson(sim, best.x, best.y); sim.agents.push(a); Sim.log(sim, a.name + " woke in the meadow");
-    }
+    // 5-8 founders (seeded), each on their own walkable tile, clustered around that spot
+    const sp = CFG().pop.startPeople, n = Math.min(CFG().pop.maxPeople, Array.isArray(sp) ? rng.int(sp[0], sp[1]) : sp);
+    let spots = [];
+    for (let r = CFG().pop.clusterRadius; spots.length < n; r++) { spots = [];
+      for (let y = best.y - r; y <= best.y + r; y++) for (let x = best.x - r; x <= best.x + r; x++) if (G.World.walkable(world, x, y)) spots.push({ x, y }); }
+    spots = spots.map(q => ({ x: q.x, y: q.y, d: Math.hypot(q.x - best.x, q.y - best.y) + rng.float() * 2 })).sort((p, q) => p.d - q.d);
+    for (let i = 0; i < n; i++) { const a = G.Agent.createPerson(sim, spots[i].x, spots[i].y, i % 8); sim.agents.push(a); Sim.log(sim, a.name + " woke in the meadow"); }
     return sim;
   };
   // Seeded names with no repeats until the list is used up, then a fresh shuffle (reuse is fine past the list).

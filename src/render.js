@@ -2,25 +2,47 @@
 // bushes, people, selection and night shading are drawn every frame. Optional PNGs from data/art.js.
 (function (G) {
   const R = {}, H = G.RNG.hash2;
-  let cv, cx, terrain, tp, art = { tiles: {} }, artPending = 0;
+  let cv, cx, terrain, tp, sc = 1, mw = 0, mh = 0, art = { tiles: {} }, artPending = 0;
 
   function loadImg(src, cb) { if (!src) return; const im = new Image(); artPending++; im.onload = () => { artPending--; cb(im); R.dirty = true; }; im.onerror = () => { artPending--; console.warn("art missing: " + src); }; im.src = src; }
   R.loadArt = function () {
     const A = G.data.art || {};
     for (const [k, src] of Object.entries(A.tiles || {})) loadImg(src, im => art.tiles[k] = im);
     if (A.person && A.person.src) loadImg(A.person.src, im => art.person = im);
+    if (A.founders && A.founders.src) loadImg(A.founders.src, im => art.founders = im);
     loadImg(A.bush, im => art.bush = im); loadImg(A.bushEmpty, im => art.bushEmpty = im);
   };
   R.art = () => art;
 
   R.init = function (canvas) {
-    cv = canvas; cx = cv.getContext("2d"); tp = G.data.config.map.tilePx;
-    cv.width = G.data.config.map.w * tp; cv.height = G.data.config.map.h * tp; cx.imageSmoothingEnabled = false;
+    const M = G.data.config.map;
+    cv = canvas; cx = cv.getContext("2d"); tp = M.tilePx; sc = Math.max(1, Math.round(M.renderScale || 1));
+    mw = M.w * tp; mh = M.h * tp; cv.width = mw * sc; cv.height = mh * sc; cx.imageSmoothingEnabled = false;
     R.loadArt();
   };
 
+  // ---- view (zoom + pan). View state only: never saved, never touches the sim. ----
+  // z = whole-number zoom (1 = whole map fits, up to render.zoom.max); ox, oy = top-left of the visible area in art px.
+  const view = R.view = { z: 1, ox: 0, oy: 0 };
+  const ZC = () => G.data.config.render.zoom;
+  function clampView() { view.ox = Math.max(0, Math.min(mw - mw / view.z, view.ox)); view.oy = Math.max(0, Math.min(mh - mh / view.z, view.oy)); }
+  // step zoom by whole numbers, keeping the map point under canvas fraction (fx, fy) fixed
+  R.zoomTo = function (z, fx, fy) {
+    z = Math.max(1, Math.min(ZC().max, Math.round(z))); if (fx === undefined) { fx = 0.5; fy = 0.5; }
+    const wx = view.ox + fx * mw / view.z, wy = view.oy + fy * mh / view.z;
+    view.z = z; view.ox = wx - fx * mw / z; view.oy = wy - fy * mh / z; clampView(); return z;
+  };
+  R.zoomBy = (d, fx, fy) => R.zoomTo(view.z + d, fx, fy);
+  // pan by a drag of (dx, dy) CSS px on the canvas
+  R.panBy = function (dx, dy) { const r = cv.getBoundingClientRect(); view.ox -= dx / r.width * mw / view.z; view.oy -= dy / r.height * mh / view.z; clampView(); };
+  R.resetView = () => { view.z = 1; view.ox = 0; view.oy = 0; };
+  R.frac = (clientX, clientY) => { const r = cv.getBoundingClientRect(); return { fx: (clientX - r.left) / r.width, fy: (clientY - r.top) / r.height }; };
+
+  // per-person walk animation, render-only: step frame advances with distance actually drawn, not with time
+  const anim = {}; R.anim = anim;
+
   function drawTerrain(w) {
-    terrain = document.createElement("canvas"); terrain.width = cv.width; terrain.height = cv.height;
+    terrain = document.createElement("canvas"); terrain.width = mw; terrain.height = mh;
     const g = terrain.getContext("2d"), TL = G.data.tiles, s = w.seed;
     for (let y = 0; y < w.h; y++) for (let x = 0; x < w.w; x++) {
       const t = TL[G.World.tile(w, x, y)], px = x * tp, py = y * tp, im = art.tiles[t.key];
@@ -65,41 +87,76 @@
       cx.fillStyle = "#c2203a"; cx.fillRect(px + 7 + Math.cos(a) * rr, py + 7 + Math.sin(a) * rr, 2, 2); }
   }
 
-  function drawPerson(a, x, y, time, moving) {
-    const px = x * tp, py = y * tp, A = G.data.art.person;
-    cx.fillStyle = "rgba(0,0,0,0.3)"; cx.beginPath(); cx.ellipse(px + 8, py + 14, 4.5, 2, 0, 0, 7); cx.fill();
-    if (art.person && A) {
-      const row = Math.max(0, A.rows.indexOf(a.facing)), fr = moving ? Math.floor(time * 4) % A.frames : 0;
-      cx.drawImage(art.person, fr * A.frame, row * A.frame, A.frame, A.frame, px, py - 2, tp, tp); return;
+  // Fallback when founders_16.png is missing: the single person sheet, tinted per look in code (cached per look).
+  const tinted = {};
+  function tintedPerson(look) {
+    if (tinted[look]) return tinted[look];
+    const im = art.person, c = document.createElement("canvas"); c.width = im.naturalWidth; c.height = im.naturalHeight;
+    const g = c.getContext("2d"); g.drawImage(im, 0, 0); g.globalCompositeOperation = "source-atop";
+    g.fillStyle = "hsla(" + (look * 45) % 360 + ",70%,50%,0.35)"; g.fillRect(0, 0, c.width, c.height);
+    return (tinted[look] = c);
+  }
+  // small pixel 'z' over a sleeper, bobbing slowly
+  function drawZ(px, py, time) {
+    const b = Math.round(Math.sin(time * 2) * 1.5), X = px + 11, Y = py - 5 + b; cx.fillStyle = "rgba(0,0,0,0.55)"; cx.fillRect(X - 1, Y - 1, 6, 6);
+    cx.fillStyle = "#f1e6cf"; cx.fillRect(X, Y, 4, 1); cx.fillRect(X + 2, Y + 1, 1, 1); cx.fillRect(X + 1, Y + 2, 1, 1); cx.fillRect(X, Y + 3, 4, 1);
+  }
+  function drawPerson(a, x, y, frame, facing, time) {
+    const px = x * tp, py = y * tp, F = G.data.art.founders, A = G.data.art.person, asleep = a.act.type === "sleep";
+    cx.fillStyle = "rgba(0,0,0,0.3)"; cx.beginPath(); cx.ellipse(px + 8, py + 14, asleep ? 6.5 : 4.5, 2, 0, 0, 7); cx.fill();
+    if (art.founders && F) {   // Artist founders: look block at x = blockW * (look mod variants); sleep row while asleep
+      const row = asleep ? F.rows.indexOf("sleep") : Math.max(0, F.rows.indexOf(facing)), fr = asleep ? 0 : frame % F.frames, bx = ((a.look || 0) % F.variants) * F.blockW;
+      cx.drawImage(art.founders, bx + fr * F.frame, row * F.frame, F.frame, F.frame, px, py - 2, tp, tp);
+      if (asleep) drawZ(px, py, time); return;
     }
-    const bob = moving ? Math.round(Math.sin(time * 10)) : 0, hue = (a.id * 67) % 360;
+    if (art.person && A) {
+      const row = Math.max(0, A.rows.indexOf(asleep ? "down" : facing)), fr = asleep ? 0 : frame % A.frames, im = tintedPerson(a.look || 0);
+      if (asleep) { cx.save(); cx.translate(px + 8, py + 9); cx.rotate(-Math.PI / 2); cx.drawImage(im, fr * A.frame, row * A.frame, A.frame, A.frame, -8, -8, tp, tp); cx.restore(); drawZ(px, py, time); return; }
+      cx.drawImage(im, fr * A.frame, row * A.frame, A.frame, A.frame, px, py - 2, tp, tp); return;
+    }
+    if (asleep) { cx.fillStyle = "hsl(" + ((a.look || 0) * 45) % 360 + ",45%,42%)"; cx.fillRect(px + 3, py + 9, 9, 4); cx.fillStyle = "#c89268"; cx.fillRect(px + 11, py + 8, 4, 4); drawZ(px, py, time); return; }
+    const bob = frame % 2 ? 1 : 0, hue = ((a.look || 0) * 45) % 360;
     cx.fillStyle = "#3b2a1e"; cx.fillRect(px + 5, py + 11 + bob, 2, 3); cx.fillRect(px + 9, py + 11 - bob, 2, 3); // legs
     cx.fillStyle = "hsl(" + hue + ",45%,42%)"; cx.fillRect(px + 4, py + 6, 8, 6); // tunic
     cx.fillStyle = "#c89268"; cx.fillRect(px + 5, py + 1, 6, 5); // head
     cx.fillStyle = "#3a2414"; cx.fillRect(px + 5, py + 1, 6, 2); // hair
-    if (a.facing !== "up") { cx.fillStyle = "#1c120a"; const ex = a.facing === "left" ? 5 : a.facing === "right" ? 8 : 6; cx.fillRect(px + ex, py + 4, 1, 1); if (a.facing === "down") cx.fillRect(px + 9, py + 4, 1, 1); }
+    if (facing !== "up") { cx.fillStyle = "#1c120a"; const ex = facing === "left" ? 5 : facing === "right" ? 8 : 6; cx.fillRect(px + ex, py + 4, 1, 1); if (facing === "down") cx.fillRect(px + 9, py + 4, 1, 1); }
   }
 
-  // alpha = fraction of the way to the next tick, for smooth movement between ticks
+  // alpha = fraction of the way to the next tick (the main loop's tick accumulator), for smooth movement between ticks.
+  // Position, step frame and facing are computed here only; the sim stays tick-based and deterministic.
   R.draw = function (sim, alpha, time, selectedId) {
     if (R.terrainFor !== sim.world || R.dirty) drawTerrain(sim.world);
+    cx.setTransform(1, 0, 0, 1, 0, 0); cx.fillStyle = "#000"; cx.fillRect(0, 0, cv.width, cv.height);
+    const s = sc * view.z; cx.setTransform(s, 0, 0, s, -Math.round(view.ox * s), -Math.round(view.oy * s)); cx.imageSmoothingEnabled = false;
     cx.drawImage(terrain, 0, 0); drawWater(sim.world, time);
     for (const b of sim.bushes) drawBush(b);
     R.screen = {};
+    const spt = G.data.config.render.stepsPerTile;
     for (const a of sim.agents) {
       const p = sim.prev[a.id] || a.pos, x = p.x + (a.pos.x - p.x) * alpha, y = p.y + (a.pos.y - p.y) * alpha;
       R.screen[a.id] = { x, y };
+      let st = anim[a.id]; if (!st || st.sim !== sim) st = anim[a.id] = { sim, x, y, dist: 0, frame: 0, facing: a.facing };
+      const dx = x - st.x, dy = y - st.y, d = Math.hypot(dx, dy), walking = a.act.type === "walk";
+      if (d > 2) st.dist = 0;                                  // a jump (load, test fast-forward): don't spin the legs
+      else if (walking) st.dist += d;
+      if (!walking) { st.dist = 0; st.facing = a.facing; }
+      else if (d > 1e-6 && d <= 2) st.facing = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : (dy > 0 ? "down" : "up");
+      st.frame = walking ? Math.floor(st.dist * spt) : 0;     // idle = standing frame
+      st.x = x; st.y = y;
       if (a.id === selectedId) {
         const r = G.Agent.sight(a) * tp; cx.strokeStyle = "rgba(255,255,255,0.25)"; cx.setLineDash([4, 4]); cx.beginPath(); cx.arc(x * tp + 8, y * tp + 8, r, 0, 7); cx.stroke(); cx.setLineDash([]);
         cx.strokeStyle = "#fff6b0"; cx.lineWidth = 1.5; cx.beginPath(); cx.ellipse(x * tp + 8, y * tp + 14, 7, 3, 0, 0, 7); cx.stroke(); cx.lineWidth = 1;
-        if (a.act.type === "walk") { cx.strokeStyle = "rgba(255,246,176,0.45)"; cx.beginPath(); cx.moveTo(x * tp + 8, y * tp + 8); for (let i = a.act.i; i < a.act.path.length; i++) cx.lineTo(a.act.path[i][0] * tp + 8, a.act.path[i][1] * tp + 8); cx.stroke(); }
+        if (walking) { cx.strokeStyle = "rgba(255,246,176,0.45)"; cx.beginPath(); cx.moveTo(x * tp + 8, y * tp + 8); for (let i = a.act.i; i < a.act.path.length; i++) cx.lineTo(a.act.path[i][0] * tp + 8, a.act.path[i][1] * tp + 8); cx.stroke(); }
       }
-      drawPerson(a, x, y, time, a.act.type === "walk");
+      drawPerson(a, x, y, st.frame, st.facing, time);
     }
-    const d = G.Time.darkness(sim.tick); if (d > 0) { cx.fillStyle = "rgba(8,14,40," + (d * 0.55).toFixed(3) + ")"; cx.fillRect(0, 0, cv.width, cv.height); }
+    const dk = G.Time.darkness(sim.tick); if (dk > 0) { cx.fillStyle = "rgba(8,14,40," + (dk * 0.55).toFixed(3) + ")"; cx.fillRect(0, 0, mw, mh); }
+    cx.setTransform(1, 0, 0, 1, 0, 0);
   };
 
-  // canvas client px -> tile coords
-  R.toTile = function (clientX, clientY) { const r = cv.getBoundingClientRect(); return { x: (clientX - r.left) / r.width * G.data.config.map.w, y: (clientY - r.top) / r.height * G.data.config.map.h }; };
+  // canvas client px -> tile coords (zoom/pan aware), and back (used by tests)
+  R.toTile = function (clientX, clientY) { const f = R.frac(clientX, clientY); return { x: (view.ox + f.fx * mw / view.z) / tp, y: (view.oy + f.fy * mh / view.z) / tp }; };
+  R.toClient = function (tx, ty) { const r = cv.getBoundingClientRect(); return { x: r.left + ((tx * tp - view.ox) * view.z / mw) * r.width, y: r.top + ((ty * tp - view.oy) * view.z / mh) * r.height }; };
   G.Render = R;
 })(this.GS = this.GS || {});

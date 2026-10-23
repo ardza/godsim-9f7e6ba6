@@ -4,45 +4,105 @@
 <meta name="robots" content="noindex, nofollow">
 <title>Godsim (week 1)</title>
 <style>
+  /* Earthy theme to match the pixel art. Palette from the Artist: panels #2b2118 with a 2px #6b4a2c frame and 4px radius,
+     text #f1e6cf, dim #b9a585, active/selected #7fb04a, inactive buttons #3d2f22, warn #c42848, info #4a86c6. All text >= 16px. */
+  :root { --bg: #1d1610; --panel: #2b2118; --panel2: #33271c; --frame: #6b4a2c; --text: #f1e6cf; --dim: #b9a585;
+    --on: #7fb04a; --btn: #3d2f22; --warn: #c42848; --info: #4a86c6; --wheat: #d9b65d; --peek: 52px; }
   * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #10151c; color: #dfe6ee; font: 13px/1.35 system-ui, sans-serif; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--text);
+    font: 16px/1.35 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
   body { display: flex; flex-direction: column; height: 100dvh; }
-  #top { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; padding: 6px 8px; background: #19212c; border-bottom: 1px solid #2a3442; }
-  #clock { font-weight: 600; min-width: 15em; }
-  #seedshow { color: #8b98a8; }
-  button { background: #2a3646; color: #dfe6ee; border: 1px solid #3a4a5e; border-radius: 4px; padding: 4px 8px; font: inherit; cursor: pointer; touch-action: manipulation; }
-  button.on { background: #e0b84a; color: #1a1a1a; border-color: #e0b84a; }
-  #speeds, #files { display: flex; gap: 4px; }
-  input { width: 7.5em; background: #0f141b; color: #dfe6ee; border: 1px solid #3a4a5e; border-radius: 4px; padding: 4px; font: inherit; }
+  #top { position: relative; z-index: 20; display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; padding: 8px 10px; background: var(--panel); border-bottom: 2px solid var(--frame); }
+  #clock { font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  #seedshow { color: var(--dim); white-space: nowrap; }
+  button { background: var(--btn); color: var(--text); border: 2px solid var(--frame); border-radius: 4px; padding: 5px 12px; min-height: 36px;
+    font: inherit; font-size: 16px; cursor: pointer; touch-action: manipulation; }
+  button:hover { border-color: var(--wheat); }
+  button:focus-visible { outline: 2px solid var(--wheat); outline-offset: 1px; }
+  button.on { background: var(--on); border-color: var(--on); color: #1b140d; font-weight: 700; }
+  button:disabled { opacity: .45; cursor: default; border-color: var(--frame); }
+  #speeds { display: inline-flex; gap: 0; border: 2px solid var(--frame); border-radius: 4px; overflow: hidden; }
+  #speeds button { border: 0; border-radius: 0; border-left: 2px solid var(--frame); min-width: 3.2em; }
+  #speeds button:first-child { border-left: 0; }
+  #files { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  #btn-menu { display: none; margin-left: auto; }
+  input { width: 7.5em; background: #1b140d; color: var(--text); border: 2px solid var(--frame); border-radius: 4px; padding: 5px 8px; min-height: 36px; font: inherit; font-size: 16px; }
+  input::placeholder { color: var(--dim); }
   #main { flex: 1; display: flex; min-height: 0; }
-  #stage { flex: 1; min-width: 0; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 4px; }
-  #cv { image-rendering: pixelated; image-rendering: crisp-edges; display: block; touch-action: none; background: #000; }
-  #side { width: 270px; display: flex; flex-direction: column; border-left: 1px solid #2a3442; background: #151c25; min-height: 0; }
-  #info { position: relative; padding: 8px 10px; border-bottom: 1px solid #2a3442; }
-  #info h3 { margin: 0; font-size: 15px; } .sub { color: #9aa7b6; } .sec { margin-top: 6px; color: #e0b84a; font-size: 11px; text-transform: uppercase; }
-  #info-close { position: absolute; right: 6px; top: 6px; padding: 0 6px; }
-  .row { display: grid; grid-template-columns: 6.5em 1fr 2.6em; gap: 6px; align-items: center; } .row b { text-align: right; font-weight: 500; }
-  .bar { height: 8px; background: #0c1016; border-radius: 3px; overflow: hidden; } .bar i { display: block; height: 100%; background: #6cc070; }
-  .bar.hot i { background: #e06a4a; } .bar.trait i { background: #6a9be0; }
-  #logwrap { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 6px 10px; }
-  #log { flex: 1; overflow-y: auto; font-size: 12px; } #log time { color: #8b98a8; }
-  #hint { color: #8b98a8; font-size: 11px; padding: 4px 0; }
-  #toast { position: fixed; left: 50%; top: 52px; transform: translateX(-50%); background: #e0b84a; color: #111; padding: 4px 12px; border-radius: 4px; opacity: 0; transition: opacity .3s; pointer-events: none; }
-  @media (orientation: portrait) { #main { flex-direction: column; } #stage { flex: 0 0 auto; } #side { width: auto; flex: 1; border-left: 0; border-top: 1px solid #2a3442; } #clock { min-width: 0; width: 100%; } }
-  @media (max-height: 460px) and (orientation: landscape) { #side { width: 220px; } #top { padding: 3px 6px; } button { padding: 2px 6px; } }
+  #stage { flex: 1; min-width: 0; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 6px; }
+  #mapbox { position: relative; border-radius: 4px; box-shadow: 0 0 0 2px var(--frame), 0 4px 14px rgba(0,0,0,.5); line-height: 0; }
+  #cv { image-rendering: pixelated; image-rendering: crisp-edges; display: block; touch-action: none; background: #000; border-radius: 4px; cursor: grab; }
+  #cv.panning { cursor: grabbing; }
+  #zoom { position: absolute; right: 8px; bottom: 8px; display: flex; flex-direction: column; gap: 6px; line-height: 1.2; }
+  #zoom button { width: 44px; height: 44px; padding: 0; font-size: 24px; font-weight: 700; background: rgba(43,33,24,.88); }
+  #side { width: 340px; display: flex; flex-direction: column; background: var(--panel); border-left: 2px solid var(--frame); min-height: 0; }
+  #sheet-handle { display: none; }
+  #info { position: relative; margin: 8px; padding: 10px 12px; background: var(--panel2); border: 2px solid var(--frame); border-radius: 4px; }
+  #info h3 { margin: 0 44px 2px 0; font-size: 19px; } .sub { color: var(--dim); }
+  .sec { margin-top: 8px; color: var(--wheat); font-size: 16px; font-weight: 650; text-transform: uppercase; letter-spacing: .03em; }
+  #info-close { position: absolute; right: 8px; top: 8px; width: 36px; padding: 0; font-size: 20px; }
+  .row { display: grid; grid-template-columns: 5.6em 1fr 4.2em; gap: 8px; align-items: center; margin-top: 3px; } .row b { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .bar { height: 10px; background: #1b140d; border: 1px solid var(--frame); border-radius: 3px; overflow: hidden; } .bar i { display: block; height: 100%; background: var(--on); }
+  .bar.hot i { background: var(--warn); } .bar.trait i { background: var(--wheat); } .bar.water i { background: var(--info); } .bar.energy i { background: #d9b44a; }
+  .row.need .bar { position: relative; height: 22px; } .row.need .bar em { position: absolute; left: 6px; top: 0; line-height: 20px; font-style: normal; font-size: 16px; color: var(--text, #f1e6cf); text-shadow: 0 1px 2px #000, 0 0 2px #000; white-space: nowrap; }
+  #logwrap { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  #tabs { display: flex; gap: 4px; padding: 8px 8px 0; border-bottom: 2px solid var(--frame); }
+  #tabs button { border-radius: 4px 4px 0 0; border-bottom: 0; margin-bottom: 0; min-height: 36px; padding: 4px 8px; color: var(--dim); flex: 1 1 auto; min-width: 0; white-space: nowrap; }
+  #tabs button.on { background: var(--on); border-color: var(--on); color: #1b140d; }
+  #log { flex: 1; overflow-y: auto; padding: 6px 8px; }
+  .ev { margin: 4px 0; padding: 4px 8px; border-left: 4px solid var(--info); background: rgba(0,0,0,.18); border-radius: 0 4px 4px 0; }
+  .ev.warn { border-left-color: var(--warn); background: rgba(196,40,72,.16); }
+  .ev time { color: var(--dim); margin-right: 6px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .empty { color: var(--dim); padding: 6px 2px; }
+  #hint { color: var(--dim); padding: 6px 10px 8px; border-top: 2px solid var(--frame); }
+  .touch-only { display: none; }
+  #toast { position: fixed; z-index: 40; left: 50%; top: 60px; transform: translateX(-50%); background: var(--on); color: #1b140d; font-weight: 600; padding: 6px 14px; border-radius: 4px; opacity: 0; transition: opacity .3s; pointer-events: none; }
+
+  /* Phones (portrait and landscape): Save/Load/New world move into a menu; log + inspect become a bottom sheet. */
+  @media (max-width: 700px), (max-height: 500px) {
+    #btn-menu { display: inline-block; }
+    #files { display: none; position: absolute; top: calc(100% + 2px); right: 8px; max-width: calc(100vw - 16px); padding: 10px; background: var(--panel); border: 2px solid var(--frame); border-radius: 4px; box-shadow: 0 6px 18px rgba(0,0,0,.5); }
+    #top.menu-open #files { display: flex; }
+    .desk-only { display: none; } .touch-only { display: inline; }
+    #side { width: auto; border-left: 0; border-top: 2px solid var(--frame); border-radius: 4px 4px 0 0; box-shadow: 0 -6px 18px rgba(0,0,0,.45); }
+    #hint { display: none; }
+  }
+  @media (max-width: 700px) and (orientation: portrait) {
+    #main { flex-direction: column; } #stage { flex: 0 0 auto; }
+    #side { flex: 1; } #clock { width: 100%; }
+  }
+  @media (max-height: 500px) and (orientation: landscape) {
+    #top { padding: 6px 10px; }
+    #main { padding-bottom: var(--peek); }
+    #side { position: fixed; left: 0; right: 0; bottom: 0; z-index: 15; height: var(--peek); }
+    #side.open { height: calc(100dvh - 56px); }
+    #side:not(.open) #info, #side:not(.open) #logwrap { display: none; }
+    #sheet-handle { display: flex; align-items: center; gap: 10px; width: 100%; min-height: calc(var(--peek) - 2px); border: 0; border-radius: 4px 4px 0 0; background: var(--panel); text-align: left; padding: 6px 12px; }
+    #sheet-handle .grip { flex: 0 0 36px; height: 5px; border-radius: 3px; background: var(--frame); }
+    #sheet-peek { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--dim); }
+    #side.open #sheet-peek { color: var(--text); }
+    /* open sheet: inspect card on the left, log tabs + log on the right, so both fit in 390px of height */
+    #side.open { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+    #sheet-handle { grid-column: 1 / -1; }
+    #info { margin: 6px 8px; overflow-y: auto; min-height: 0; }
+    #info[hidden] + #logwrap { grid-column: 1 / -1; }
+  }
 </style>
 </head><body>
 <div id="top">
   <span id="clock">-</span>
-  <span id="speeds"></span>
-  <span id="files"><button id="btn-save">Save</button><button id="btn-load">Load</button><input id="seed" placeholder="seed" aria-label="seed"><button id="btn-new">New world</button></span>
-  <span id="seedshow"></span>
+  <span id="speeds" role="group" aria-label="speed"></span>
+  <button id="btn-menu" aria-expanded="false" aria-controls="files">☰ World</button>
+  <span id="files"><button id="btn-save">Save</button><button id="btn-load">Load</button><input id="seed" placeholder="seed" aria-label="seed"><button id="btn-new">New world</button><span id="seedshow"></span></span>
 </div>
 <div id="main">
-  <div id="stage"><canvas id="cv"></canvas></div>
+  <div id="stage"><div id="mapbox"><canvas id="cv"></canvas>
+    <div id="zoom"><button id="zoom-in" title="Zoom in (wheel up, pinch out)" aria-label="zoom in">+</button><button id="zoom-out" title="Zoom out (wheel down, pinch in)" aria-label="zoom out">−</button></div></div></div>
   <div id="side">
+    <button id="sheet-handle" aria-expanded="false"><span class="grip"></span><span id="sheet-peek">Log</span><span id="sheet-arrow">▲</span></button>
     <div id="info" hidden><button id="info-close" aria-label="close">×</button><div id="info-body"></div></div>
-    <div id="logwrap"><div id="hint">Tap a person to watch them. Space pauses/resumes; 0 pause, 1 = 1x, 2 = 10x, 3 = 60x.</div><div id="log"></div></div>
+    <div id="logwrap"><div id="tabs" role="tablist"></div><div id="log" role="log"></div>
+      <div id="hint">Click a person to inspect. Wheel or +/− zooms, drag pans. Space pauses; 0 pause, 1 = 1x, 2 = 10x, 3 = 60x.</div></div>
   </div>
 </div>
 <div id="toast"></div>

@@ -10,5 +10,47 @@
   ]
  },
  "bush_full.png": "16x16 with berries",
- "bush_empty.png": "16x16 eaten/regrowing"
+ "bush_empty.png": "16x16 eaten/regrowing",
+ "founders_16.png": {
+  "frame": 16,
+  "variants": 8,
+  "variant_block": "32x80, variant i at x=32*i",
+  "rows": [
+   "down",
+   "left",
+   "right",
+   "up",
+   "sleep"
+  ],
+  "cols": "frames 0-1 (sleep row: both same)"
+ },
+ "body_stages_16.png": {
+  "frame": 16,
+  "cols": [
+   "fresh",
+   "rotting",
+   "bones"
+  ],
+  "note": "bones stay as a lasting object"
+ },
+ "grazer_16.png": {
+  "frame": 16,
+  "rows": [
+   "down",
+   "left",
+   "right",
+   "up"
+  ],
+  "cols": "frames 0-1"
+ },
+ "scavenger_16.png": {
+  "frame": 16,
+  "rows": [
+   "down",
+   "left",
+   "right",
+   "up"
+  ],
+  "cols": "frames 0-1"
+ }
 }
