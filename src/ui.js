@@ -108,6 +108,10 @@
     $("btn-new").onclick = () => app.newWorld($("seed").value);
     $("btn-menu").onclick = () => { const o = $("top").classList.toggle("menu-open"); $("btn-menu").setAttribute("aria-expanded", o); };
     document.addEventListener("pointerdown", e => { if (!$("top").contains(e.target)) { $("top").classList.remove("menu-open"); $("btn-menu").setAttribute("aria-expanded", false); } });
+    // step 19: Parents / Children / partner names on the card select that person (the card is rebuilt each update, so delegate on pointerup;
+    // a keyboard press on the button arrives as a click with detail 0)
+    const selLink = e => { const b = e.target.closest && e.target.closest("[data-sel]"); if (!b) return; e.preventDefault(); app.select(+b.dataset.sel); };
+    $("info-body").addEventListener("pointerup", selLink); $("info-body").addEventListener("click", e => { if (e.detail === 0) selLink(e); });
     $("seed").addEventListener("keydown", e => { if (e.key === "Enter") app.newWorld($("seed").value); e.stopPropagation(); });
     $("info-close").onclick = () => app.select(null);
     $("sheet-handle").onclick = () => { const o = !$("side").classList.contains("open");
@@ -126,6 +130,24 @@
   const traitName = k => TRAIT[k] || k;
   const chip = (t, cls) => '<span class="chip' + (cls ? " " + cls : "") + '">' + t + '</span>';
   // step 18: group line + Relations (top 5 by familiarity; liking word warm 70+, neutral 40-69, wary under 40; the two numbers 0-100)
+  // step 19: a clickable name (44 px tall), "(died)" when only a body is left; plain text when nothing is left at all
+  function who(sim, id, name) { const w = G.Family.who(sim, id);
+    if (!w) return '<span class="lnk-gone">' + esc(name || "?") + ' (gone)</span>';
+    return '<button class="lnk" data-sel="' + w.id + '">' + esc(w.name) + (w.alive ? '' : ' (died)') + '</button>'; }
+  function familyRows(sim, a) {
+    const m = a.mate != null && sim.agents.find(q => q.id === a.mate), kids = a.children || [];
+    return '<div class="sec">Family</div><div class="sub">' + G.Family.sexWord(a) + (a.preg ? ' · with child, due ' + G.Time.stamp(a.preg.due) : '') + '</div>' +
+      '<div class="row fam"><span>Partner</span><div class="lnks">' + (m ? who(sim, m.id) : '<span class="dim">none</span>') + '</div></div>' +
+      '<div class="row fam"><span>Parents</span><div class="lnks">' + (a.parents ? a.parents.map((id, i) => who(sim, id, a.parentNames && a.parentNames[i])).join("") : '<span class="dim">none (founder)</span>') + '</div></div>' +
+      '<div class="row fam"><span>Children</span><div class="lnks">' + (kids.length ? kids.map(id => who(sim, id)).join("") : '<span class="dim">none</span>') + '</div></div>';
+  }
+  // traits; a baby's show ▲ / ▼ against the parents' average (a mutation is marked *)
+  function traitRows(o) {
+    const T = Object.entries(o.traits).map(([k, v]) => { const h = o.inh && o.inh[k], arr = h ? (v > h.avg ? ' ▲' : v < h.avg ? ' ▼' : ' =') + (h.mut ? '*' : '') : '';
+      return '<div class="row" title="' + esc(G.data.config.person.traits[k] || "") + (h ? ' · parents\' average ' + Math.round(h.avg) : '') + '"><span>' + traitName(k) + '</span>' + bar(v, 100, "trait") + '<b>' + Math.round(v) + (arr || '/100') + '</b></div>'; }).join("");
+    const L = o.inh && o.inh.lifespan;
+    return T + (L ? '<div class="sub">lifespan ' + Math.round(L.v) + ' years' + (L.v > L.avg ? ' ▲' : L.v < L.avg ? ' ▼' : '') + (L.mut ? '*' : '') + ' (parents\' average ' + Math.round(L.avg) + ')</div>' : '');
+  }
   function relRows(sim, a) {
     const S = G.Social, g = S.group(sim, a), top = S.top(sim, a);
     const grp = g ? '<div class="row rel"><span><i class="ring" style="border-color:' + S.color(sim, g) + '"></i>' + esc(S.groupName(sim, g)) + '</span><b>' + g.members.length + ' people</b></div>' +
@@ -175,7 +197,8 @@
     let bd = !a && !an && (sim.bodies || []).find(q => q.id === app.selected);
     const it = !a && !an && !bd && (sim.items || []).find(q => q.id === app.selected);
     if (!a && !an && !bd && app.selected != null) { bd = (sim.bodies || []).find(q => q.of === app.selected); if (bd) app.selected = bd.id; }   // the selected person died: follow to their body
-    info.hidden = !a && !an && !bd && !it;
+    const bb = !a && !an && !bd && !it && G.Family && G.Family.babyById(sim, app.selected);   // step 19: a baby
+    info.hidden = !a && !an && !bd && !it && !bb;
     const need = (label, v, cls, word, tip) => '<div class="row need" title="' + tip + '"><span>' + label + '</span>' + bar(v, 100, cls).replace('</div>', '<em>' + word + '</em></div>') + '<b>' + Math.round(v) + '/100</b></div>';
     if (it) {   // a thing: its material, form, where it is, and its property numbers (these alone decide what happens when it is struck, rubbed or cut)
       const P = G.Items.props(it), holder = it.heldBy != null && sim.agents.find(q => q.id === it.heldBy);
@@ -202,6 +225,19 @@
           : '<div class="sec">Decay</div>' + need("Flesh", bd.flesh, bd.stage === "rotting" ? "hot" : "", bd.stage, "fresh for " + BC.freshMinutes / 60 + " h, then rots away over " + BC.rotMinutes / 1440 + " days (sooner when scavengers feed)") +
             '<div class="sub">' + (bd.scavenged ? 'scavengers have fed here' : 'untouched by scavengers') + '</div>');
     }
+    if (bb) {
+      const c = bb.orphanAt == null && sim.agents.find(q => q.id === bb.carrier), days = Math.floor((sim.tick - bb.bornAt) * G.data.config.time.tickGameMinutes / 1440), n = bb.needs;
+      $("info-body").innerHTML = '<h3>' + esc(bb.name) + '</h3><div class="sub">baby · ' + (bb.sex === "m" ? "male" : "female") + ' · ' + (days < 28 ? days + ' day' + (days === 1 ? '' : 's') : Math.floor(bb.age) + ' year' + (Math.floor(bb.age) === 1 ? '' : 's') + ' ' + (days % 28) + ' d') + ' old · ' +
+          (c ? 'carried by ' : 'lying alone' + (bb.orphanAt != null ? ' for ' + ((sim.tick - bb.orphanAt) * G.data.config.time.tickGameMinutes / 60).toFixed(1) + ' h' : '')) + '</div>' +
+        (c ? '<div class="lnks">' + who(sim, c.id) + '</div>' : '') +
+        '<div class="sec">Needs (met when the carrier eats, drinks, sleeps)</div>' +
+        need("Fullness", n.fullness, n.fullness < G.Agent.fullnessThreshold(bb) ? "hot" : "", G.Agent.fullnessWord(n.fullness), "follows the carrier's") +
+        need("Water", n.water, n.water < G.Agent.waterThreshold(bb) ? "hot" : "water", G.Agent.waterWord(n.water), "follows the carrier's") +
+        need("Warmth", n.warmth, n.warmth < 30 ? "hot" : "warm", G.Agent.warmthWord(n.warmth), "follows the carrier's") +
+        '<div class="sec">Traits (0-100; ▲▼ vs parents\' average, * = mutation)</div>' + traitRows(bb) +
+        '<div class="sec">Family</div><div class="row fam"><span>Parents</span><div class="lnks">' + bb.parents.map((id, i) => who(sim, id, bb.parentNames[i])).join("") + '</div></div>' +
+        '<div class="sub">born ' + G.Time.stamp(bb.bornAt) + '</div>';
+    }
     if (a) {
       const A = G.Agent, PC = G.data.config.person, known = Object.keys(a.knowledge.bushes).length, n = a.needs;
       $("info-body").innerHTML = '<h3>' + esc(a.name) + '</h3><div class="sub">' + Math.floor(a.age) + ' years · ' + A.doing(a) + '</div>' +
@@ -213,14 +249,14 @@
         (a.zero && (a.zero.water > 0 || a.zero.fullness > 0 || a.zero.warmth > 0) ? '<div class="sub hot">' + [a.zero.water > 0 ? 'no water for ' + (a.zero.water / 60).toFixed(1) + ' h' : '', a.zero.fullness > 0 ? 'no food for ' + (a.zero.fullness / 60).toFixed(1) + ' h' : '', a.zero.warmth > 0 ? 'freezing for ' + (a.zero.warmth / 60).toFixed(1) + ' h' : ''].filter(Boolean).join(' · ') + '</div>' : '') +
         (a.act.type === "sleep" ? '<div class="sub">asleep since ' + G.Time.hhmm(G.Time.at(a.act.since)) + '</div>' : '') +
         '<div class="sec">Experience (0-100, ' + G.data.config.learn.start + ' = untried)</div>' + expRows(sim, a) +
-        '<div class="sec">Traits (0-100, 50 = avg)</div>' + Object.entries(a.traits).map(([k, v]) => '<div class="row" title="' + esc(G.data.config.person.traits[k] || "") + '"><span>' + traitName(k) + '</span>' + bar(v, 100, "trait") + '<b>' + Math.round(v) + '/100</b></div>').join("") +
-        relRows(sim, a) +
+        '<div class="sec">Traits (0-100, 50 = avg' + (a.inh ? '; ▲▼ vs parents' : '') + ')</div>' + traitRows(a) +
+        familyRows(sim, a) + relRows(sim, a) +
         '<div class="sec">Knows</div><div class="chips">' + chip(known + ' berry bush' + (known === 1 ? "" : "es")) + chip(waterKnown(a)) +
           chip('carrying ' + (G.Items.held(sim, a) ? esc(G.Items.label(G.Items.held(sim, a))) : 'nothing')) +
           (sim.discoveries || []).filter(d => d.who === a.name).map(d => chip(esc(d.action + " " + d.materials.slice(0, 2).join(" / ") + " → " + d.result), "disc")).join("") + '</div>' +
         '<div class="sub">' + a.stats.meals + ' meal' + (a.stats.meals === 1 ? "" : "s") + ' · ' + (a.stats.drinks || 0) + ' drink' + (a.stats.drinks === 1 ? "" : "s") + ' · ' + (a.stats.sleeps || 0) + ' sleep' + (a.stats.sleeps === 1 ? "" : "s") + '</div>';
     }
-    plogRender(sim, a ? a.id : bd ? bd.of : null, a ? a.name : bd ? bd.name : null);
+    plogRender(sim, a ? a.id : bd ? bd.of : bb ? bb.id : null, a ? a.name : bd ? bd.name : bb ? bb.name : null);
     const last = sim.log[sim.log.length - 1], key = UI.tab + "|" + sim.log.length + "|" + (last && last.t) + "|" + (last && last.text);
     if (UI._logKey !== key) {
       UI._logKey = key;

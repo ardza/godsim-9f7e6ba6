@@ -54,8 +54,13 @@
 
   // ---------- groups ----------
   const nameList = names => names.length <= 1 ? names.join("") : names.length <= 4 ? names.slice(0, -1).join(", ") + " and " + names[names.length - 1] : names.slice(0, 3).join(", ") + " and " + (names.length - 3) + " others";
-  Social.hue = (sim, id) => Math.round((G.RNG.hash2(id, 18, sim.seed) * 360 + id * 137.508) % 360);
-  Social.color = (sim, g, alpha) => "hsla(" + g.hue + ",85%,60%," + (alpha == null ? 1 : alpha) + ")";
+  // Director (call 7 on 18): six saturated colours clear of meadow green, sand and water blue. A new group takes the first colour no
+  // current group has, starting from a seeded spot in the list (hash, no draw); with 6+ groups colours repeat. Kept while the group lasts.
+  Social.PALETTE = [[255, 60, 230], [255, 140, 20], [40, 230, 255], [255, 230, 40], [240, 40, 40], [255, 255, 255]];
+  Social.PALETTE_NAMES = ["magenta", "orange", "cyan", "yellow", "red", "white"];
+  Social.pickColor = (sim, id, taken) => { const N = Social.PALETTE.length, s0 = Math.floor(G.RNG.hash2(id, 18, sim.seed) * N) % N;
+    for (let k = 0; k < N; k++) { const c = (s0 + k) % N; if (!taken || taken.indexOf(c) < 0) return c; } return s0; };
+  Social.color = (sim, g, alpha) => { const c = Social.PALETTE[(g.ci || 0) % Social.PALETTE.length]; return "rgba(" + c.join(",") + "," + (alpha == null ? 1 : alpha) + ")"; };
   Social.group = (sim, a) => a && a.group != null ? (sim.groups || []).find(g => g.id === a.group) || null : null;
   Social.groupName = (sim, g) => g ? "Group " + g.id : "";
   Social.mutual = (a, b) => { const C = S().group, p = Social.rel(a, b), q = Social.rel(b, a); return !!p && !!q && p.f >= C.fam && q.f >= C.fam && p.l >= C.like && q.l >= C.like; };
@@ -83,11 +88,11 @@
         const join = c.filter(id => g.members.indexOf(id) < 0), left = g.members.filter(id => c.indexOf(id) < 0), nm = ids => ids.map(id => alive[id].name);
         for (const id of join) G.Sim.log(sim, alive[id].name + " now keeps with " + nameList(nm(g.members)), [alive[id]].concat(g.members.map(i => alive[i])));
         for (const id of left) G.Sim.log(sim, alive[id].name + " no longer keeps with " + nameList(nm(c)), [alive[id]].concat(c.map(i => alive[i])));
-        out.push({ id: g.id, hue: g.hue, members: c, since: g.since }); }
+        out.push({ id: g.id, ci: g.ci, members: c, since: g.since }); }
       else if (g.members.length >= 2) G.Sim.log(sim, nameList(g.members.map(id => alive[id].name)) + " no longer keep together", g.members.map(id => alive[id]), "group");
     }
     comps.forEach((c, i) => { if (used[i]) return; const id = sim.nextGroup++;
-      out.push({ id, hue: Social.hue(sim, id), members: c, since: sim.tick });
+      out.push({ id, ci: Social.pickColor(sim, id, out.map(g => g.ci)), members: c, since: sim.tick });
       G.Sim.log(sim, nameList(c.map(x => alive[x].name)) + " now keep together", c.map(x => alive[x]), "group"); });
     out.sort((p, q) => p.id - q.id); sim.groups = out;
     for (const a of A) a.group = null; for (const g of out) for (const id of g.members) alive[id].group = g.id;
@@ -112,7 +117,7 @@
       c.sort((p, q) => p.s - q.s || p.x - q.x || p.y - q.y);
       for (const q of c.slice(0, 4)) if (walkTo(q.x, q.y, "avoid", { from: bad.id })) { const st = sim.socStats || (sim.socStats = { took: 0 }); st.avoids = (st.avoids || 0) + 1; return true; }
     }
-    if (best) { const d = Math.hypot(best.pos.x - a.pos.x, best.pos.y - a.pos.y), [lo, hi] = C.follow.off;
+    if (best && !Social.followOff(sim, a)) { const d = Math.hypot(best.pos.x - a.pos.x, best.pos.y - a.pos.y), [lo, hi] = C.follow.off;
       if (d > hi + 0.5) { const bx = Math.round(best.pos.x), by = Math.round(best.pos.y), c = [];
         for (let dy = -hi; dy <= hi; dy++) for (let dx = -hi; dx <= hi; dx++) { const k = Math.hypot(dx, dy); if (k < lo || k > hi + 0.5 || !free(bx + dx, by + dy)) continue;
           c.push({ x: bx + dx, y: by + dy, s: Math.hypot(bx + dx - a.pos.x, by + dy - a.pos.y) }); }
@@ -126,7 +131,12 @@
     const C = S(); if (!a.rel) return true;
     for (const b of sim.agents) { if (b === a) continue; const e = a.rel[b.id]; if (!e) continue; const d = Math.hypot(b.pos.x - x, b.pos.y - y);
       if (e.l < C.avoid.below && d < C.avoid.tiles) return false; }
-    const f = Social.friend(sim, a); return !f || Math.hypot(f.pos.x - x, f.pos.y - y) <= C.follow.off[1] + 0.5 || Math.hypot(f.pos.x - a.pos.x, f.pos.y - a.pos.y) > C.follow.off[1] + 0.5;
+    const f = !Social.followOff(sim, a) && Social.friend(sim, a); return !f || Math.hypot(f.pos.x - x, f.pos.y - y) <= C.follow.off[1] + 0.5 || Math.hypot(f.pos.x - a.pos.x, f.pos.y - a.pos.y) > C.follow.off[1] + 0.5;
+  };
+  // Director (call 2 on 18): no following in Deep Cold, or while any of her own needs is under follow.offBelow (she sees to herself first)
+  Social.followOff = function (sim, a) {
+    const F = S().follow, n = a.needs; if (F.offSeason != null && G.Climate.seasonIndex(sim.tick) === F.offSeason) return true;
+    return n.fullness < F.offBelow || n.water < F.offBelow || n.energy < F.offBelow || n.warmth < F.offBelow;
   };
   // the most-liked person within follow.tiles with liking >= minLike (ties: lower id)
   Social.friend = function (sim, a) {

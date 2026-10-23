@@ -26,7 +26,10 @@
     carcass: { src: "data/art/grazer_carcass_16.png", frame: 16, cols: ["fresh", "picked", "bones"] },   // 48x16
     // Artist 03:16 (godsim-previews/next/smoke_16.png): overlays drawn over the tile like the fire fx, base tile art unchanged.
     // smoulder_0/1 on a lightning-struck tree that smoulders (an ember holding in the woods); wisp_0/1 rising one tile above it and above burning woods.
-    smoke: { src: "data/art/smoke_16.png", frame: 16, cols: ["wisp_0", "wisp_1", "smoulder_0", "smoulder_1"] }   // 64x16
+    smoke: { src: "data/art/smoke_16.png", frame: 16, cols: ["wisp_0", "wisp_1", "smoulder_0", "smoulder_1"] },   // 64x16
+    // Artist 03:55 (step 19): carried_* drawn on top of the carrier at the same origin, matching her facing; lying = a baby on the ground
+    // (beside a sleeping carrier, or left alone). Code fallback in render.js when the sheet is missing.
+    baby: { src: "data/art/baby_16.png", frame: 16, cols: ["carried_down", "carried_left", "carried_right", "carried_up", "lying"] }   // 80x16
   };
   G.data.artItems = G.data.art.items.cols;   // which item frames exist (a sharp bone uses bone_shard; other shards use their material)
 })(this.GS = this.GS || {});

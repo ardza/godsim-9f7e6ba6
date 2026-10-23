@@ -1,0 +1,131 @@
+// Step 19: pairs, conception, pregnancy, birth, inheritance and carried babies. Numbers in config.family (documented there).
+// Every random draw here (sex, conception, inheritance) uses its own seeded stream sim.frng, so the other streams run as before.
+// Babies live in sim.babies, not sim.agents: until step 20 they are carried and their needs follow the carrier's (no AI of their own).
+(function (G) {
+  const CF = () => G.data.config, FC = () => CF().family, TM = () => CF().time.tickGameMinutes;
+  const Family = {};
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v)), r2 = v => Math.round(v * 100) / 100;
+  const cheb = (p, q) => Math.max(Math.abs(Math.round(p.x) - Math.round(q.x)), Math.abs(Math.round(p.y) - Math.round(q.y)));
+  const byId = (sim, id) => sim.agents.find(a => a.id === id) || null;
+  Family.pron = a => a && a.sex === "m" ? "him" : "her";
+  Family.poss = a => a && a.sex === "m" ? "his" : "her";
+  Family.sexWord = a => a.sex === "m" ? "male" : a.sex === "f" ? "female" : "-";
+
+  Family.init = function (sim) {
+    sim.frng = new G.RNG((sim.seed ^ 0xFA3117E5) >>> 0); sim.babies = [];
+    sim.famStats = { pairs: 0, breaks: 0, conceptions: 0, births: 0, babyDeaths: 0, adoptions: 0, lost: 0, capHits: 0, okNights: 0, birthTicks: [] };
+    for (const a of sim.agents) Family.setup(sim, a);
+  };
+  Family.setup = (sim, a) => { if (!a.sex) a.sex = sim.frng.chance(0.5) ? "f" : "m"; if (!a.children) a.children = []; if (!a.parents) a.parents = null; };
+  Family.population = sim => sim.agents.length + (sim.babies || []).length + sim.agents.filter(a => a.preg).length;
+  Family.mateOf = (sim, a) => a.mate != null ? byId(sim, a.mate) : null;
+  Family.besideMate = (sim, a) => { const m = Family.mateOf(sim, a); return !!m && cheb(a.pos, m.pos) <= FC().conceive.tiles; };
+
+  // bedtime: walk to a free tile within conceive.tiles of the partner (if within follow tiles and not already there)
+  Family.goToMate = function (sim, a) {
+    const m = Family.mateOf(sim, a); if (!m) return false;
+    if (m.act.type === "walk" && m.act.goal === "mate") return false;   // the partner is already on the way to her: lie down here
+    // where the partner will be: the end of her walk, else where she is
+    const mp = m.act.type === "walk" && m.act.path && m.act.path.length ? { x: m.act.path[m.act.path.length - 1][0], y: m.act.path[m.act.path.length - 1][1] } : m.pos;
+    const d = Math.hypot(mp.x - a.pos.x, mp.y - a.pos.y);
+    if (d > CF().social.follow.tiles || cheb(a.pos, mp) <= FC().conceive.tiles) return false;
+    const mx = Math.round(mp.x), my = Math.round(mp.y), cand = [];
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { if (!dx && !dy) continue; const x = mx + dx, y = my + dy;
+      if (!G.World.inb(sim.world, x, y) || !G.World.walkable(sim.world, x, y) || G.Agent.claimed(sim, a, x, y)) continue;
+      const st = G.Fire.state(sim, x, y); if (st && (st.s === "fire" || st.s === "ember")) continue;
+      cand.push({ x, y, d: Math.hypot(x - a.pos.x, y - a.pos.y) }); }
+    cand.sort((p, q) => p.d - q.d || p.y - q.y || p.x - q.x);
+    for (const c of cand.slice(0, 3)) if (G.Agent.walkTo(sim, a, c.x, c.y, "mate")) return true;
+    return false;
+  };
+
+  // daily (with the step-18 daily groups): pairs break, then new pairs form (highest mutual liking first)
+  function daily(sim) {
+    const B = FC().bond, St = sim.famStats;
+    for (const a of sim.agents) { if (a.mate == null) continue; const m = byId(sim, a.mate);
+      if (!m) { a.mate = null; continue; }
+      if (a.id < m.id && (G.Social.like(a, m) < B.breakBelow || G.Social.like(m, a) < B.breakBelow)) { a.mate = null; m.mate = null; St.breaks++; G.Sim.log(sim, a.name + " and " + m.name + " no longer stay close by night", [a, m]); } }
+    const free = sim.agents.filter(a => a.mate == null && a.age >= B.age[0] && a.age <= B.age[1]), cand = [];
+    for (let i = 0; i < free.length; i++) for (let j = i + 1; j < free.length; j++) { const a = free[i], b = free[j], p = G.Social.rel(a, b), q = G.Social.rel(b, a);
+      if (p && q && p.l >= B.like && q.l >= B.like && p.f >= B.fam && q.f >= B.fam) cand.push({ a, b, s: p.l + q.l }); }
+    cand.sort((x, y) => y.s - x.s || Math.min(x.a.id, x.b.id) - Math.min(y.a.id, y.b.id) || Math.max(x.a.id, x.b.id) - Math.max(y.a.id, y.b.id));
+    for (const c of cand) { if (c.a.mate != null || c.b.mate != null) continue; c.a.mate = c.b.id; c.b.mate = c.a.id; St.pairs++;
+      G.Sim.log(sim, c.a.name + " and " + c.b.name + " stay close by night now", [c.a, c.b]); }
+  }
+
+  // once a night: a pair asleep side by side, both fed / watered / warm enough, room in the group's world -> p = conceive.chance
+  function nightly(sim) {
+    const C = FC().conceive, St = sim.famStats;
+    for (const a of sim.agents) { if (a.sex !== "f" || a.preg || a.mate == null) continue; const m = byId(sim, a.mate); if (!m || m.sex !== "m") continue;
+      if (a.act.type !== "sleep" || m.act.type !== "sleep" || cheb(a.pos, m.pos) > C.tiles) continue;
+      if ([a, m].some(p => p.needs.fullness < C.fullness || p.needs.water < C.water || p.needs.warmth < C.warmth)) continue;
+      St.okNights = (St.okNights || 0) + 1;   // a night that met every condition (diagnostic)
+      if (Family.population(sim) >= CF().pop.maxPeople) { St.capHits++; continue; }
+      if (!sim.frng.chance(C.chance)) continue;
+      a.preg = { since: sim.tick, due: sim.tick + Math.round(FC().pregnancy.days * 1440 / TM()), father: m.id, fatherName: m.name, ftraits: Object.assign({}, m.traits), flife: m.lifespan, fgroup: m.group };
+      St.conceptions++; G.Sim.log(sim, a.name + " is with child", a);
+    }
+  }
+
+  // a new baby beside the carrier: traits = parents' average x (1 +- drift), 2% chance each of a further x (1 +- mutation.size)
+  function inherit(sim, mv, fv, lo, hi, round) {
+    const F = FC(), r = sim.frng, avg = (mv + fv) / 2; let v = avg * (1 + r.range(-F.drift, F.drift)), mut = 0;
+    if (r.chance(F.mutation.chance)) { mut = r.chance(0.5) ? 1 : -1; v *= 1 + mut * F.mutation.size; }
+    v = clamp(v, lo, hi); return { avg: r2(avg), v: round ? Math.round(v) : r2(v), mut };
+  }
+  function birth(sim, a) {
+    const p = a.preg, St = sim.famStats, inh = {}, traits = {}; a.preg = null;
+    for (const k of Object.keys(a.traits)) { const t = inherit(sim, a.traits[k], p.ftraits[k] != null ? p.ftraits[k] : a.traits[k], 0, 100, true); traits[k] = t.v; inh[k] = t; }
+    const L = inherit(sim, a.lifespan, p.flife || a.lifespan, FC().lifespanClamp[0], FC().lifespanClamp[1], false); inh.lifespan = L;
+    const b = { id: sim.nextId++, kind: "baby", name: G.Sim.nextName(sim), sex: sim.frng.chance(0.5) ? "f" : "m", look: a.look || 0,
+      pos: { x: a.pos.x, y: a.pos.y }, facing: a.facing, age: 0, lifespan: L.v, traits, inh,
+      needs: Object.assign({}, a.needs), zero: { water: 0, fullness: 0, warmth: 0 },
+      carrier: a.id, carrierName: a.name, parents: [a.id, p.father], parentNames: [a.name, p.fatherName], bornAt: sim.tick, group: a.group != null ? a.group : null, children: [] };
+    sim.babies.push(b); a.children.push(b.id); const f = byId(sim, p.father); if (f) (f.children || (f.children = [])).push(b.id);
+    St.births++; St.birthTicks.push(sim.tick);
+    G.Sim.log(sim, a.name + " gives birth; a baby lies beside " + Family.pron(a), [a, b, p.father], "birth");
+  }
+
+  // babies: carried (position / needs follow the carrier); a carrier's death leaves them lying alone until an adult takes them up or a day passes
+  function babies(sim) {
+    const F = FC(), tm = TM(), dead = [];
+    for (const b of sim.babies) {
+      b.age += tm / (1440 * G.Time.daysPerYear());
+      const c = b.orphanAt == null ? byId(sim, b.carrier) : null;
+      if (c) { b.pos.x = c.pos.x; b.pos.y = c.pos.y; b.facing = c.facing; b.group = c.group != null ? c.group : null;
+        b.needs = Object.assign({}, c.needs); b.zero = Object.assign({}, c.zero); continue; }
+      if (b.orphanAt == null) { b.orphanAt = sim.tick; b.pos = { x: Math.round(b.pos.x), y: Math.round(b.pos.y) }; G.Sim.log(sim, b.name + " lies alone", b); }
+      const adult = sim.agents.filter(q => (q.group != null && q.group === b.group || b.parents.indexOf(q.id) >= 0) && q.age >= 16 && Math.hypot(q.pos.x - b.pos.x, q.pos.y - b.pos.y) <= F.adoptTiles)
+        .sort((p, q) => Math.hypot(p.pos.x - b.pos.x, p.pos.y - b.pos.y) - Math.hypot(q.pos.x - b.pos.x, q.pos.y - b.pos.y) || p.id - q.id)[0];
+      if (adult) { b.orphanAt = null; b.carrier = adult.id; b.carrierName = adult.name; sim.famStats.adoptions++;
+        G.Sim.log(sim, adult.name + " picks up " + b.name + " and carries the baby", [adult, b], "birth"); continue; }
+      if (sim.tick - b.orphanAt >= F.orphanMinutes / tm) dead.push(b);
+    }
+    for (const b of dead) { sim.babies.splice(sim.babies.indexOf(b), 1); sim.famStats.babyDeaths++;
+      G.Sim.log(sim, b.name + " lies still. " + b.name + " has died of being left alone.", b, "death");
+      const body = G.Body.create(sim, b, "being left alone"); body.baby = true; sim.bodies.push(body); }
+  }
+
+  Family.step = function (sim) {
+    if (!sim.babies) return; const tm = TM();
+    if ((sim.tick * tm) % 1440 === 0) daily(sim);   // with Social.daily (relations and groups are fresh)
+    if (G.Time.at(sim.tick).minuteOfDay === FC().conceive.atMinute) nightly(sim);   // clock time (2:00 AM)
+    for (const a of sim.agents) if (a.preg && sim.tick >= a.preg.due) birth(sim, a);
+    if (sim.babies.length) babies(sim);
+  };
+  // a death: a pregnancy ends with her; the partner is free again (at the next daily check)
+  Family.onDeath = function (sim, a) {
+    if (a.preg) { a.preg = null; sim.famStats.lost++; }
+    const m = Family.mateOf(sim, a); if (m) m.mate = null;
+  };
+  Family.babyById = (sim, id) => (sim.babies || []).find(b => b.id === id) || null;
+  // name / state of anyone by id: a living person, a baby, or a body
+  Family.who = function (sim, id) {
+    const a = byId(sim, id); if (a) return { id, name: a.name, alive: true };
+    const b = Family.babyById(sim, id); if (b) return { id, name: b.name, alive: true, baby: true };
+    const d = sim.bodies.find(q => q.of === id); if (d) return { id: d.id, name: d.name, alive: false };
+    return null;
+  };
+  Family._daily = daily; Family._nightly = nightly; Family._birth = birth; Family._inherit = inherit;   // for tests
+  G.Family = Family;
+})(this.GS = this.GS || {});

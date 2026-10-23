@@ -103,5 +103,16 @@
    "smoulder_1"
   ],
   "note": "overlay on tree tile, like fire fx"
+ },
+ "baby_16.png": {
+  "frame": 16,
+  "cols": [
+   "carried_down",
+   "carried_left",
+   "carried_right",
+   "carried_up",
+   "lying"
+  ],
+  "note": "carried_* drawn on top of the parent at the same origin, matching her facing; lying = baby on the ground"
  }
 }

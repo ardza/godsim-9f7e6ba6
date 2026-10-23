@@ -2,7 +2,7 @@
 (function (G) {
   G.data = G.data || {};
   G.data.config = {
-    saveVersion: 12,                // v12: relations (familiarity, liking) and groups; v11: cooked meat (heat), grazer births (own stream), cook score; v10: hunting, carcasses, meat, lightning; v9: varied maps (spawn, hills, map info; no lake/source); v8: learning (experience scores, copying), seasonal food, per-person logs; v7: objects, physics + discoveries, temperature + warmth, fire (v6: aging, death, bodies, animals); older saves are rejected
+    saveVersion: 13,                // v13: sex, pairs, pregnancy, babies (own stream frng), burning sticks; v12: relations (familiarity, liking) and groups; v11: cooked meat (heat), grazer births (own stream), cook score; v10: hunting, carcasses, meat, lightning; v9: varied maps (spawn, hills, map info; no lake/source); v8: learning (experience scores, copying), seasonal food, per-person logs; v7: objects, physics + discoveries, temperature + warmth, fire (v6: aging, death, bodies, animals); older saves are rejected
     saveKey: "godsim.save",
     map: {
       w: 60, h: 40, tilePx: 16,      // map is 960x640 art px, scaled to fit the screen
@@ -184,7 +184,13 @@
       // catches is the same dryness rule as a spark (p = igniteScale x dryness factor), so wet ground (sand, near water, Deep Cold) rarely burns.
       // On a woods tile it hits a tree: the dead wood in a snag is drier than the litter (+snagDry), and a struck tree can smoulder for days
       // (a "holdover": ember lasting holdMinutes, flaring up at holdFlare x the normal ember rate); its smoke is seen from smokeTiles away.
-      lightning: { perSeason: [12, 6, 30, 8], snagDry: 20, holdMinutes: [2880, 30240], holdFlare: 0.01, smokeTiles: 40 }
+      lightning: { perSeason: [12, 6, 30, 8], snagDry: 20, holdMinutes: [2880, 30240], holdFlare: 0.01, smokeTiles: 40 },
+      // Step 19 (Director call 1 on 18): carrying fire. A stick lying on a tile that catches fire is not burned away: it becomes a burning stick, lit
+      // until the flames there die down plus litMinutes. Once the tile no longer burns (ember / ash, no flames within fleeTiles), an idle person
+      // with it in sight may go and pick it up: p = grabChance x (fire score / 50)^2 x (1.5 - fireFear/100) (learning stream). She carries it until
+      // it burns out (or a need / bedtime makes her put it down). Held or lying, it warms like an ember. Lying on dry ground or by a dry stick it
+      // can light that tile by the ember rule: p per minute = fire.emberToFire x dryness factor -> a new ember there (orng; nothing scripted).
+      brand: { litMinutes: 120, grabChance: 0.5, minLeftMinutes: 30 }
     },
     // Steps 13-14 learning. Each person keeps their own experience score (0-100, 50 = no experience) per action they have felt the result of.
     // Behaviour shifts only from that score (what this person felt) or from copying someone nearby who benefited; nothing is scripted and nothing is said.
@@ -196,8 +202,24 @@
     //   groups: every game day, connected components (2+) of pairs whose mutual familiarity AND liking are >= 60. copy odds x member / x other.
     //   skillAt: a group knows the union of its members' learned scores >= skillAt. Card words: warm >= 70, neutral 40-69, wary < 40.
     social: { nearTiles: 4, famPerHour: 1, famDropPerDay: 1, like: { start: 50, shared: 2, took: -3, driftPerDay: 1 / 3, gapMinutes: 30 },
-      follow: { minLike: 60, tiles: 15, off: [1, 3] }, avoid: { below: 25, tiles: 3 }, group: { fam: 60, like: 60, min: 2 },
+      follow: { minLike: 60, tiles: 15, off: [1, 3], offBelow: 50, offSeason: 3 },   // Director (call 2 on 18): no following in Deep Cold (season 3) or while any of her needs is under 50
+      avoid: { below: 25, tiles: 3 }, group: { fam: 60, like: 60, min: 2 },
       copy: { member: 1.25, other: 0.85 }, skillAt: 40, words: { warm: 70, neutral: 40 }, cardTop: 5 },
+    // Step 19 reproduction and inheritance (src/family.js; own seeded stream frng, so the other streams are unchanged).
+    //   sex: 50/50 per person (founders at seed time, babies at birth); the "f" partner of a pair is the carrier.
+    //   bond: two adults (bond.age years) whose mutual liking >= like and familiarity >= fam become a pair (one each), checked daily; it breaks
+    //     if either liking drops under breakBelow or one dies. A paired person goes to lie down next to her partner at bedtime (once a night).
+    //   conception: once a night at atMinute (2:00 AM) a pair asleep within tiles (Chebyshev) of each other, both fullness/water >= 50 and
+    //     warmth >= 40, population (people + babies + pregnancies) under pop.maxPeople: p = chance.
+    //   pregnancy: days (one season); the carrier's fullness drain x drain. If she dies, nothing is born.
+    //   inheritance: each trait and lifespan = parents' average x (1 +- drift); mutation.chance per trait of a further x (1 +- mutation.size).
+    //     Learned scores are not inherited. Traits clamp 0-100; lifespan to lifespanClamp.
+    //   babies (age < babyYears): carried on the carrier's tile; their needs follow hers (met when she eats, drinks, sleeps). If the carrier
+    //     dies the baby lies alone; an adult of its group (or a parent) within adoptTiles takes it up; else it dies after orphanMinutes.
+    family: { bond: { age: [16, 45], like: 75, fam: 70, breakBelow: 40 },
+      conceive: { atMinute: 120, tiles: 1, fullness: 50, water: 50, warmth: 40, chance: 0.02 },
+      pregnancy: { days: 7, drain: 1.25 }, drift: 0.05, mutation: { chance: 0.02, size: 0.2 }, lifespanClamp: [40, 120],
+      babyYears: 3, adoptTiles: 2, orphanMinutes: 1440 },
     learn: {
       start: 50,                      // score before any experience
       // fire: a cold person (warmth < coldBelow) within emberTiles of an ember (or heatTiles of a fire) whose warmth the heat is helping gains
@@ -223,7 +245,8 @@
     // Grazers bolt from anyone inside their fleeWithin (4 tiles), so the one strike comes as she closes to strikeTiles (a lunge or a thrown stone):
     //   p(kill) = base + sharp (held sharpness >= physics.sharpAt: flint 45, any sharp shard) + learned (her hunt score >= learnedAt).
     // A kill raises her score by gain (a visible success others within copyTiles may copy); a miss lowers it by missDrop.
-    hunt: { minHardness: 20, sightTiles: 12, strikeTiles: 4, approachChance: 0.5, cooldownMinutes: 120, giveUpMinutes: 90,
+    hunt: { coldBelow: 30,   // Director (call 1 on 18): only warmth under 30 stops a hunt (step 17 used her warmth-seeking level)
+      minHardness: 20, sightTiles: 12, strikeTiles: 4, approachChance: 0.5, cooldownMinutes: 120, giveUpMinutes: 90,
       odds: { base: 0.10, sharp: 0.30, learned: 0.20 }, learnedAt: 60,
       gain: 20, missDrop: 2, sickDrop: 5,
       scavengeChance: 0.5 },   // a fresh carcass with meat in sight (sightTiles): p(go and take meat) = scavengeChance x hunt score / 50
@@ -247,7 +270,7 @@
       weights: { edge: 6, meadow: 1, woods: 0.4 } }, // edge = meadow/woods border
     log: { max: 200, personMax: 200,   // personMax: each person's own log keeps their last 200 events (saved)
       // log line colours: first matching rule wins, else "info". Tabs filter the log; a tab with no match shows everything.
-      kinds: [{ kind: "warn", match: "has died|is freezing|is cold|catches fire|burns|burned|is sick|is starving|is hungry|bush bare|bush was bare|bush taken|is thirsty|is parched|is exhausted|woke up (hungry|thirsty)" }],
+      kinds: [{ kind: "birth", match: "gives birth|stay close by night|carries the baby" }, { kind: "warn", match: "has died|is freezing|is cold|catches fire|burns|burned|is sick|is starving|is hungry|bush bare|bush was bare|bush taken|is thirsty|is parched|is exhausted|woke up (hungry|thirsty)" }],
       tabs: [{ key: "all", label: "All" },
              { key: "food", label: "Food", match: "bush|berr|meal|hungry|starving|meat|grazer" },
              { key: "water", label: "Water", match: "water|drink|thirst|parched|lake|river" },

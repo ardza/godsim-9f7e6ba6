@@ -18,6 +18,7 @@
     for (const a of app.sim.animals || []) consider(a, a.pos, 0.15);
     for (const b of app.sim.bodies || []) consider(b, { x: b.x, y: b.y }, 0.3);
     for (const it of app.sim.items || []) if (it.heldBy == null) consider(it, { x: it.x, y: it.y }, 0.4);
+    for (const b of app.sim.babies || []) if (b.orphanAt != null) consider(b, b.pos, 0.2);   // step 19: a baby left lying alone (a carried one: tap the carrier)
     app.select(best ? best.id : null);
   };
   // Test-only console hooks (not in the UI): hold a person's water / fullness at 0 so a need-death and the decay can be watched (README).

@@ -14,12 +14,12 @@
   Fire.dryness = function (sim, x, y) {
     if (!W.inb(sim.world, x, y) || !W.walkable(sim.world, x, y) || sim.fire[key(x, y)]) return 0;
     let d = G.Climate.groundDryness(sim.world, x, y, sim.tick);
-    for (const it of sim.items) if (!it.heldBy && it.x === x && it.y === y && G.Items.props(it).burns) d = Math.max(d, it.props.dryness);
+    for (const it of sim.items) if (!it.heldBy && !it.lit && it.x === x && it.y === y && G.Items.props(it).burns) d = Math.max(d, it.props.dryness);   // a burning stick is not fresh fuel
     return d;
   };
   const dryFactor = d => Math.max(0, (d - F().minDryness) / (100 - F().minDryness));
   Fire.fuelName = function (sim, x, y) {
-    const g = G.Climate.groundDryness(sim.world, x, y, sim.tick), st = sim.items.find(it => !it.heldBy && it.x === x && it.y === y && G.Items.props(it).burns && it.props.dryness > g);
+    const g = G.Climate.groundDryness(sim.world, x, y, sim.tick), st = sim.items.find(it => !it.heldBy && !it.lit && it.x === x && it.y === y && G.Items.props(it).burns && it.props.dryness > g);
     if (st) return "dry " + G.Items.baseLabel(st);
     return W.tile(sim.world, x, y) === G.data.T.WOODS ? "dry leaf litter" : "dry grass";
   };
@@ -59,15 +59,58 @@
     ev.tiles++; sim.fireStats.tiles++;
     // what burns here: bushes (bare until the ground regrows), dry sticks (gone), flesh (bones remain)
     for (const b of sim.bushes) if (b.x === x && b.y === y && F().bushBurns) { b.ripe = false; b.burnt = true; b.regrow = -mins(F().ashMinutes + F().regrowMinutes); sim.fireStats.bushes = (sim.fireStats.bushes || 0) + 1; }
-    const gone = sim.items.filter(it => !it.heldBy && it.x === x && it.y === y && G.Items.props(it).burns);
-    if (gone.length) { sim.items = sim.items.filter(it => !gone.includes(it)); sim.fireStats.itemsBurned = (sim.fireStats.itemsBurned || 0) + gone.length; }
+    // step 19 (Director call 1 on 18): a stick lying here is not burned away - it catches and burns on as a burning stick until the flames
+    // here die down plus brand.litMinutes, then burns out
+    for (const it of sim.items) if (!it.heldBy && it.x === x && it.y === y && G.Items.props(it).burns) {
+      const until = sim.tick + mins(F().burnMinutes[tl] + F().brand.litMinutes); if (!it.lit) { sim.fireStats.itemsBurned = (sim.fireStats.itemsBurned || 0) + 1; sim.fireStats.brands = (sim.fireStats.brands || 0) + 1; }
+      it.lit = Math.max(it.lit || 0, until); }
     for (const b of sim.bodies) if (b.x === x && b.y === y && b.flesh > 0) { if (G.Hunt && G.Hunt.carcassMeat(b)) { G.Sim.log(sim, "Flames sweep over " + b.name + "'s carcass", b); continue; }   // step 17: a carcass with meat is roasted by the heat (cook.js), not burned to bones
       b.flesh = 0; b.stage = "bones"; b.stageAt = sim.tick; b.material = CF().body.material; b.burnt = true; G.Sim.log(sim, "Flames burn " + b.name + "'s body down to the bones", b); }
   }
   Fire.ignite = ignite;
 
+  // step 19: burning sticks. Burn out at it.lit (in the hand or on the ground). One lying on a tile with no fire of its own may set that tile
+  // smouldering by the ember rule, p per minute = emberToFire x dryness factor of what is there (ground or another dry stick) -> a new ember.
+  Fire.brands = function (sim) {
+    let any = false; for (const it of sim.items) if (it.lit) { any = true; break; } if (!any) return;   // no draw while there are none
+    const Fc = F(), out = [];
+    for (const it of sim.items) { if (!it.lit) continue;
+      if (sim.tick >= it.lit) { out.push(it); const h = it.heldBy != null ? sim.agents.find(a => a.id === it.heldBy) : null;
+        if (h) { h.carry = null; h.carryUntil = null; G.Sim.log(sim, h.name + "'s burning stick burns out", h); }
+        sim.fireStats.brandsOut = (sim.fireStats.brandsOut || 0) + 1; continue; }
+      if (it.heldBy != null || sim.fire[key(it.x, it.y)]) continue;
+      const d = Fire.dryness(sim, it.x, it.y); if (d <= Fc.minDryness || !sim.orng.chance(Fc.emberToFire * dryFactor(d) * TM())) continue;
+      const S = sim.fireStats, fuel = Fire.fuelName(sim, it.x, it.y), who = it.lastBy != null ? (sim.agents.find(a => a.id === it.lastBy) || { id: it.lastBy, name: it.lastByName }) : null;
+      const combo = who ? { action: "lay down", held: "burning stick", target: fuel } : null;
+      const ev = { id: S.events.length + 1, start: sim.tick, x: it.x, y: it.y, by: who ? who.id : null, byName: who ? who.name : null, combo, fuel, tiles: 0, fired: false, end: null, regrown: null, brand: true };
+      S.events.push(ev); S.embers++; S.brandEmbers = (S.brandEmbers || 0) + 1;
+      sim.fire[key(it.x, it.y)] = { s: "ember", t: sim.tick, end: sim.tick + mins(sim.orng.int(Fc.emberMinutes[0], Fc.emberMinutes[1])), ev: ev.id };
+      G.Sim.log(sim, "The burning stick sets the " + fuel + " smouldering", who && who.id != null ? who : undefined);
+      if (who) G.Discoveries.note(sim, who, combo.action, [combo.held, combo.target], "ember");
+    }
+    if (out.length) sim.items = sim.items.filter(it => !out.includes(it));
+  };
+  // step 19: an idle person may go and take up a burning stick lying in sight, away from the flames. Emergent odds, the step-14 approach rule:
+  // p = grabChance x (fire score / 50)^2 x (1.5 - fireFear / 100), rolled (learning stream) only when there is one to take.
+  Fire.maybeGrab = function (sim, a) {
+    if (a.carry != null) return false; const B = F().brand, R = CF().person.sightTiles; let best = null;
+    for (const it of sim.items) { if (!it.lit || it.heldBy != null || it.lit - sim.tick < B.minLeftMinutes / TM()) continue;
+      const d = Math.hypot(it.x - a.pos.x, it.y - a.pos.y); if (d > R || (best && d >= best.d)) continue;
+      const st = sim.fire[key(it.x, it.y)]; if (st && st.s === "fire") continue; if (Fire.nearestFlame(sim, it.x, it.y) < F().fleeTiles) continue;
+      if (sim.agents.some(b => b !== a && b.act.goal === "pickup" && b.act.target === it.id)) continue;
+      best = { it, d }; }
+    if (!best) return false;
+    const p = Math.max(0, Math.min(1, B.grabChance * Math.pow(G.Learn.score(a, "fire") / 50, 2) * (1.5 - a.traits.fireFear / 100)));
+    if (!sim.lrng.chance(p)) return false;
+    const it = best.it; sim.fireStats.grabs = (sim.fireStats.grabs || 0) + 1;
+    if (best.d === 0) return G.Items.pickUp(sim, a, it.id);
+    if (G.Agent.claimed(sim, a, it.x, it.y)) return false;
+    return G.Agent.walkTo(sim, a, it.x, it.y, "pickup", { target: it.id });
+  };
+
   Fire.step = function (sim) {
     const keys = Object.keys(sim.fire); if (sim.fx.length) sim.fx = sim.fx.filter(f => sim.tick - f.t < 3);
+    Fire.brands(sim);
     if (!keys.length) return;
     const Fc = F(), live = {};
     for (const k of keys) { const e = sim.fire[k]; if (!e) continue; const [x, y] = k.split(",").map(Number), ev = evOf(sim, e);
@@ -96,6 +139,9 @@
     const Fc = F(); let h = 0;
     for (const k in sim.fire) { const e = sim.fire[k]; if (e.s !== "fire" && e.s !== "ember") continue; const [fx, fy] = k.split(",").map(Number), d = Math.hypot(fx - x, fy - y);
       if (d < Fc.heatTiles) h = Math.max(h, Fc.heatC * (1 - d / Fc.heatTiles) * (e.s === "ember" ? 1 / 3 : 1)); }
+    for (const it of sim.items) { if (!it.lit) continue;   // step 19: a burning stick (held or lying) warms like an ember
+      let bx = it.x, by = it.y; if (it.heldBy != null) { const hd = sim.agents.find(q => q.id === it.heldBy); if (!hd) continue; bx = hd.pos.x; by = hd.pos.y; }
+      const d = Math.hypot(bx - x, by - y); if (d < Fc.heatTiles) h = Math.max(h, Fc.heatC * (1 - d / Fc.heatTiles) / 3); }
     return Math.round(h * 100) / 100;
   };
   Fire.flames = sim => { const o = []; for (const k in sim.fire) { const e = sim.fire[k]; if (e.s === "fire") { const [x, y] = k.split(",").map(Number); o.push([x, y]); } } return o; };

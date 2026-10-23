@@ -11,7 +11,7 @@
     if (A.person && A.person.src) loadImg(A.person.src, im => art.person = im);
     if (A.founders && A.founders.src) loadImg(A.founders.src, im => art.founders = im);
     loadImg(A.bush, im => art.bush = im); loadImg(A.bushEmpty, im => art.bushEmpty = im);
-    for (const k of ["body", "grazer", "scavenger", "items", "fx", "food", "carcass", "smoke"]) if (A[k] && A[k].src) loadImg(A[k].src, im => art[k] = im);
+    for (const k of ["body", "grazer", "scavenger", "items", "fx", "food", "carcass", "smoke", "baby"]) if (A[k] && A[k].src) loadImg(A[k].src, im => art[k] = im);
   };
   R.art = () => art;
 
@@ -113,8 +113,16 @@
   function drawPerson(a, x, y, frame, facing, time) {
     const px = x * tp, py = y * tp, F = G.data.art.founders, A = G.data.art.person, asleep = a.act.type === "sleep";
     cx.fillStyle = "rgba(0,0,0,0.3)"; cx.beginPath(); cx.ellipse(px + 8, py + 14, asleep ? 6.5 : 4.5, 2, 0, 0, 7); cx.fill();
-    const grp = G.Social && G.Social.group(R.sim, a);   // step 18: a small ring in the group colour under her feet (loners: none)
-    if (grp) { cx.strokeStyle = G.Social.color(R.sim, grp); cx.lineWidth = 1.5; cx.beginPath(); cx.ellipse(px + 8, py + 14, asleep ? 7.5 : 6, 2.6, 0, 0, 7); cx.stroke(); cx.lineWidth = 1; }
+    const grp = G.Social && G.Social.group(R.sim, a);   // step 18: a ring in the group colour under her feet (loners: none)
+    if (grp) {   // Director (call 7 on 18): dark outline first, then the colour on top, so it reads on any ground
+      const rx = asleep ? 8.5 : 7, ry = asleep ? 3.4 : 3;
+      cx.strokeStyle = "rgba(0,0,0,.55)"; cx.lineWidth = 3; cx.beginPath(); cx.ellipse(px + 8, py + 14, rx, ry, 0, 0, 7); cx.stroke();
+      cx.strokeStyle = G.Social.color(R.sim, grp); cx.lineWidth = 2; cx.beginPath(); cx.ellipse(px + 8, py + 14, rx, ry, 0, 0, 7); cx.stroke(); cx.lineWidth = 1; }
+    R.groupDot = grp && view.z === 1 ? G.Social.color(R.sim, grp) : null;   // zoom 1 only: a 3x3 dot above the head (drawn after the sprite)
+    drawPersonBody(a, px, py, frame, facing, time, asleep, F, A);
+    if (R.groupDot) { const X = px + 6, Y = py - (asleep ? 0 : 6); cx.fillStyle = "rgba(0,0,0,.8)"; cx.fillRect(X, Y, 5, 5); cx.fillStyle = R.groupDot; cx.fillRect(X + 1, Y + 1, 3, 3); }
+  }
+  function drawPersonBody(a, px, py, frame, facing, time, asleep, F, A) {
     if (art.founders && F) {   // Artist founders: look block at x = blockW * (look mod variants); sleep row while asleep
       const row = asleep ? F.rows.indexOf("sleep") : Math.max(0, F.rows.indexOf(facing)), fr = asleep ? 0 : frame % F.frames, bx = ((a.look || 0) % F.variants) * F.blockW;
       cx.drawImage(art.founders, bx + fr * F.frame, row * F.frame, F.frame, F.frame, px, py - 2, tp, tp);
@@ -144,6 +152,7 @@
       if (art.carcass && C) cx.drawImage(art.carcass, Math.max(0, C.cols.indexOf(col)) * C.frame, 0, C.frame, C.frame, px, py, tp, tp);
       else { cx.fillStyle = col === "bones" ? "#e8e0c8" : col === "fresh" ? "#8a6a44" : "#7a3a2a"; cx.fillRect(px + 3, py + 8, 10, col === "bones" ? 2 : 4); }
       cx.globalAlpha = 1; return; }
+    if (b.baby && b.stage !== "bones") { cx.globalAlpha = b.stage === "fresh" ? 0.9 : 0.6; drawBaby(b, px, py, "lying"); cx.globalAlpha = 1; return; }   // step 19: a baby's body
     if (art.body && B) cx.drawImage(art.body, Math.max(0, B.cols.indexOf(b.stage)) * B.frame, 0, B.frame, B.frame, px, py, tp, tp);
     else if (b.stage === "bones") { cx.fillStyle = "#e8e0c8"; cx.fillRect(px + 3, py + 9, 10, 1); cx.fillRect(px + 4, py + 7, 1, 5); cx.fillRect(px + 7, py + 7, 1, 5); cx.fillRect(px + 10, py + 7, 1, 5); cx.fillRect(px + 12, py + 7, 3, 3); }
     else { cx.fillStyle = "rgba(0,0,0,0.3)"; cx.beginPath(); cx.ellipse(px + 8, py + 12, 7, 2.5, 0, 0, 7); cx.fill();
@@ -189,6 +198,21 @@
     else { R2(4, 7, 8, 6); R2(5, 6, 6, 1); cx.fillStyle = "rgba(255,255,255,0.25)"; R2(5, 7, 3, 1); }
   }
   R.drawItemAt = drawItemAt;
+  // step 19: a burning stick = the stick plus a small flickering flame (the fire fx at half size) at its tip
+  function drawBrand(it, px, py, size, time) {
+    drawItemAt(it, px, py, size); if (!it.lit) return;
+    const s = size / 2, fl = Math.floor(time * 6 + it.id) % 2 ? "fire_1" : "fire_0", c = sheetCol("fx", fl);
+    if (c >= 0) cx.drawImage(art.fx, c * 16, 0, 16, 16, px + size * 0.5, py + size * 0.15, s, s);
+    else { cx.fillStyle = "#e88a2a"; cx.fillRect(px + size * 0.6, py + size * 0.3, s * 0.6, s * 0.7); cx.fillStyle = "#f6d36a"; cx.fillRect(px + size * 0.7, py + size * 0.45, s * 0.25, s * 0.4); }
+  }
+  // step 19: a baby - carried (on top of the carrier, her facing), or lying (beside a sleeping carrier, or alone); code fallback = a small bundle
+  function drawBaby(b, px, py, pose, k) {
+    const c = sheetCol("baby", pose), o = (k || 0) * 3;
+    if (c >= 0) { cx.drawImage(art.baby, c * 16, 0, 16, 16, px + o, py, tp, tp); return; }
+    const lying = pose === "lying"; cx.fillStyle = "#e9dcc0"; cx.fillRect(px + (lying ? 4 : 9) + o, py + (lying ? 11 : 7), lying ? 7 : 5, lying ? 3 : 5);
+    cx.fillStyle = "#c89268"; cx.fillRect(px + (lying ? 10 : 10) + o, py + (lying ? 10 : 6), 3, 3);
+  }
+  R.drawBaby = drawBaby;
   function drawFx(name, px, py) {
     const c = sheetCol("fx", name); if (c >= 0) { cx.drawImage(art.fx, c * 16, 0, 16, 16, px, py, tp, tp); return; }
     if (name === "scorched_tile") { cx.fillStyle = "#3d3326"; cx.fillRect(px, py, tp, tp); cx.fillStyle = "#2a231a"; cx.fillRect(px + 3, py + 5, 4, 2); cx.fillRect(px + 9, py + 10, 3, 2); }
@@ -216,13 +240,13 @@
   function drawItems(sim, selectedId) {
     for (const it of sim.items || []) { if (it.heldBy != null) continue;
       if (it.id === selectedId) { cx.strokeStyle = "#fff6b0"; cx.lineWidth = 1.5; cx.strokeRect(it.x * tp + 0.5, it.y * tp + 0.5, tp - 1, tp - 1); cx.lineWidth = 1; }
-      drawItemAt(it, it.x * tp, it.y * tp, 16); }
+      drawBrand(it, it.x * tp, it.y * tp, 16, R.time || 0); }
   }
 
   // alpha = fraction of the way to the next tick (the main loop's tick accumulator), for smooth movement between ticks.
   // Position, step frame and facing are computed here only; the sim stays tick-based and deterministic.
   R.draw = function (sim, alpha, time, selectedId) {
-    R.sim = sim;
+    R.sim = sim; R.time = time;
     if (R.terrainFor !== sim.world || R.dirty) drawTerrain(sim.world);
     cx.setTransform(1, 0, 0, 1, 0, 0); cx.fillStyle = "#000"; cx.fillRect(0, 0, cv.width, cv.height);
     const s = sc * view.z; cx.setTransform(s, 0, 0, s, -Math.round(view.ox * s), -Math.round(view.oy * s)); cx.imageSmoothingEnabled = false;
@@ -259,8 +283,13 @@
       const shiver = a.needs.warmth != null && a.needs.warmth < 30 && a.act.type !== "sleep" ? (Math.floor(time * 18 + a.id) % 2 ? 1 : -1) / tp : 0;
       drawPerson(a, x + shiver, y, st.frame, st.facing, time);
       const held = G.Items && G.Items.held(sim, a);
-      if (held && a.act.type !== "sleep") drawItemAt(held, Math.round((x + shiver) * tp + (st.facing === "left" ? 0 : 8)), Math.round(y * tp + 5), 8);   // half size over the hand
+      if (held && a.act.type !== "sleep") drawBrand(held, Math.round((x + shiver) * tp + (st.facing === "left" ? 0 : 8)), Math.round(y * tp + 5), 8, time);   // half size over the hand
+      let k = 0; for (const b of sim.babies || []) if (b.carrier === a.id && b.orphanAt == null) {   // step 19: her baby (babies) on top of her, or beside her asleep
+        if (a.act.type === "sleep") drawBaby(b, Math.round((x + shiver) * tp) + 6, Math.round(y * tp) + 1, "lying", k); else drawBaby(b, Math.round((x + shiver) * tp), Math.round(y * tp) - 2, "carried_" + st.facing, k); k++; }
+      if (selectedId != null) for (const b of sim.babies || []) if (b.id === selectedId && b.carrier === a.id && b.orphanAt == null) { cx.strokeStyle = "#fff6b0"; cx.lineWidth = 1.5; cx.beginPath(); cx.ellipse(x * tp + 8, y * tp + 14, 7, 3, 0, 0, 7); cx.stroke(); cx.lineWidth = 1; }
     }
+    for (const b of sim.babies || []) if (b.orphanAt != null) { R.screen[b.id] = { x: b.pos.x, y: b.pos.y }; drawBaby(b, Math.round(b.pos.x * tp), Math.round(b.pos.y * tp), "lying");   // left alone on the ground
+      if (b.id === selectedId) { cx.strokeStyle = "#fff6b0"; cx.lineWidth = 1.5; cx.strokeRect(b.pos.x * tp + 0.5, b.pos.y * tp + 0.5, tp - 1, tp - 1); cx.lineWidth = 1; } }
     drawSparks(sim, time);
     const dk = G.Time.darkness(sim.tick); if (dk > 0) { cx.fillStyle = "rgba(8,14,40," + (dk * 0.55).toFixed(3) + ")"; cx.fillRect(0, 0, mw, mh); }
     cx.setTransform(1, 0, 0, 1, 0, 0);

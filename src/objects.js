@@ -15,7 +15,7 @@
   Items.props = it => Object.assign({ burns: !!M()[it.material].burns }, it.props);
   Items.sharp = it => !!it && it.props.sharpness >= PH().sharpAt;   // Director (step 17): one shared threshold for every rule
   // name from the data: a broken piece with a keen edge is a "<material> shard", a blunt one is a "broken <material>"
-  Items.matLabel = it => { const l = M()[it.material].label; return it.form === "shard" ? (Items.sharp(it) ? l + " shard" : "broken " + l) : l; };
+  Items.matLabel = it => { if (it.lit) return "burning " + M()[it.material].label; const l = M()[it.material].label; return it.form === "shard" ? (Items.sharp(it) ? l + " shard" : "broken " + l) : l; };
   Items.baseLabel = it => M()[it.material].label;   // the material's own name, whole or broken
   Items.label = it => "a " + Items.matLabel(it);
   Items.frame = it => (it.form === "shard" && G.data.artItems && G.data.artItems.indexOf(it.material + "_shard") >= 0) ? it.material + "_shard" : it.material;
@@ -41,7 +41,7 @@
   // ---------- carrying (one thing at a time) ----------
   function pickables(sim, a) {
     const R = CF().person.sightTiles, out = [], taken = new Set(sim.agents.filter(b => b !== a && b.act.goal === "pickup").map(b => b.act.target));
-    for (const it of sim.items) if (!it.heldBy && !taken.has(it.id) && Math.hypot(it.x - a.pos.x, it.y - a.pos.y) <= R) out.push({ id: it.id, x: it.x, y: it.y, d: Math.hypot(it.x - a.pos.x, it.y - a.pos.y) });
+    for (const it of sim.items) if (!it.heldBy && !it.lit && !taken.has(it.id) && Math.hypot(it.x - a.pos.x, it.y - a.pos.y) <= R) out.push({ id: it.id, x: it.x, y: it.y, d: Math.hypot(it.x - a.pos.x, it.y - a.pos.y) });
     for (const b of sim.bodies) if (b.stage === "bones" && (b.bonesLeft == null || b.bonesLeft > 0) && !taken.has(b.id) && Math.hypot(b.x - a.pos.x, b.y - a.pos.y) <= R) out.push({ id: b.id, x: b.x, y: b.y, d: Math.hypot(b.x - a.pos.x, b.y - a.pos.y), body: true });
     return out.sort((p, q) => p.d - q.d || p.id - q.id);
   }
@@ -62,7 +62,7 @@
       if (b.bonesLeft <= 0) b.gone = true;   // all its bones are carried off: the skeleton is no longer there as a body
       G.Sim.log(sim, a.name + " picks up a bone from " + b.name + "'s bones", [a, b]);
     } else { if (it.heldBy || Math.round(a.pos.x) !== it.x || Math.round(a.pos.y) !== it.y) return false; G.Sim.log(sim, a.name + " picks up " + Items.label(it), a); }
-    it.heldBy = a.id; a.carry = it.id; a.carryUntil = sim.tick + sim.orng.int(OC().carry[0], OC().carry[1]); a.stats.pickups = (a.stats.pickups || 0) + 1;
+    it.heldBy = a.id; a.carry = it.id; a.carryUntil = sim.tick + sim.orng.int(OC().carry[0], OC().carry[1]); if (it.lit) { a.carryUntil = it.lit + 1; it.lastBy = a.id; it.lastByName = a.name; }   /* step 19: a burning stick is kept until it burns out */ a.stats.pickups = (a.stats.pickups || 0) + 1;
     return true;
   }
   Items.pickUp = pickUp;
