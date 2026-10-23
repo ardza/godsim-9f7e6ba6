@@ -11,7 +11,7 @@
     if (A.person && A.person.src) loadImg(A.person.src, im => art.person = im);
     if (A.founders && A.founders.src) loadImg(A.founders.src, im => art.founders = im);
     loadImg(A.bush, im => art.bush = im); loadImg(A.bushEmpty, im => art.bushEmpty = im);
-    for (const k of ["body", "grazer", "scavenger", "items", "fx", "food", "carcass", "smoke", "baby"]) if (A[k] && A[k].src) loadImg(A[k].src, im => art[k] = im);
+    for (const k of ["body", "grazer", "scavenger", "items", "fx", "food", "carcass", "smoke", "baby", "child"]) if (A[k] && A[k].src) loadImg(A[k].src, im => art[k] = im);
   };
   R.art = () => art;
 
@@ -123,6 +123,16 @@
     if (R.groupDot) { const X = px + 6, Y = py - (asleep ? 0 : 6); cx.fillStyle = "rgba(0,0,0,.8)"; cx.fillRect(X, Y, 5, 5); cx.fillStyle = R.groupDot; cx.fillRect(X + 1, Y + 1, 3, 3); }
   }
   function drawPersonBody(a, px, py, frame, facing, time, asleep, F, A) {
+    const kid = G.Family && G.Family.isChild(a), CA = G.data.art.child; R.lastKid = kid ? (art.child && CA ? "sheet" : "scaled") : R.lastKid;
+    if (kid && art.child && CA) {   // step 20: the Artist's child strip (same layout as founders)
+      const row = asleep ? CA.rows.indexOf("sleep") : Math.max(0, CA.rows.indexOf(facing)), fr = asleep ? 0 : frame % CA.frames, bx = ((a.look || 0) % CA.variants) * CA.blockW;
+      cx.drawImage(art.child, bx + fr * CA.frame, row * CA.frame, CA.frame, CA.frame, px, py - 2, tp, tp);
+      if (asleep) drawZ(px, py, time); return;
+    }
+    if (kid) {   // no child strip: the adult figure at 75%, feet on the same line (bottom-centred)
+      const k = 0.75, w = tp * k; cx.save(); cx.translate(px + (tp - w) / 2, py - 2 + (tp - w)); cx.scale(k, k);
+      drawPersonBody(Object.assign({}, a, { age: 99 }), 0, 2, frame, facing, time, asleep, F, A); cx.restore(); return;
+    }
     if (art.founders && F) {   // Artist founders: look block at x = blockW * (look mod variants); sleep row while asleep
       const row = asleep ? F.rows.indexOf("sleep") : Math.max(0, F.rows.indexOf(facing)), fr = asleep ? 0 : frame % F.frames, bx = ((a.look || 0) % F.variants) * F.blockW;
       cx.drawImage(art.founders, bx + fr * F.frame, row * F.frame, F.frame, F.frame, px, py - 2, tp, tp);

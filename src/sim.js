@@ -23,7 +23,7 @@
     seed = seed >>> 0;
     const world = G.World.generate(seed), rng = new G.RNG((seed ^ 0xA5A5A5A5) >>> 0);
     const sim = { version: CFG().saveVersion, seed, tick: 0, nextId: 1, world, rng, bushes: G.World.placeBushes(world, rng), agents: [], log: [], plog: {},
-      nameBag: rng.shuffle(G.data.names.map((_, i) => i)), nameRound: 0, prev: {} };
+      nameBag: rng.shuffle(G.data.names.map((_, i) => i)), nameRound: 0, nameCount: {}, prev: {} };
     // founders start around the map's spawn: a meadow tile near the middle with water close by (World.generate picks it)
     const best = world.spawn;
     // 5-8 founders (seeded), each on their own walkable tile, clustered around that spot
@@ -49,7 +49,17 @@
   Sim.nextName = function (sim) {
     const N = G.data.names; if (!N.length) return "Person " + sim.nextId;
     if (!sim.nameBag.length) { sim.nameBag = sim.rng.shuffle(N.map((_, i) => i)); sim.nameRound++; }
-    return N[sim.nameBag.pop()];
+    // Director (call 10 on 19): a name used again gets " II", " III", ... (counted per name, saved)
+    const base = N[sim.nameBag.pop()], C = sim.nameCount || (sim.nameCount = {}), n = C[base] = (C[base] || 0) + 1;
+    return n > 1 ? base + " " + Sim.roman(n) : base;
+  };
+  Sim.roman = function (n) { let s = ""; for (const [v, r] of [[1000, "M"], [900, "CM"], [500, "D"], [400, "CD"], [100, "C"], [90, "XC"], [50, "L"], [40, "XL"], [10, "X"], [9, "IX"], [5, "V"], [4, "IV"], [1, "I"]]) while (n >= v) { s += r; n -= v; } return s; };
+  // v13 -> v14: names used so far are counted (so the next repeat gets the right numeral); children come later from babies as before
+  Sim.migrate = function (o) {
+    if (!o || o.version !== 13) return o; const s = JSON.parse(JSON.stringify(o)), C = {};
+    const names = [].concat((s.agents || []).map(a => a.name), (s.babies || []).map(b => b.name), (s.bodies || []).filter(b => !b.species).map(b => b.name));
+    for (const nm of names) if (nm) { const m = String(nm).match(/^(.*?) ([IVXLCDM]+)$/), base = m ? m[1] : nm; C[base] = (C[base] || 0) + 1; }
+    s.nameCount = C; s.version = 14; return s;
   };
   // One log line. who = the person(s) involved (person/body objects or ids): the line is tagged with their ids and also goes into each one's own
   // log (sim.plog[id], last log.personMax kept, saved). k = an optional kind for the personal log ("death", "birth", "disc").
@@ -95,7 +105,7 @@
   Sim.serialize = function (sim) {
     return { version: sim.version, seed: sim.seed, tick: sim.tick, nextId: sim.nextId, rng: sim.rng.s,
       world: { w: sim.world.w, h: sim.world.h, attempt: sim.world.attempt, spawn: sim.world.spawn, hills: sim.world.hills, info: sim.world.info, tiles: sim.world.tiles.map(t => TILE_CH[t]).join("") },
-      bushes: sim.bushes, agents: sim.agents, log: sim.log, plog: sim.plog || {}, nameBag: sim.nameBag, nameRound: sim.nameRound,
+      bushes: sim.bushes, agents: sim.agents, log: sim.log, plog: sim.plog || {}, nameBag: sim.nameBag, nameRound: sim.nameRound, nameCount: sim.nameCount || {},
       arng: sim.arng.s, animals: sim.animals, herds: sim.herds, bodies: sim.bodies,
       orng: sim.orng.s, items: sim.items, discoveries: sim.discoveries, fire: sim.fire, fireStats: sim.fireStats, physStats: sim.physStats || null, fx: sim.fx,
       lrng: sim.lrng.s, learnStats: sim.learnStats, huntStats: sim.huntStats || null,
@@ -104,11 +114,12 @@
       frng: sim.frng.s, babies: sim.babies, famStats: sim.famStats };
   };
   Sim.deserialize = function (o) {
+    if (o && o.version === 13 && CFG().saveVersion === 14) o = Sim.migrate(o);
     if (!o || o.version !== CFG().saveVersion) throw new Error("unsupported save version " + (o && o.version));
     const s = JSON.parse(JSON.stringify(o));
     const world = { w: s.world.w, h: s.world.h, seed: s.seed, attempt: s.world.attempt, spawn: s.world.spawn, hills: s.world.hills, info: s.world.info, tiles: s.world.tiles.split("").map(c => TILE_CH.indexOf(c)) };
     const rng = new G.RNG(s.rng);
-    return { version: s.version, seed: s.seed, tick: s.tick, nextId: s.nextId, world, rng, bushes: s.bushes, agents: s.agents, log: s.log, plog: s.plog || {}, nameBag: s.nameBag, nameRound: s.nameRound || 0, prev: {},
+    return { version: s.version, seed: s.seed, tick: s.tick, nextId: s.nextId, world, rng, bushes: s.bushes, agents: s.agents, log: s.log, plog: s.plog || {}, nameBag: s.nameBag, nameRound: s.nameRound || 0, nameCount: s.nameCount || {}, prev: {},
       arng: new G.RNG(s.arng), animals: s.animals, herds: s.herds, bodies: s.bodies,
       orng: new G.RNG(s.orng), items: s.items, discoveries: s.discoveries, fire: s.fire, fireStats: s.fireStats, physStats: s.physStats || undefined, fx: s.fx || [],
       lrng: new G.RNG(s.lrng), learnStats: s.learnStats, huntStats: s.huntStats || undefined,

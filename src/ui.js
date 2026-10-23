@@ -139,7 +139,14 @@
     return '<div class="sec">Family</div><div class="sub">' + G.Family.sexWord(a) + (a.preg ? ' · with child, due ' + G.Time.stamp(a.preg.due) : '') + '</div>' +
       '<div class="row fam"><span>Partner</span><div class="lnks">' + (m ? who(sim, m.id) : '<span class="dim">none</span>') + '</div></div>' +
       '<div class="row fam"><span>Parents</span><div class="lnks">' + (a.parents ? a.parents.map((id, i) => who(sim, id, a.parentNames && a.parentNames[i])).join("") : '<span class="dim">none (founder)</span>') + '</div></div>' +
-      '<div class="row fam"><span>Children</span><div class="lnks">' + (kids.length ? kids.map(id => who(sim, id)).join("") : '<span class="dim">none</span>') + '</div></div>';
+      '<div class="row fam"><span>Children</span><div class="lnks">' + (kids.length ? kids.map(id => who(sim, id)).join("") : '<span class="dim">none</span>') + '</div></div>' +
+      (G.Family.isChild(a) ? '<div class="row fam"><span>Keeps close to</span><div class="lnks">' + (a.guard != null ? who(sim, a.guard) : '<span class="dim">no one (on ' + G.Family.poss(a) + ' own)</span>') + '</div></div>' : '');
+  }
+  // step 20: "Learned from: Zol (fire), Lom (huddling)" - who she copied or watched, per action
+  function learnedRow(sim, a) {
+    const L = G.Learn.learnedFrom(a); if (!L.length) return '<div class="row fam learned"><span>Learned from</span><div class="lnks"><span class="dim">no one yet</span></div></div>';
+    return '<div class="row fam learned"><span>Learned from</span><div class="lnks">' + L.map(x => { const w = G.Family.who(sim, x.from);
+      return (w ? '<button class="lnk" data-sel="' + w.id + '" title="' + x.how + '">' + esc(w.name) + (w.alive ? '' : ' (died)') : '<span class="lnk-gone">' + esc(x.name)) + ' (' + esc(G.Learn.short(x.key)) + ')' + (w ? '</button>' : '</span>'); }).join("") + '</div></div>';
   }
   // traits; a baby's show ▲ / ▼ against the parents' average (a mutation is marked *)
   function traitRows(o) {
@@ -240,7 +247,7 @@
     }
     if (a) {
       const A = G.Agent, PC = G.data.config.person, known = Object.keys(a.knowledge.bushes).length, n = a.needs;
-      $("info-body").innerHTML = '<h3>' + esc(a.name) + '</h3><div class="sub">' + Math.floor(a.age) + ' years · ' + A.doing(a) + '</div>' +
+      $("info-body").innerHTML = '<h3>' + esc(a.name) + '</h3><div class="sub">' + Math.floor(a.age) + ' years · <span class="stage">' + G.Family.stageWord(a) + '</span> · ' + A.doing(a) + '</div>' +
         '<div class="sec">Needs (0-100, full = good)</div>' +
         need("Fullness", n.fullness, n.fullness < A.fullnessThreshold(a) ? "hot" : "", A.fullnessWord(n.fullness), "100 = stuffed, " + PC.fullness.mealFillTo + " = full after a meal; eats below " + A.fullnessThreshold(a) + "; 0 = starving") +
         need("Water", n.water, n.water < A.waterThreshold(a) ? "hot" : "water", A.waterWord(n.water), "100 = just drank; drinks below " + A.waterThreshold(a) + "; 0 = parched") +
@@ -248,7 +255,7 @@
         need("Warmth", n.warmth, n.warmth < 30 ? "hot" : "warm", A.warmthWord(n.warmth), "100 = warm; seeks shelter or company below " + Math.round(A.warmthSeekBelow(a)) + "; a full day at 0 is fatal" + (a.felt ?  " · feels like " + G.Time.tempF(a.felt.c) + (a.felt.sheltered ? ", under trees" : "") + (a.felt.huddle ? ", huddled with " + a.felt.huddle : "") + (a.felt.heat ? ", fire nearby" : "") : "")) +
         (a.zero && (a.zero.water > 0 || a.zero.fullness > 0 || a.zero.warmth > 0) ? '<div class="sub hot">' + [a.zero.water > 0 ? 'no water for ' + (a.zero.water / 60).toFixed(1) + ' h' : '', a.zero.fullness > 0 ? 'no food for ' + (a.zero.fullness / 60).toFixed(1) + ' h' : '', a.zero.warmth > 0 ? 'freezing for ' + (a.zero.warmth / 60).toFixed(1) + ' h' : ''].filter(Boolean).join(' · ') + '</div>' : '') +
         (a.act.type === "sleep" ? '<div class="sub">asleep since ' + G.Time.hhmm(G.Time.at(a.act.since)) + '</div>' : '') +
-        '<div class="sec">Experience (0-100, ' + G.data.config.learn.start + ' = untried)</div>' + expRows(sim, a) +
+        '<div class="sec">Experience (0-100, ' + G.data.config.learn.start + ' = untried)</div>' + expRows(sim, a) + learnedRow(sim, a) +
         '<div class="sec">Traits (0-100, 50 = avg' + (a.inh ? '; ▲▼ vs parents' : '') + ')</div>' + traitRows(a) +
         familyRows(sim, a) + relRows(sim, a) +
         '<div class="sec">Knows</div><div class="chips">' + chip(known + ' berry bush' + (known === 1 ? "" : "es")) + chip(waterKnown(a)) +

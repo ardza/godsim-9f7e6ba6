@@ -2,7 +2,7 @@
 (function (G) {
   G.data = G.data || {};
   G.data.config = {
-    saveVersion: 13,                // v13: sex, pairs, pregnancy, babies (own stream frng), burning sticks; v12: relations (familiarity, liking) and groups; v11: cooked meat (heat), grazer births (own stream), cook score; v10: hunting, carcasses, meat, lightning; v9: varied maps (spawn, hills, map info; no lake/source); v8: learning (experience scores, copying), seasonal food, per-person logs; v7: objects, physics + discoveries, temperature + warmth, fire (v6: aging, death, bodies, animals); older saves are rejected
+    saveVersion: 14,                // v14: children / youths as people (stage by age, guardian, learned-from), name numbering; v13: sex, pairs, pregnancy, babies (own stream frng), burning sticks; v12: relations (familiarity, liking) and groups; v11: cooked meat (heat), grazer births (own stream), cook score; v10: hunting, carcasses, meat, lightning; v9: varied maps (spawn, hills, map info; no lake/source); v8: learning (experience scores, copying), seasonal food, per-person logs; v7: objects, physics + discoveries, temperature + warmth, fire (v6: aging, death, bodies, animals); older saves are rejected
     saveKey: "godsim.save",
     map: {
       w: 60, h: 40, tilePx: 16,      // map is 960x640 art px, scaled to fit the screen
@@ -190,7 +190,10 @@
       // with it in sight may go and pick it up: p = grabChance x (fire score / 50)^2 x (1.5 - fireFear/100) (learning stream). She carries it until
       // it burns out (or a need / bedtime makes her put it down). Held or lying, it warms like an ember. Lying on dry ground or by a dry stick it
       // can light that tile by the ember rule: p per minute = fire.emberToFire x dryness factor -> a new ember there (orng; nothing scripted).
-      brand: { litMinutes: 120, grabChance: 0.5, minLeftMinutes: 30 }
+      // Director (call 11 on 19): once each game hour, an awake idle person by a fire (an ember within learn.fire.emberTiles, a fire within
+      // heatTiles) with a burning stick lying within reachTiles takes it up with p = hourChance + grabChance x (fire score / 50)^2 x (1.5 - fireFear/100).
+      // Children (under youth age) never take one.
+      brand: { litMinutes: 120, hourChance: 0.05, grabChance: 0.1, minLeftMinutes: 30, reachTiles: 3 }
     },
     // Steps 13-14 learning. Each person keeps their own experience score (0-100, 50 = no experience) per action they have felt the result of.
     // Behaviour shifts only from that score (what this person felt) or from copying someone nearby who benefited; nothing is scripted and nothing is said.
@@ -217,9 +220,23 @@
     //   babies (age < babyYears): carried on the carrier's tile; their needs follow hers (met when she eats, drinks, sleeps). If the carrier
     //     dies the baby lies alone; an adult of its group (or a parent) within adoptTiles takes it up; else it dies after orphanMinutes.
     family: { bond: { age: [16, 45], like: 75, fam: 70, breakBelow: 40 },
-      conceive: { atMinute: 120, tiles: 1, fullness: 50, water: 50, warmth: 40, chance: 0.02 },
+      conceive: { atMinute: 120, tiles: 1, fullness: 35, water: 35, warmth: 30, chance: 0.15 },   // Director (call 1 on 19): 15%, gates 35 / 35 / 30
       pregnancy: { days: 7, drain: 1.25 }, drift: 0.05, mutation: { chance: 0.02, size: 0.2 }, lifespanClamp: [40, 120],
-      babyYears: 3, adoptTiles: 2, orphanMinutes: 1440 },
+      babyYears: 3, adoptTiles: 2, orphanMinutes: 1440,
+      minFounders: 2 },   // Director (call 2 on 19): every seed starts with at least 2 founders of each sex
+    // Step 20 childhood (src/family.js). Stages by age (years; 1 year = 28 days): baby 0-3 (carried, step 19), child 3-12, youth 12-16, adult 16+.
+    //   child: a person of her own (walks, eats from bushes, drinks alone); fullness / water drain x drain; while awake she keeps within keepTiles of her
+    //     guardian (mother, else father, else the adult she attached to) and sleeps beside them. No hunting, no meat from carcasses, no burning sticks;
+    //     she picks up only the materials in carry. Her fireFear starts at the inherited value + fearAdd; each fire warming success with an adult
+    //     within social.nearTiles lowers it by fearDrop x fearChildX (fearDrop = the adult reference rate; adults' traits stay as they are).
+    //   copying from an adult within learn.copyTiles: odds x copyX[stage]. Watching (no copy roll needed): a child who sees a parent or group member's
+    //     success gains seepX x what that success gave the doer (learn.gainOf), up to the doer's score; tagged as learned from them.
+    //   youth: roams like an adult (follows the most liked like anyone); hunts with kill odds x youthKillX; pairs only from bond.age[0] (16).
+    //   orphans: a child with no living parent attaches to the group member (16+) she likes most (logged); none = she is on her own.
+    //   waitEnergy: at bedtime a child whose guardian is still up stays close and waits, unless her energy is at or below this.
+    //   startBond: familiarity / liking a new child and her carrier start with for each other (they spent 3 years together).
+    child: { childAt: 3, youthAt: 12, adultAt: 16, drain: 0.7, keepTiles: 4, waitEnergy: 10, carry: ["stick", "rock"], fearAdd: 20, fearDrop: 1, fearChildX: 1.5,
+      copyX: { child: 2, youth: 1.5 }, seepX: 0.5, youthKillX: 0.5, startBond: { f: 100, l: 75 } },
     learn: {
       start: 50,                      // score before any experience
       // fire: a cold person (warmth < coldBelow) within emberTiles of an ember (or heatTiles of a fire) whose warmth the heat is helping gains
@@ -230,14 +247,15 @@
       // huddle / shelter: warmth felt from others close by / from the trees raises those scores the same way (warmGain per warmth point);
       // the score scales the pull of company / trees when seeking warmth: weight x (0.5 + score/100)  (= the old weights at 50)
       huddle: { warmGain: 1 }, shelter: { warmGain: 1 },
-      successWarmth: 3,               // every 3 warmth points gained this way is one visible "success" others nearby can see
+      successWarmth: 3, fireSuccessGain: 10,   // Director (call 11 on 19): each warming success at a fire also raises the fire score by 10
+                   // every 3 warmth points gained this way is one visible "success" others nearby can see
       // Step 14 copying (generic, any action key): an awake person within copyTiles who sees a success may copy it if the other's score is
       // at least copyMargin above her own: p = copyChance x curiosity/50 x (fear factor: 1.5 - fear/100 for the action's fear trait, else 1).
       // Copied: her score moves copyShare of the way to theirs, tagged with who she copied (local only).
       copyTiles: 5, copyMargin: 10, copyChance: 0.35, copyShare: 0.5,
-      actions: { fire: { label: "sitting by the fire", fear: "fireFear" }, huddle: { label: "huddling up", fear: null }, shelter: { label: "sheltering under the trees", fear: null },
-        hunt: { label: "going after grazers", fear: null },
-        cook: { label: "holding meat to the fire", fear: "fireFear" } }
+      actions: { fire: { label: "sitting by the fire", short: "fire", fear: "fireFear" }, huddle: { label: "huddling up", short: "huddling", fear: null }, shelter: { label: "sheltering under the trees", short: "shelter", fear: null },
+        hunt: { label: "going after grazers", short: "hunting", fear: null },
+        cook: { label: "holding meat to the fire", short: "cooking", fear: "fireFear" } }
     },
     // Step 16 hunting. A hungry person (fullness under actAt, the normal "goes to eat" point) holding a thing hard enough to strike with
     // (hardness >= minHardness: rock 70, stick 25, flint 80, bone 55; meat 5 is not) who sees a grazer within sightTiles may go after it instead of a bush:

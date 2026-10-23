@@ -13,6 +13,8 @@
     person: { src: "data/art/person_16.png", frame: 16, frames: 2, rows: ["down", "left", "right", "up"] },
     // founders: 8 looks, each a 32x80 block at x = 32*i (2 frames x 5 rows); founder i uses look i mod 8. Falls back to person + code tint.
     founders: { src: "data/art/founders_16.png", frame: 16, frames: 2, variants: 8, blockW: 32, rows: ["down", "left", "right", "up", "sleep"] },
+    // step 20: children (3-12), the same layout as founders (figure ~75%, feet on the same line), look = the parent's. Missing: founders scaled 75% in code.
+    child: { src: "data/art/child_16.png", frame: 16, frames: 2, variants: 8, blockW: 32, rows: ["down", "left", "right", "up", "sleep"] },
     bush: "data/art/bush_full.png",
     bushEmpty: "data/art/bush_empty.png",
     body: { src: "data/art/body_stages_16.png", frame: 16, cols: ["fresh", "rotting", "bones"] },   // 48x16

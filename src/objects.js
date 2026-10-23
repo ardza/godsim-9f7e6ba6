@@ -41,11 +41,13 @@
   // ---------- carrying (one thing at a time) ----------
   function pickables(sim, a) {
     const R = CF().person.sightTiles, out = [], taken = new Set(sim.agents.filter(b => b !== a && b.act.goal === "pickup").map(b => b.act.target));
-    for (const it of sim.items) if (!it.heldBy && !it.lit && !taken.has(it.id) && Math.hypot(it.x - a.pos.x, it.y - a.pos.y) <= R) out.push({ id: it.id, x: it.x, y: it.y, d: Math.hypot(it.x - a.pos.x, it.y - a.pos.y) });
-    for (const b of sim.bodies) if (b.stage === "bones" && (b.bonesLeft == null || b.bonesLeft > 0) && !taken.has(b.id) && Math.hypot(b.x - a.pos.x, b.y - a.pos.y) <= R) out.push({ id: b.id, x: b.x, y: b.y, d: Math.hypot(b.x - a.pos.x, b.y - a.pos.y), body: true });
+    const kid = G.Family && G.Family.isChild(a), may = CF().child.carry;   // step 20: a child picks up only sticks and rocks (no flint, meat or bones)
+    for (const it of sim.items) if (!it.heldBy && !it.lit && !taken.has(it.id) && (!kid || may.indexOf(it.material) >= 0) && Math.hypot(it.x - a.pos.x, it.y - a.pos.y) <= R) out.push({ id: it.id, x: it.x, y: it.y, d: Math.hypot(it.x - a.pos.x, it.y - a.pos.y) });
+    if (!kid) for (const b of sim.bodies) if (b.stage === "bones" && (b.bonesLeft == null || b.bonesLeft > 0) && !taken.has(b.id) && Math.hypot(b.x - a.pos.x, b.y - a.pos.y) <= R) out.push({ id: b.id, x: b.x, y: b.y, d: Math.hypot(b.x - a.pos.x, b.y - a.pos.y), body: true });
     return out.sort((p, q) => p.d - q.d || p.id - q.id);
   }
   // idle curiosity: maybe walk over to the nearest thing in sight and pick it up. Returns true if she set off (or picked it up here).
+  Items._pickables = pickables;   // for tests
   Items.maybePickUp = function (sim, a) {
     if (a.carry != null || !sim.orng.chance(OC().pickupChance * a.traits.curiosity / 50)) return false;
     for (const c of pickables(sim, a).slice(0, 3)) {

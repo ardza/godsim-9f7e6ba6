@@ -114,5 +114,10 @@
    "lying"
   ],
   "note": "carried_* drawn on top of the parent at the same origin, matching her facing; lying = baby on the ground"
+ },
+ "child_16.png": {
+  "frame": 16,
+  "layout": "same as founders_16.png: 8 variants, 32x80 block each at x=32*i; rows down,left,right,up,sleep; 2 frames per row",
+  "note": "figure ~75% of founder, feet on the same line; use the parent's variant"
  }
 }

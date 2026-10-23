@@ -90,17 +90,26 @@
     }
     if (out.length) sim.items = sim.items.filter(it => !out.includes(it));
   };
-  // step 19: an idle person may go and take up a burning stick lying in sight, away from the flames. Emergent odds, the step-14 approach rule:
-  // p = grabChance x (fire score / 50)^2 x (1.5 - fireFear / 100), rolled (learning stream) only when there is one to take.
+  // Director (call 11 on 19): once each game hour, an awake idle person (not a child) by an ember / fire with a burning stick lying within reachTiles,
+  // away from the flames, takes it up with p = hourChance + grabChance x (fire score / 50)^2 x (1.5 - fireFear / 100) (learning stream).
+  Fire.byFire = function (sim, a) {
+    const LF = CF().learn.fire, e = G.Learn.nearestFire(sim, a.pos.x, a.pos.y, ["ember", "fire"]);
+    return !!e && (e.s === "ember" ? e.d <= LF.emberTiles + 1e-9 : e.d < F().heatTiles);
+  };
+  Fire.grabOdds = (a) => { const B = F().brand; return Math.max(0, Math.min(1, (B.hourChance || 0) + B.grabChance * Math.pow(G.Learn.score(a, "fire") / 50, 2) * (1.5 - a.traits.fireFear / 100))); };
+  Fire.grabHour = function (sim) {
+    if (!sim.items.some(it => it.lit && it.heldBy == null)) return;
+    for (const a of sim.agents.slice()) if (a.act.type === "idle" && a.carry == null && !(G.Family && G.Family.isChild(a)) && Fire.byFire(sim, a)) Fire.maybeGrab(sim, a);
+  };
   Fire.maybeGrab = function (sim, a) {
-    if (a.carry != null) return false; const B = F().brand, R = CF().person.sightTiles; let best = null;
+    if (a.carry != null || (G.Family && G.Family.isChild(a))) return false; const B = F().brand, R = B.reachTiles; let best = null;
     for (const it of sim.items) { if (!it.lit || it.heldBy != null || it.lit - sim.tick < B.minLeftMinutes / TM()) continue;
       const d = Math.hypot(it.x - a.pos.x, it.y - a.pos.y); if (d > R || (best && d >= best.d)) continue;
       const st = sim.fire[key(it.x, it.y)]; if (st && st.s === "fire") continue; if (Fire.nearestFlame(sim, it.x, it.y) < F().fleeTiles) continue;
       if (sim.agents.some(b => b !== a && b.act.goal === "pickup" && b.act.target === it.id)) continue;
       best = { it, d }; }
     if (!best) return false;
-    const p = Math.max(0, Math.min(1, B.grabChance * Math.pow(G.Learn.score(a, "fire") / 50, 2) * (1.5 - a.traits.fireFear / 100)));
+    const p = Fire.grabOdds(a); sim.fireStats.grabRolls = (sim.fireStats.grabRolls || 0) + 1;
     if (!sim.lrng.chance(p)) return false;
     const it = best.it; sim.fireStats.grabs = (sim.fireStats.grabs || 0) + 1;
     if (best.d === 0) return G.Items.pickUp(sim, a, it.id);
@@ -111,6 +120,7 @@
   Fire.step = function (sim) {
     const keys = Object.keys(sim.fire); if (sim.fx.length) sim.fx = sim.fx.filter(f => sim.tick - f.t < 3);
     Fire.brands(sim);
+    if ((sim.tick * TM()) % 60 === 0) Fire.grabHour(sim);   // once each game hour
     if (!keys.length) return;
     const Fc = F(), live = {};
     for (const k of keys) { const e = sim.fire[k]; if (!e) continue; const [x, y] = k.split(",").map(Number), ev = evOf(sim, e);

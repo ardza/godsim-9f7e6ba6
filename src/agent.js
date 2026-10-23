@@ -21,9 +21,10 @@
 
   // Derived values (all from traits; documented in data/config.js)
   // all needs: 100 = good, they drain down
-  Agent.fullnessDrainPerTick = a => { const f = P().fullness; return (f.mealFillTo - f.threshold) / f.minutesFullToHungry * G.data.config.time.tickGameMinutes * (0.5 + a.traits.appetite / 100) * (a.preg ? G.data.config.family.pregnancy.drain : 1); };   // step 19: x1.25 while with child
+  Agent.fullnessDrainPerTick = a => { const f = P().fullness; return (f.mealFillTo - f.threshold) / f.minutesFullToHungry * G.data.config.time.tickGameMinutes * (0.5 + a.traits.appetite / 100) * (a.preg ? G.data.config.family.pregnancy.drain : 1) * Agent.childDrain(a); };   // step 19: x1.25 while with child; step 20: x0.7 for a child
   Agent.fullnessThreshold = a => P().fullness.threshold;
-  Agent.waterDrainPerTick = a => { const w = P().water; return (100 - w.threshold) / w.minutesFullToThirsty * G.data.config.time.tickGameMinutes; };
+  Agent.waterDrainPerTick = a => { const w = P().water; return (100 - w.threshold) / w.minutesFullToThirsty * G.data.config.time.tickGameMinutes * Agent.childDrain(a); };
+  Agent.childDrain = a => G.Family && G.Family.isChild(a) ? G.data.config.child.drain : 1;
   Agent.waterThreshold = a => P().water.threshold;
   // state words for the panel
   Agent.fullnessWord = v => { const f = P().fullness; return v <= 0 ? "starving" : v < f.threshold ? "hungry" : v < f.mealFillTo ? "fed" : v <= f.mealFillTo + 1e-9 ? "full" : "overfull"; };
@@ -42,7 +43,7 @@
   Agent.sight = a => P().sightTiles;
   Agent.tilePos = a => ({ x: Math.round(a.pos.x), y: Math.round(a.pos.y) });
   Agent.doing = a => (a.act.type === "idle" || a.act.type === "sleep") && a.felt && a.felt.huddle && a.needs.warmth < 60 ? (a.act.type === "sleep" ? "asleep, huddled" : "huddling") :
-    ({ idle: "resting", try: ({ strike: "striking", rub: "rubbing", cut: "cutting" })[a.act.action] || "trying", eat: "eating a meal", eatMeat: "eating meat", cook: "holding meat to the fire", drink: "drinking", sleep: "asleep" })[a.act.type] || ({ wander: "wandering", food: "going to a bush", explore: "looking for food", water: "going to the water", exploreWater: "looking for water", collapse: "stumbling to a stop", pickup: "going to pick something up", try: "going to try something", shelter: "seeking warmth", fleeFire: "moving away from flames", fireside: "going to sit by the fire", burnt: "jumping back from the flames", hunt: "going after a grazer", meat: "going to a carcass", follow: "keeping close to someone", mate: "going to sleep beside a partner", avoid: "keeping away from someone" })[a.act.goal] || a.act.type;
+    ({ idle: "resting", try: ({ strike: "striking", rub: "rubbing", cut: "cutting" })[a.act.action] || "trying", eat: "eating a meal", eatMeat: "eating meat", cook: "holding meat to the fire", drink: "drinking", sleep: "asleep" })[a.act.type] || ({ wander: "wandering", food: "going to a bush", explore: "looking for food", water: "going to the water", exploreWater: "looking for water", collapse: "stumbling to a stop", pickup: "going to pick something up", try: "going to try something", shelter: "seeking warmth", fleeFire: "moving away from flames", fireside: "going to sit by the fire", burnt: "jumping back from the flames", hunt: "going after a grazer", meat: "going to a carcass", follow: "keeping close to someone", mate: "going to sleep beside a partner", keep: "keeping close to family", beside: "going to sleep beside family", avoid: "keeping away from someone" })[a.act.goal] || a.act.type;
 
   // Two people never end a move on the same tile: each person claims one tile (where they stand, or the end of their path),
   // and nobody picks a destination someone else has claimed. Passing through is fine.
@@ -235,16 +236,32 @@
     if (sim.tick - (a.sitFireAt == null ? -1e9 : a.sitFireAt) >= 120) G.Sim.log(sim, a.name + " sits down near the " + (a.act.fire === "ember" ? "embers" : "fire"), a);
     a.sitFireAt = sim.tick;
   }
+  // step 20: a child more than keepTiles from her guardian walks to a free tile 1-2 tiles from them
+  function keepNear(sim, a) {
+    const g = G.Family.checkGuard(sim, a); if (!g) return false;
+    if (Math.hypot(g.pos.x - a.pos.x, g.pos.y - a.pos.y) <= G.data.config.child.keepTiles) return false;
+    const gx = Math.round(g.pos.x), gy = Math.round(g.pos.y), c = [];
+    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { if (!dx && !dy) continue; const x = gx + dx, y = gy + dy;
+      if (!W.inb(sim.world, x, y) || !W.walkable(sim.world, x, y) || Agent.claimed(sim, a, x, y)) continue;
+      const st = G.Fire.state(sim, x, y); if (st && (st.s === "fire" || st.s === "ember")) continue;
+      c.push({ x, y, d: Math.hypot(x - a.pos.x, y - a.pos.y) }); }
+    c.sort((p, q) => p.d - q.d || p.y - q.y || p.x - q.x);
+    for (const q of c.slice(0, 4)) if (walkTo(sim, a, q.x, q.y, "keep", { to: g.id })) { const St = sim.famStats; if (St) St.keeps = (St.keeps || 0) + 1; return true; }
+    return false;
+  }
+  Agent._keepNear = keepNear;
   function wander(sim, a) {
     // Director (step 17 call 2): cold comes first - a fire in sight, else trees / company, before any early trip, hunt or wander
     if (a.needs.warmth < Agent.warmthSeekBelow(a)) { if (seekWarmth(sim, a)) return; if (Agent.goodSpot(sim, a) || a.fireStay === sim.tick) return startIdle(sim, a); }   // cold: stay huddled / under the trees
     if (waterIsFar(sim, a)) { G.Sim.log(sim, a.name + " set off early for water", a); return seekWater(sim, a); }
     if (foodIsFar(sim, a)) { G.Sim.log(sim, a.name + " set off early for a far bush", a); return seekFood(sim, a, null, true); }
-    if (G.Fire.maybeGrab(sim, a)) return;   // step 19: take up a burning stick in sight (odds from her fire score and fear)
+    if (keepNear(sim, a)) return;   // step 20: a child walks back to within keepTiles of her guardian
     // step 18: keep 3+ tiles from someone she dislikes; drift to 1-3 tiles off the most-liked person in sight
-    if (G.Social.idleMove(sim, a, (x, y, g, ex) => walkTo(sim, a, x, y, g, ex), (x, y) => W.walkable(sim.world, x, y) && !Agent.claimed(sim, a, x, y))) return;
+    const gd = G.Family.guardian(sim, a), near = (x, y) => !gd || Math.hypot(gd.pos.x - x, gd.pos.y - y) <= G.data.config.child.keepTiles;   // a child stays within reach
+    if (G.Social.idleMove(sim, a, (x, y, g, ex) => walkTo(sim, a, x, y, g, ex), (x, y) => W.walkable(sim.world, x, y) && !Agent.claimed(sim, a, x, y) && near(x, y))) return;
     if (G.Items.maybeTry(sim, a) || G.Items.maybePickUp(sim, a)) return;   // idle curiosity (step 9-10)
-    const w = P().wander, r = w.radius, t = randomTarget(sim, a, 2, r, (x, y) => G.Social.wanderOk(sim, a, x, y));
+    const w = P().wander, r = w.radius, g = G.Family.guardian(sim, a), K = G.data.config.child.keepTiles,
+      t = randomTarget(sim, a, 2, r, (x, y) => G.Social.wanderOk(sim, a, x, y) && (!g || Math.hypot(g.pos.x - x, g.pos.y - y) <= K));
     if (!t || !walkTo(sim, a, t.x, t.y, "wander")) startIdle(sim, a, 0.3);
   }
 
@@ -337,6 +354,11 @@
   Agent.deathCause = a => { const D = P().death, z = a.zero || {};
     if (z.water >= D.waterZeroMinutes) return "thirst"; if (z.warmth >= D.warmthZeroMinutes) return "cold"; if (z.fullness >= D.fullnessZeroMinutes) return "hunger"; if (a.age >= a.lifespan) return "old age"; return null; };
 
+  function childLeft(sim, a) {
+    // (no season or tiredness switch: a child keeps close all year; a need that is due is seen to first, above)
+    if (sim.tick % 2 || !G.Family.isChild(a)) return false; const g = G.Family.guardian(sim, a);
+    return !!g && Math.hypot(g.pos.x - a.pos.x, g.pos.y - a.pos.y) > G.data.config.child.keepTiles;
+  }
   Agent.step = function (sim, a) {
     const p = P(), E = p.energy, n = a.needs, thr = Agent.fullnessThreshold(a), tthr = Agent.waterThreshold(a), h0 = n.fullness, t0 = n.water, e0 = n.energy;
     const asleep = a.act.type === "sleep", k = asleep ? E.asleepNeedRate : 1;
@@ -396,16 +418,28 @@
       const b = n.energy > 0 && bedtimeNeed(sim, a), go = b && a.topUp !== b && topUpTrip(sim, a, b), night = G.Time.at(sim.tick + 720).day;
       // a cold night: first find a spot under trees / next to others (once a night)
       const cold = G.Climate.airC(sim.tick) < p.warmth.neutralC + a.traits.coldFear / 20;
+      // step 20: a guardian whose child already fell asleep elsewhere lies down beside the child first (once a night)
+      const ward = !go && n.energy > 0 && a.wardNight !== night ? sim.agents.find(q => q.guard === a.id && G.Family.isChild(q) && q.act.type === "sleep" &&
+        Math.max(Math.abs(Math.round(q.pos.x) - Math.round(a.pos.x)), Math.abs(Math.round(q.pos.y) - Math.round(a.pos.y))) > 1) : null;
+      if (ward) { a.wardNight = night; if (G.Family.goBeside(sim, a, ward, "beside")) { move(sim, a); return; } }
       // step 19: a paired person first goes to lie down next to her partner (once a night); beside her partner she skips the cold shelter
       if (!go && a.mate != null && a.mateNight !== night && n.energy > 0) { a.mateNight = night; if (G.Family.goToMate(sim, a)) { move(sim, a); return; } }
       if (!go && a.mate != null && G.Family.besideMate(sim, a)) a.shelterNight = night;
+      // step 20: a child lies down beside her guardian; while the guardian is still up she stays close and waits (until she is nearly spent);
+      // once the guardian lies down she goes beside them. There she skips the cold shelter too.
+      const gd = G.Family.guardian(sim, a), K = G.data.config.child;
+      if (!go && gd && n.energy > 0) {
+        const dg = Math.max(Math.abs(Math.round(gd.pos.x) - Math.round(a.pos.x)), Math.abs(Math.round(gd.pos.y) - Math.round(a.pos.y)));
+        if (dg > 1 && G.Family.goBeside(sim, a, gd, "beside")) { move(sim, a); return; }
+        if (gd.act.type !== "sleep" && n.energy > K.waitEnergy) { if (Math.hypot(gd.pos.x - a.pos.x, gd.pos.y - a.pos.y) > K.keepTiles && keepNear(sim, a)) move(sim, a); return; } }
+      if (!go && gd && Math.max(Math.abs(Math.round(gd.pos.x) - Math.round(a.pos.x)), Math.abs(Math.round(gd.pos.y) - Math.round(a.pos.y))) <= 1) a.shelterNight = night;
       if (!go && cold && a.shelterNight !== night && n.energy > 0) { a.shelterNight = night; if (seekWarmth(sim, a)) { move(sim, a); return; } }
       if (!go) startSleep(sim, a);
       else { a.topUp = b; G.Sim.log(sim, a.name + (b === "water" ? " goes for a drink before sleep" : " goes for a meal before sleep"), a);
         if (b === "food") a.act = { type: "walk", goal: "food", path: go.p, i: 0, bush: go.id, over: true };   // the bedtime meal counts as overeating
         else if (go.p.length) a.act = { type: "walk", goal: "water", path: go.p, i: 0, water: go.kind }; else startDrink(sim, a, go.kind); }
     }
-    else if (act.type === "idle" && sim.tick >= act.until) wander(sim, a);
+    else if (act.type === "idle" && (sim.tick >= act.until || childLeft(sim, a))) wander(sim, a);   // step 20: a child left behind gets up
     if (a.act.type === "walk") move(sim, a);
     if (a.act.type === "walk" && a.act.goal === "hunt") G.Hunt.stepStalk(sim, a);   // step 16: after she moves - close enough to strike, or give up
   };

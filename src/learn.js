@@ -6,14 +6,23 @@
   const CF = () => G.data.config, L = () => CF().learn, TM = () => CF().time.tickGameMinutes;
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v)), r2 = v => Math.round(v * 100) / 100;
   const Learn = {};
-  Learn.newStats = () => ({ warmed: 0, burns: 0, approaches: 0, successes: 0, copies: 0, byKey: {} });
+  Learn.newStats = () => ({ warmed: 0, burns: 0, approaches: 0, successes: 0, copies: 0, seeps: 0, byKey: {}, byStage: {} });
   const stats = sim => sim.learnStats || (sim.learnStats = Learn.newStats());
-  const bump = (sim, what, key) => { const S = stats(sim); S[what]++; if (key) { const k = S.byKey[key] || (S.byKey[key] = {}); k[what] = (k[what] || 0) + 1; } };
+  const bump = (sim, what, key) => { const S = stats(sim); S[what] = (S[what] || 0) + 1; if (key) { const k = S.byKey[key] || (S.byKey[key] = {}); k[what] = (k[what] || 0) + 1; } };
   Learn.bump = bump;
   Learn.score = (a, key) => a.exp && a.exp[key] ? a.exp[key].score : L().start;
   Learn.rec = (a, key) => { const E = a.exp || (a.exp = {}); return E[key] || (E[key] = { score: L().start, n: 0, burns: 0, copied: null }); };
   Learn.add = (a, key, d) => { const e = Learn.rec(a, key); e.score = r2(clamp(e.score + d, 0, 100)); return e; };
   Learn.label = key => (L().actions[key] && L().actions[key].label) || key;
+  Learn.short = key => (L().actions[key] && L().actions[key].short) || key;
+  // what one visible success raises the doer's score by (step 20: a watching child gains seepX of this)
+  Learn.gainOf = function (key) {
+    const C = L(); if (C[key] && C[key].warmGain != null) return C.successWarmth * C[key].warmGain + (key === "fire" ? C.fireSuccessGain || 0 : 0);
+    if (key === "hunt") return CF().hunt.gain; if (key === "cook") return CF().cook.gain; return 0;
+  };
+  // step 20: who taught her what: [{key, from, name, how: "copied" | "watched"}] (a copy wins over watching)
+  Learn.learnedFrom = a => Object.keys(L().actions).map(k => { const e = a.exp && a.exp[k]; if (!e) return null; const c = e.copied || e.seep; return c ? { key: k, from: c.from, name: c.name, how: e.copied ? "copied" : "watched" } : null; }).filter(Boolean);
+  const stageStats = (sim, st) => { const S = stats(sim), B = S.byStage || (S.byStage = {}); return B[st] || (B[st] = { seen: 0, copies: 0, seeps: 0, p: 0 }); };
 
   // nearest ember / fire tile to (x, y): {s, x, y, d} or null
   Learn.nearestFire = function (sim, x, y, kinds) {
@@ -37,10 +46,20 @@
       const e = Learn.add(a, key, got * gain), ep = a.learnEp || (a.learnEp = {});
       if (key === "fire") stats(sim).warmed += TM();
       ep[key] = r2((ep[key] || 0) + got);
-      if (ep[key] >= C.successWarmth) { ep[key] = 0; e.n++; Learn.success(sim, a, key, src); }
+      if (ep[key] >= C.successWarmth) { ep[key] = 0; e.n++;
+        if (key === "fire") { Learn.add(a, "fire", C.fireSuccessGain || 0); childFear(sim, a); }   // Director (call 11 on 19): +10 a warming at a fire
+        Learn.success(sim, a, key, src); }
     }
   };
 
+  // step 20: a child warming at a fire with an adult close by grows less afraid of fire (fearDrop x fearChildX a warming)
+  function childFear(sim, a) {
+    const K = CF().child; if (!G.Family || !G.Family.isChild(a)) return;
+    const near = sim.agents.some(b => b !== a && b.age >= K.adultAt && Math.hypot(b.pos.x - a.pos.x, b.pos.y - a.pos.y) <= CF().social.nearTiles);
+    if (!near) return; const was = a.traits.fireFear; a.traits.fireFear = r2(clamp(was - K.fearDrop * K.fearChildX, 0, 100));
+    const S = stats(sim); S.childFearDrop = r2((S.childFearDrop || 0) + (was - a.traits.fireFear));
+  }
+  Learn._childFear = childFear;
   // a visible success: logged for fire (at most every 2 h each), then anyone awake within copyTiles may copy it
   Learn.success = function (sim, a, key, src) {
     bump(sim, "successes", key);
@@ -53,18 +72,34 @@
     const C = L(), act = C.actions[key] || {}, fear = act.fear ? b.traits[act.fear] : null;
     return clamp(C.copyChance * b.traits.curiosity / 50 * (fear == null ? 1 : 1.5 - fear / 100), 0, 1);
   };
+  // step 20: the observer's stage multiplier (x2 a child, x1.5 a youth) when the doer is an adult
+  Learn.stageX = function (b, a) {
+    const F = G.Family; if (!F || !a || F.stage(a) !== "adult") return 1; const X = CF().child.copyX, st = F.stage(b); return X[st] || 1;
+  };
   Learn.watch = function (sim, a, key) {
-    const C = L(), sa = Learn.score(a, key);
+    const C = L(), K = CF().child, sa = Learn.score(a, key);
     for (const b of sim.agents) {
       if (b === a || b.act.type === "sleep" || Math.hypot(b.pos.x - a.pos.x, b.pos.y - a.pos.y) > C.copyTiles) continue;
-      const own = Learn.score(b, key); if (sa - own < C.copyMargin) continue;
-      const prev = b.exp && b.exp[key] && b.exp[key].copied; if (prev && prev.from === a.id && sim.tick - prev.t < 1440) continue;   // one copy of the same person per day
-      if (!sim.lrng.chance(clamp(Learn.copyChance(b, key) * (G.Social ? G.Social.copyFactor(a, b) : 1), 0, 1))) continue;   // step 18: x1.25 from her group, x0.85 from others
+      const own = Learn.score(b, key); if (sa <= own) continue;
+      const st = G.Family ? G.Family.stage(b) : "adult", SS = stageStats(sim, st);
+      // step 20: a child watching a parent / group member gains seepX of what the success gave the doer (no roll), up to the doer's score
+      const kin = G.Family && G.Family.isChild(b) && ((b.parents && b.parents.indexOf(a.id) >= 0) || b.guard === a.id || (a.group != null && a.group === b.group));
+      if (sa - own < C.copyMargin) { if (kin) seep(sim, b, a, key, sa, SS); continue; }
+      const prev = b.exp && b.exp[key] && b.exp[key].copied; if (prev && prev.from === a.id && sim.tick - prev.t < 1440) { if (kin) seep(sim, b, a, key, sa, SS); continue; }   // one copy of the same person per day
+      const p = clamp(Learn.copyChance(b, key) * (G.Social ? G.Social.copyFactor(a, b) : 1) * Learn.stageX(b, a), 0, 1);   // step 18: x1.25 group / x0.85 others; step 20: x2 child / x1.5 youth
+      SS.seen++; SS.p = r2(SS.p + p);
+      if (!sim.lrng.chance(p)) { if (kin) seep(sim, b, a, key, sa, SS); continue; }
       const e = Learn.rec(b, key); e.score = r2(own + (sa - own) * C.copyShare); e.copied = { from: a.id, name: a.name, t: sim.tick };
-      bump(sim, "copies", key);
+      bump(sim, "copies", key); SS.copies++;
       G.Sim.log(sim, b.name + " watched " + a.name + " and copied: " + Learn.label(key), [b, a]);
     }
   };
+
+  function seep(sim, b, a, key, sa, SS) {
+    const e = Learn.rec(b, key), g = Math.min(sa, e.score + CF().child.seepX * Learn.gainOf(key)) - e.score; if (g <= 0) return;
+    e.score = r2(e.score + g); e.seep = { from: a.id, name: a.name, t: sim.tick }; SS.seeps++; bump(sim, "seeps", key);
+  }
+  Learn._seep = seep;
 
   // Stepping onto a burning or smouldering tile is a burn: a sharp drop in her fire score and one line. No health damage. Returns the fire tile or null.
   Learn.checkBurn = function (sim, a) {

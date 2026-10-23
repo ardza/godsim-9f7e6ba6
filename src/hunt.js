@@ -14,7 +14,7 @@
   Hunt.weapon = it => !!it && it.material !== "meat" && it.props.hardness >= H().minHardness;
   Hunt.sharp = it => G.Items.sharp(it);   // one shared threshold (config.physics.sharpAt)
   Hunt.learned = a => G.Learn.score(a, "hunt") >= H().learnedAt;
-  Hunt.odds = (a, it) => { const O = H().odds; return clamp(O.base + (Hunt.sharp(it) ? O.sharp : 0) + (Hunt.learned(a) ? O.learned : 0), 0, 1); };
+  Hunt.odds = (a, it) => { const O = H().odds; return clamp((O.base + (Hunt.sharp(it) ? O.sharp : 0) + (Hunt.learned(a) ? O.learned : 0)) * (G.Family && G.Family.isYouth(a) ? G.data.config.child.youthKillX : 1), 0, 1); };   // step 20: a youth x0.5
   Hunt.edible = (sim, it) => !!it && it.material === "meat" && sim.tick < it.spoilAt;
   Hunt.isMeat = it => !!it && it.material === "meat";
   Hunt.pull = a => clamp(G.Learn.score(a, "hunt") / 50, 0, 2);
@@ -41,6 +41,7 @@
 
   // Called when hunger sends her looking for food (before the bushes). Returns true if she set off / started on something.
   Hunt.seekFood = function (sim, a) {
+    if (G.Family && G.Family.isChild(a)) return false;   // step 20: a child eats from bushes only (no hunting, no meat off carcasses)
     const it = G.Items.held(sim, a), Hc = H();
     if (Hunt.edible(sim, it)) { if (!(G.Cook && G.Cook.seek(sim, a, it))) startEat(sim, a, it); return true; }   // fresh meat in hand: eat it (step 17: or hold it to a fire first)
     // a fresh carcass with meat in sight: go and take some (scavenging, or back to her own kill)
@@ -74,9 +75,9 @@
   Hunt.strike = (sim, a, g, it) => strike(sim, a, g, it);
   function strike(sim, a, g, it) {
     const S = stats(sim), p = Hunt.odds(a, it), hl = G.Items.matLabel(it), base = G.Items.baseLabel(it), k = (it.form === "shard" ? "broken " : "") + base;
-    S.strikes++; const bh = S.byHeld[k] || (S.byHeld[k] = { strikes: 0, kills: 0 }); bh.strikes++;
+    S.strikes++; if (G.Family && G.Family.isYouth(a)) S.youthStrikes = (S.youthStrikes || 0) + 1; const bh = S.byHeld[k] || (S.byHeld[k] = { strikes: 0, kills: 0 }); bh.strikes++;
     if (sim.orng.chance(p)) {
-      S.kills++; bh.kills++;
+      S.kills++; bh.kills++; if (G.Family && G.Family.isYouth(a)) S.youthKills = (S.youthKills || 0) + 1;
       sim.animals.splice(sim.animals.indexOf(g), 1); delete sim.prev[g.id];
       const b = G.Body.createAnimal(sim, g, a); sim.bodies.push(b);
       G.Sim.log(sim, a.name + " strikes " + b.name + " with the " + hl + ": it falls", a);
