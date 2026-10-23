@@ -23,7 +23,10 @@
     fx: { src: "data/art/fx_16.png", frame: 16, cols: ["spark", "fire_0", "fire_1", "ember", "ash", "scorched_tile"] },   // 96x16
     // step 16-17: meat by cooking state (raw, cooked, charred = the burnt frame) and a killed grazer's carcass
     food: { src: "data/art/food_16.png", frame: 16, cols: ["raw", "cooked", "burnt"] },   // 48x16
-    carcass: { src: "data/art/grazer_carcass_16.png", frame: 16, cols: ["fresh", "picked", "bones"] }   // 48x16
+    carcass: { src: "data/art/grazer_carcass_16.png", frame: 16, cols: ["fresh", "picked", "bones"] },   // 48x16
+    // Artist 03:16 (godsim-previews/next/smoke_16.png): overlays drawn over the tile like the fire fx, base tile art unchanged.
+    // smoulder_0/1 on a lightning-struck tree that smoulders (an ember holding in the woods); wisp_0/1 rising one tile above it and above burning woods.
+    smoke: { src: "data/art/smoke_16.png", frame: 16, cols: ["wisp_0", "wisp_1", "smoulder_0", "smoulder_1"] }   // 64x16
   };
   G.data.artItems = G.data.art.items.cols;   // which item frames exist (a sharp bone uses bone_shard; other shards use their material)
 })(this.GS = this.GS || {});

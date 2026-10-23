@@ -48,7 +48,7 @@
       G.Sim.log(sim, a.name + " warms up by the " + (src && src.s === "ember" ? "embers" : "fire"), a); }
     Learn.watch(sim, a, key);
   };
-  // copy odds for observer b
+  // copy odds for observer b (before the step-18 group factor applied in watch)
   Learn.copyChance = function (b, key) {
     const C = L(), act = C.actions[key] || {}, fear = act.fear ? b.traits[act.fear] : null;
     return clamp(C.copyChance * b.traits.curiosity / 50 * (fear == null ? 1 : 1.5 - fear / 100), 0, 1);
@@ -59,7 +59,7 @@
       if (b === a || b.act.type === "sleep" || Math.hypot(b.pos.x - a.pos.x, b.pos.y - a.pos.y) > C.copyTiles) continue;
       const own = Learn.score(b, key); if (sa - own < C.copyMargin) continue;
       const prev = b.exp && b.exp[key] && b.exp[key].copied; if (prev && prev.from === a.id && sim.tick - prev.t < 1440) continue;   // one copy of the same person per day
-      if (!sim.lrng.chance(Learn.copyChance(b, key))) continue;
+      if (!sim.lrng.chance(clamp(Learn.copyChance(b, key) * (G.Social ? G.Social.copyFactor(a, b) : 1), 0, 1))) continue;   // step 18: x1.25 from her group, x0.85 from others
       const e = Learn.rec(b, key); e.score = r2(own + (sa - own) * C.copyShare); e.copied = { from: a.id, name: a.name, t: sim.tick };
       bump(sim, "copies", key);
       G.Sim.log(sim, b.name + " watched " + a.name + " and copied: " + Learn.label(key), [b, a]);

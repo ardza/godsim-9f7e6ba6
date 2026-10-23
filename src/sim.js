@@ -41,6 +41,7 @@
     G.Items.populate(sim); G.Fire.init(sim);
     // learning rolls (approach a fire, copy someone) use a fourth stream, so the other sequences are as they were
     sim.lrng = new G.RNG((seed ^ 0x1EA2C0DE) >>> 0); sim.learnStats = G.Learn.newStats();
+    sim.groups = []; sim.nextGroup = 1; sim.socStats = { took: 0 };   // step 18 (no random draws)
     return sim;
   };
   // Seeded names with no repeats until the list is used up, then a fresh shuffle (reuse is fine past the list).
@@ -69,6 +70,7 @@
     for (const b of sim.bushes) if (!b.ripe && (b.regrow = Math.round((b.regrow + rate) * 1e6) / 1e6) >= B.regrowMinutes / CFG().time.tickGameMinutes - 1e-9) { b.ripe = true; b.regrow = 0; b.burnt = false; sim.regrown = (sim.regrown || 0) + 1; }
     for (const a of sim.agents) { sim.prev[a.id] = { x: a.pos.x, y: a.pos.y }; G.Agent.step(sim, a); }
     for (const a of sim.agents.slice()) { const c = G.Agent.deathCause(a); if (c) Sim.die(sim, a, c); }
+    G.Social.step(sim);   // step 18: familiarity, liking, daily groups
     G.Animal.stepAll(sim);
     G.Body.stepAll(sim);
     G.Hunt.step(sim);
@@ -94,7 +96,8 @@
       arng: sim.arng.s, animals: sim.animals, herds: sim.herds, bodies: sim.bodies,
       orng: sim.orng.s, items: sim.items, discoveries: sim.discoveries, fire: sim.fire, fireStats: sim.fireStats, physStats: sim.physStats || null, fx: sim.fx,
       lrng: sim.lrng.s, learnStats: sim.learnStats, huntStats: sim.huntStats || null,
-      brng: sim.brng ? sim.brng.s : null, grazerBirths: sim.grazerBirths || 0, cookStats: sim.cookStats || null };
+      brng: sim.brng ? sim.brng.s : null, grazerBirths: sim.grazerBirths || 0, cookStats: sim.cookStats || null,
+      groups: sim.groups || [], nextGroup: sim.nextGroup || 1, socStats: sim.socStats || null };
   };
   Sim.deserialize = function (o) {
     if (!o || o.version !== CFG().saveVersion) throw new Error("unsupported save version " + (o && o.version));
@@ -105,7 +108,8 @@
       arng: new G.RNG(s.arng), animals: s.animals, herds: s.herds, bodies: s.bodies,
       orng: new G.RNG(s.orng), items: s.items, discoveries: s.discoveries, fire: s.fire, fireStats: s.fireStats, physStats: s.physStats || undefined, fx: s.fx || [],
       lrng: new G.RNG(s.lrng), learnStats: s.learnStats, huntStats: s.huntStats || undefined,
-      brng: s.brng != null ? new G.RNG(s.brng) : undefined, grazerBirths: s.grazerBirths || 0, cookStats: s.cookStats || undefined };
+      brng: s.brng != null ? new G.RNG(s.brng) : undefined, grazerBirths: s.grazerBirths || 0, cookStats: s.cookStats || undefined,
+      groups: s.groups || [], nextGroup: s.nextGroup || 1, socStats: s.socStats || { took: 0 } };
   };
 
   G.Time = Time; G.Sim = Sim;

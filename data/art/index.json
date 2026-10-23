@@ -93,5 +93,15 @@
    "bones"
   ],
   "note": "a killed grazer: fresh, meat taken / rotting, bones"
+ },
+ "smoke_16.png": {
+  "frame": 16,
+  "cols": [
+   "wisp_0",
+   "wisp_1",
+   "smoulder_0",
+   "smoulder_1"
+  ],
+  "note": "overlay on tree tile, like fire fx"
  }
 }

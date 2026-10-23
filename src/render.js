@@ -11,7 +11,7 @@
     if (A.person && A.person.src) loadImg(A.person.src, im => art.person = im);
     if (A.founders && A.founders.src) loadImg(A.founders.src, im => art.founders = im);
     loadImg(A.bush, im => art.bush = im); loadImg(A.bushEmpty, im => art.bushEmpty = im);
-    for (const k of ["body", "grazer", "scavenger", "items", "fx", "food", "carcass"]) if (A[k] && A[k].src) loadImg(A[k].src, im => art[k] = im);
+    for (const k of ["body", "grazer", "scavenger", "items", "fx", "food", "carcass", "smoke"]) if (A[k] && A[k].src) loadImg(A[k].src, im => art[k] = im);
   };
   R.art = () => art;
 
@@ -113,6 +113,8 @@
   function drawPerson(a, x, y, frame, facing, time) {
     const px = x * tp, py = y * tp, F = G.data.art.founders, A = G.data.art.person, asleep = a.act.type === "sleep";
     cx.fillStyle = "rgba(0,0,0,0.3)"; cx.beginPath(); cx.ellipse(px + 8, py + 14, asleep ? 6.5 : 4.5, 2, 0, 0, 7); cx.fill();
+    const grp = G.Social && G.Social.group(R.sim, a);   // step 18: a small ring in the group colour under her feet (loners: none)
+    if (grp) { cx.strokeStyle = G.Social.color(R.sim, grp); cx.lineWidth = 1.5; cx.beginPath(); cx.ellipse(px + 8, py + 14, asleep ? 7.5 : 6, 2.6, 0, 0, 7); cx.stroke(); cx.lineWidth = 1; }
     if (art.founders && F) {   // Artist founders: look block at x = blockW * (look mod variants); sleep row while asleep
       const row = asleep ? F.rows.indexOf("sleep") : Math.max(0, F.rows.indexOf(facing)), fr = asleep ? 0 : frame % F.frames, bx = ((a.look || 0) % F.variants) * F.blockW;
       cx.drawImage(art.founders, bx + fr * F.frame, row * F.frame, F.frame, F.frame, px, py - 2, tp, tp);
@@ -200,10 +202,14 @@
       const e = sim.fire[k], [x, y] = k.split(",").map(Number), px = x * tp, py = y * tp;
       if (e.s === "scorched") { drawFx("scorched_tile", px, py); continue; }
       if (e.s === "ash") { drawFx("scorched_tile", px, py); drawFx("ash", px, py); continue; }
-      if (e.s === "ember") { drawFx("ember", px, py); continue; }
+      const fl = Math.floor(time * 3 + x * 3 + y) % 2, tree = G.World.tile(sim.world, x, y) === G.data.T.WOODS;
+      if (e.s === "ember") { if (e.hold && tree && drawSmoke("smoulder_" + fl, px, py)) { drawSmoke("wisp_" + fl, px, py - tp); continue; } drawFx("ember", px, py); continue; }
       drawFx("scorched_tile", px, py); drawFx(Math.floor(time * 6 + x * 3 + y) % 2 ? "fire_1" : "fire_0", px, py);
+      if (tree) drawSmoke("wisp_" + fl, px, py - tp);
     }
   }
+  // smoke overlays (step 17 art): false when the sheet is missing, so the plain ember / fire fx stay as they were
+  function drawSmoke(name, px, py) { const c = sheetCol("smoke", name); if (c < 0) return false; cx.globalAlpha = 0.85; cx.drawImage(art.smoke, c * 16, 0, 16, 16, px, py, tp, tp); cx.globalAlpha = 1; return true; }
   function drawSparks(sim, time) {   // a spark is a brief flash: shown for the tick it happens and the next, flickering
     for (const f of sim.fx || []) if (f.k === "spark" && sim.tick - f.t < 2 && Math.floor(time * 12) % 3) drawFx("spark", f.x * tp, f.y * tp - 4);
   }
@@ -216,6 +222,7 @@
   // alpha = fraction of the way to the next tick (the main loop's tick accumulator), for smooth movement between ticks.
   // Position, step frame and facing are computed here only; the sim stays tick-based and deterministic.
   R.draw = function (sim, alpha, time, selectedId) {
+    R.sim = sim;
     if (R.terrainFor !== sim.world || R.dirty) drawTerrain(sim.world);
     cx.setTransform(1, 0, 0, 1, 0, 0); cx.fillStyle = "#000"; cx.fillRect(0, 0, cv.width, cv.height);
     const s = sc * view.z; cx.setTransform(s, 0, 0, s, -Math.round(view.ox * s), -Math.round(view.oy * s)); cx.imageSmoothingEnabled = false;

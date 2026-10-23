@@ -2,7 +2,7 @@
 (function (G) {
   G.data = G.data || {};
   G.data.config = {
-    saveVersion: 11,                // v11: cooked meat (heat), grazer births (own stream), cook score; v10: hunting, carcasses, meat, lightning; v9: varied maps (spawn, hills, map info; no lake/source); v8: learning (experience scores, copying), seasonal food, per-person logs; v7: objects, physics + discoveries, temperature + warmth, fire (v6: aging, death, bodies, animals); older saves are rejected
+    saveVersion: 12,                // v12: relations (familiarity, liking) and groups; v11: cooked meat (heat), grazer births (own stream), cook score; v10: hunting, carcasses, meat, lightning; v9: varied maps (spawn, hills, map info; no lake/source); v8: learning (experience scores, copying), seasonal food, per-person logs; v7: objects, physics + discoveries, temperature + warmth, fire (v6: aging, death, bodies, animals); older saves are rejected
     saveKey: "godsim.save",
     map: {
       w: 60, h: 40, tilePx: 16,      // map is 960x640 art px, scaled to fit the screen
@@ -122,9 +122,9 @@
                                       // step 15: of up to 6 candidate spots it takes the greenest (grass tiles around x dampness (100 - ground dryness))
         grazeSeason: [1, 1, 1, 2],    // graze time x this by season: winter grass is thin, so a meal takes twice as long
         // Director (step 17): births in Greening only. Each grazer with another grazer within mateTiles has perSeason / (season minutes) chance a minute
-        // of a calf (about one calf per pair a spring), on a free tile next to it, in its herd. No births at or above cap grazers or pop.maxAnimals in all.
+        // of a calf (0.35 a grazer: about 0.7 calves per pair a spring), on a free tile next to it, in its herd. No births at or above cap grazers or pop.maxAnimals in all.
         // Own random stream (brng), so births do not shift the other streams.
-        births: { season: 0, perSeason: 0.5, mateTiles: 6, cap: 40 }
+        births: { season: 0, perSeason: 0.35, mateTiles: 6, cap: 40 }   // Director (step 17 call 3): 0.35 per grazer a spring
       },
       scavenger: {
         start: 4, startAway: 10,
@@ -188,6 +188,16 @@
     },
     // Steps 13-14 learning. Each person keeps their own experience score (0-100, 50 = no experience) per action they have felt the result of.
     // Behaviour shifts only from that score (what this person felt) or from copying someone nearby who benefited; nothing is scripted and nothing is said.
+    // Step 18: relations and groups (src/social.js). 0-100 scales; liking starts at 50 (average).
+    //   familiarity +famPerHour per game hour within nearTiles, -famDropPerDay per game day apart.
+    //   liking +like.shared once per stretch of a rising need (eating, drinking, warmed by fire or huddling) with them within nearTiles (a stretch ends
+    //   after like.gapMinutes with no rise); like.took when they took the bush / meat / fire spot she was heading for; drifts to 50 at driftPerDay (1 per 3 days).
+    //   follow: idle, she walks to 1-3 tiles off the most-liked person within follow.tiles if that liking >= minLike. avoid: idle, keeps avoid.tiles+ from liking < below.
+    //   groups: every game day, connected components (2+) of pairs whose mutual familiarity AND liking are >= 60. copy odds x member / x other.
+    //   skillAt: a group knows the union of its members' learned scores >= skillAt. Card words: warm >= 70, neutral 40-69, wary < 40.
+    social: { nearTiles: 4, famPerHour: 1, famDropPerDay: 1, like: { start: 50, shared: 2, took: -3, driftPerDay: 1 / 3, gapMinutes: 30 },
+      follow: { minLike: 60, tiles: 15, off: [1, 3] }, avoid: { below: 25, tiles: 3 }, group: { fam: 60, like: 60, min: 2 },
+      copy: { member: 1.25, other: 0.85 }, skillAt: 40, words: { warm: 70, neutral: 40 }, cardTop: 5 },
     learn: {
       start: 50,                      // score before any experience
       // fire: a cold person (warmth < coldBelow) within emberTiles of an ember (or heatTiles of a fire) whose warmth the heat is helping gains
@@ -225,9 +235,10 @@
     // Eating: raw = meat.fullness / meat.sickChance; cooked / charred = fullness / sickChance below.
     // A hungry person with raw meat in hand and an ember or fire within sightTiles may hold it there first: p = holdChance x (cook score / 50)^2 x (1.5 - fireFear/100).
     // She eats it once it is cooked, after waitMinutes, or after coldGiveUp minutes away from heat. Eating cooked meat: cook score + gain (others
-    // within copyTiles may copy it); eating charred: - charDrop.
+    // within copyTiles may copy it); eating charred: - charDrop. sightTiles 15 (Director, step 17 call 1): seeking is only done hungry with meat in hand.
+    // A wildfire passing over a fresh carcass does not burn it to bones: the carcass heats like any meat (fire on or within fireTiles), so it roasts or chars.
     cook: { emberTiles: 1.5, fireTiles: 3, cookedAt: 30, charredAt: 120, fullness: { cooked: 70, charred: 20 }, sickChance: { cooked: 0, charred: 0 },
-      sightTiles: 10, holdChance: 0.15, waitMinutes: 60, coldGiveUp: 10, gain: 20, charDrop: 10 },
+      sightTiles: 15, holdChance: 0.15, waitMinutes: 60, coldGiveUp: 10, gain: 20, charDrop: 10 },
     meat: { pieces: { grazer: 4 }, fleshPerPiece: 20, takeMinutes: 10, fullness: 60, eatMinutes: 15, sickChance: 0.25, sickEnergy: 20 },
     bushes: { count: 60, minCount: 15, moistBase: 0.5, dry: { below: -0.1, at: -0.3, fewer: [0.3, 0.5] }, regrowMinutes: 1440, startRipe: 0.85, minSpacing: 4,   // eaten bush is ripe again 1 game day later (Greening; see season)
       // Step 15 seasons (Greening, High Sun, Leaffall, Deep Cold): a meal gives mealAdds x yield; an eaten bush ripens again after regrowMinutes

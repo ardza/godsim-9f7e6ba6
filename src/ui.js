@@ -125,6 +125,15 @@
   const EXP = { fire: "Fire", huddle: "Huddling", shelter: "Shelter" };
   const traitName = k => TRAIT[k] || k;
   const chip = (t, cls) => '<span class="chip' + (cls ? " " + cls : "") + '">' + t + '</span>';
+  // step 18: group line + Relations (top 5 by familiarity; liking word warm 70+, neutral 40-69, wary under 40; the two numbers 0-100)
+  function relRows(sim, a) {
+    const S = G.Social, g = S.group(sim, a), top = S.top(sim, a);
+    const grp = g ? '<div class="row rel"><span><i class="ring" style="border-color:' + S.color(sim, g) + '"></i>' + esc(S.groupName(sim, g)) + '</span><b>' + g.members.length + ' people</b></div>' +
+        '<div class="sub">keeps with ' + esc(g.members.filter(id => id !== a.id).map(id => (sim.agents.find(b => b.id === id) || {}).name).filter(Boolean).join(", ")) + ' · knows: ' + (S.skills(sim, g).map(k => esc(G.Learn.label(k))).join(", ") || "nothing yet") + '</div>'
+      : '<div class="sub">no group · keeps to no one yet</div>';
+    return '<div class="sec">Relations (familiarity / liking, 0-100, 50 = avg liking)</div>' + grp +
+      (top.length ? top.map(r => '<div class="row rel"><span>' + esc(r.name) + '</span><em class="w-' + r.word + '">' + r.word + '</em><b>' + r.f + ' / ' + r.l + '</b></div>').join("") : '<div class="sub">has met no one yet</div>');
+  }
   function expRows(sim, a) {
     return Object.keys(G.data.config.learn.actions).map(k => { const e = a.exp && a.exp[k], v = e ? e.score : G.data.config.learn.start;
       const lbl = EXP[k] || k;
@@ -205,6 +214,7 @@
         (a.act.type === "sleep" ? '<div class="sub">asleep since ' + G.Time.hhmm(G.Time.at(a.act.since)) + '</div>' : '') +
         '<div class="sec">Experience (0-100, ' + G.data.config.learn.start + ' = untried)</div>' + expRows(sim, a) +
         '<div class="sec">Traits (0-100, 50 = avg)</div>' + Object.entries(a.traits).map(([k, v]) => '<div class="row" title="' + esc(G.data.config.person.traits[k] || "") + '"><span>' + traitName(k) + '</span>' + bar(v, 100, "trait") + '<b>' + Math.round(v) + '/100</b></div>').join("") +
+        relRows(sim, a) +
         '<div class="sec">Knows</div><div class="chips">' + chip(known + ' berry bush' + (known === 1 ? "" : "es")) + chip(waterKnown(a)) +
           chip('carrying ' + (G.Items.held(sim, a) ? esc(G.Items.label(G.Items.held(sim, a))) : 'nothing')) +
           (sim.discoveries || []).filter(d => d.who === a.name).map(d => chip(esc(d.action + " " + d.materials.slice(0, 2).join(" / ") + " → " + d.result), "disc")).join("") + '</div>' +

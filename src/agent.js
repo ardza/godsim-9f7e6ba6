@@ -42,7 +42,7 @@
   Agent.sight = a => P().sightTiles;
   Agent.tilePos = a => ({ x: Math.round(a.pos.x), y: Math.round(a.pos.y) });
   Agent.doing = a => (a.act.type === "idle" || a.act.type === "sleep") && a.felt && a.felt.huddle && a.needs.warmth < 60 ? (a.act.type === "sleep" ? "asleep, huddled" : "huddling") :
-    ({ idle: "resting", try: ({ strike: "striking", rub: "rubbing", cut: "cutting" })[a.act.action] || "trying", eat: "eating a meal", eatMeat: "eating meat", cook: "holding meat to the fire", drink: "drinking", sleep: "asleep" })[a.act.type] || ({ wander: "wandering", food: "going to a bush", explore: "looking for food", water: "going to the water", exploreWater: "looking for water", collapse: "stumbling to a stop", pickup: "going to pick something up", try: "going to try something", shelter: "seeking warmth", fleeFire: "moving away from flames", fireside: "going to sit by the fire", burnt: "jumping back from the flames", hunt: "going after a grazer", meat: "going to a carcass" })[a.act.goal] || a.act.type;
+    ({ idle: "resting", try: ({ strike: "striking", rub: "rubbing", cut: "cutting" })[a.act.action] || "trying", eat: "eating a meal", eatMeat: "eating meat", cook: "holding meat to the fire", drink: "drinking", sleep: "asleep" })[a.act.type] || ({ wander: "wandering", food: "going to a bush", explore: "looking for food", water: "going to the water", exploreWater: "looking for water", collapse: "stumbling to a stop", pickup: "going to pick something up", try: "going to try something", shelter: "seeking warmth", fleeFire: "moving away from flames", fireside: "going to sit by the fire", burnt: "jumping back from the flames", hunt: "going after a grazer", meat: "going to a carcass", follow: "keeping close to someone", avoid: "keeping away from someone" })[a.act.goal] || a.act.type;
 
   // Two people never end a move on the same tile: each person claims one tile (where they stand, or the end of their path),
   // and nobody picks a destination someone else has claimed. Passing through is fine.
@@ -86,11 +86,11 @@
   }
   Agent.walkTo = walkTo;
 
-  function randomTarget(sim, a, rmin, rmax) {
+  function randomTarget(sim, a, rmin, rmax, ok) {
     const t = Agent.tilePos(a), rng = sim.rng;
     for (let k = 0; k < 30; k++) {
       const ang = rng.float() * Math.PI * 2, d = rng.range(rmin, rmax), x = Math.round(t.x + Math.cos(ang) * d), y = Math.round(t.y + Math.sin(ang) * d);
-      if (W.walkable(sim.world, x, y) && !Agent.claimed(sim, a, x, y)) return { x, y };
+      if (W.walkable(sim.world, x, y) && !Agent.claimed(sim, a, x, y) && (!ok || ok(x, y))) return { x, y };
     }
     return null;
   }
@@ -230,15 +230,20 @@
     return false;
   }
   function arriveFireside(sim, a) {
+    const t = Agent.tilePos(a), o = sim.agents.find(b => b !== a && Math.round(b.pos.x) === t.x && Math.round(b.pos.y) === t.y);
+    if (o) G.Social.took(sim, a, o, "spot by the fire");   // step 18: someone sat down on the spot she was heading for
     if (sim.tick - (a.sitFireAt == null ? -1e9 : a.sitFireAt) >= 120) G.Sim.log(sim, a.name + " sits down near the " + (a.act.fire === "ember" ? "embers" : "fire"), a);
     a.sitFireAt = sim.tick;
   }
   function wander(sim, a) {
+    // Director (step 17 call 2): cold comes first - a fire in sight, else trees / company, before any early trip, hunt or wander
+    if (a.needs.warmth < Agent.warmthSeekBelow(a)) { if (seekWarmth(sim, a)) return; if (Agent.goodSpot(sim, a) || a.fireStay === sim.tick) return startIdle(sim, a); }   // cold: stay huddled / under the trees
     if (waterIsFar(sim, a)) { G.Sim.log(sim, a.name + " set off early for water", a); return seekWater(sim, a); }
     if (foodIsFar(sim, a)) { G.Sim.log(sim, a.name + " set off early for a far bush", a); return seekFood(sim, a, null, true); }
-    if (a.needs.warmth < Agent.warmthSeekBelow(a)) { if (seekWarmth(sim, a)) return; if (Agent.goodSpot(sim, a) || a.fireStay === sim.tick) return startIdle(sim, a); }   // cold: stay huddled / under the trees
+    // step 18: keep 3+ tiles from someone she dislikes; drift to 1-3 tiles off the most-liked person in sight
+    if (G.Social.idleMove(sim, a, (x, y, g, ex) => walkTo(sim, a, x, y, g, ex), (x, y) => W.walkable(sim.world, x, y) && !Agent.claimed(sim, a, x, y))) return;
     if (G.Items.maybeTry(sim, a) || G.Items.maybePickUp(sim, a)) return;   // idle curiosity (step 9-10)
-    const w = P().wander, r = w.radius, t = randomTarget(sim, a, 2, r);
+    const w = P().wander, r = w.radius, t = randomTarget(sim, a, 2, r, (x, y) => G.Social.wanderOk(sim, a, x, y));
     if (!t || !walkTo(sim, a, t.x, t.y, "wander")) startIdle(sim, a, 0.3);
   }
 
@@ -270,13 +275,15 @@
     if (best) a.act = { type: "walk", goal: "food", path: best.p, i: 0, bush: best.id };
   }
 
+  // step 18: the bush she was heading for was eaten bare by someone else in the last hours (b.ateBy / b.ateAt, set when a meal ends)
+  function tookBush(sim, a, b) { if (b && b.ateBy != null && b.ateBy !== a.id && sim.tick - b.ateAt <= 240) G.Social.took(sim, a, sim.agents.find(q => q.id === b.ateBy), "bush"); }
   function arrive(sim, a) {
     const g = a.act.goal;
     if (g === "food") {
       const b = sim.bushes.find(q => q.id === a.act.bush);
       if (b && b.ripe) { a.act = { type: "eat", bush: b.id, t: 0, from: a.needs.fullness, over: !!a.act.over || a.needs.fullness >= Agent.fullnessThreshold(a), adds: r2(P().fullness.mealAdds * G.Sim.seasonal(sim.tick).yield) }; return; }
       G.Sim.log(sim, a.name + " found the bush bare", a);
-      if (b) a.knowledge.bushes[b.id].ripe = false;
+      if (b) { a.knowledge.bushes[b.id].ripe = false; tookBush(sim, a, b); }
       if (Agent.want(a) === "water") seekWater(sim, a); else seekFood(sim, a, b && b.id); return;
     }
     if (g === "water") { startDrink(sim, a, a.act.water); return; }
@@ -318,7 +325,7 @@
     act.t++; const end = Agent.mealEnd(act.from, act.over, act.adds);
     a.needs.fullness = Math.round((act.from + (end - act.from) * Math.min(1, act.t / n)) * 1e9) / 1e9;
     if (act.t >= n) {
-      a.needs.fullness = end; b.ripe = false; b.regrow = 0; a.knowledge.bushes[b.id].ripe = false; a.knowledge.bushes[b.id].emptySince = sim.tick;
+      a.needs.fullness = end; b.ripe = false; b.regrow = 0; b.ateBy = a.id; b.ateAt = sim.tick; a.knowledge.bushes[b.id].ripe = false; a.knowledge.bushes[b.id].emptySince = sim.tick;
       a.stats.meals++; G.Sim.log(sim, a.name + " ate berries (" + Agent.fullnessWord(end) + ")", a);
       startIdle(sim, a);
     }
@@ -377,7 +384,7 @@
     if (act.type === "eatMeat") return G.Hunt.stepEat(sim, a);
     if (act.type === "cook") return G.Cook.stepHold(sim, a);   // step 17: holding meat to an ember / fire
     if (act.type === "drink") return drink(sim, a);
-    if (act.goal === "food" && !a.knowledge.bushes[act.bush].ripe && a.knowledge.bushes[act.bush].seen === sim.tick) { G.Sim.log(sim, a.name + " saw the bush was bare", a); if (want === "water") seekWater(sim, a); else seekFood(sim, a, act.bush); }
+    if (act.goal === "food" && !a.knowledge.bushes[act.bush].ripe && a.knowledge.bushes[act.bush].seen === sim.tick) { G.Sim.log(sim, a.name + " saw the bush was bare", a); tookBush(sim, a, sim.bushes.find(q => q.id === act.bush)); if (want === "water") seekWater(sim, a); else seekFood(sim, a, act.bush); }
     else if (stay) { /* carry on */ }
     else if (want === "water" && act.goal !== "water" && (act.goal !== "exploreWater" || seen.waterNew)) seekWater(sim, a);
     else if (want === "food" && act.goal !== "food" && act.goal !== "hunt" && act.goal !== "meat" && act.goal !== "cook" && (act.goal !== "explore" || seen.ripeNew)) seekFood(sim, a);

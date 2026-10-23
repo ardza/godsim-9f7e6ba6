@@ -61,7 +61,8 @@
     for (const b of sim.bushes) if (b.x === x && b.y === y && F().bushBurns) { b.ripe = false; b.burnt = true; b.regrow = -mins(F().ashMinutes + F().regrowMinutes); sim.fireStats.bushes = (sim.fireStats.bushes || 0) + 1; }
     const gone = sim.items.filter(it => !it.heldBy && it.x === x && it.y === y && G.Items.props(it).burns);
     if (gone.length) { sim.items = sim.items.filter(it => !gone.includes(it)); sim.fireStats.itemsBurned = (sim.fireStats.itemsBurned || 0) + gone.length; }
-    for (const b of sim.bodies) if (b.x === x && b.y === y && b.flesh > 0) { b.flesh = 0; b.stage = "bones"; b.stageAt = sim.tick; b.material = CF().body.material; b.burnt = true; G.Sim.log(sim, "Flames burn " + b.name + "'s body down to the bones", b); }
+    for (const b of sim.bodies) if (b.x === x && b.y === y && b.flesh > 0) { if (G.Hunt && G.Hunt.carcassMeat(b)) { G.Sim.log(sim, "Flames sweep over " + b.name + "'s carcass", b); continue; }   // step 17: a carcass with meat is roasted by the heat (cook.js), not burned to bones
+      b.flesh = 0; b.stage = "bones"; b.stageAt = sim.tick; b.material = CF().body.material; b.burnt = true; G.Sim.log(sim, "Flames burn " + b.name + "'s body down to the bones", b); }
   }
   Fire.ignite = ignite;
 

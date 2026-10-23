@@ -148,7 +148,7 @@
   Discoveries.note = function (sim, who, action, mats, result) {
     sim.discoveries = sim.discoveries || []; const key = Discoveries.key(action, mats, result);
     if (sim.discoveries.some(d => d.key === key)) return null;
-    const d = { n: sim.discoveries.length + 1, key, action, materials: mats.slice(), result, who: who.name, whoId: who.id, tick: sim.tick, group: "" };
+    const d = { n: sim.discoveries.length + 1, key, action, materials: mats.slice(), result, who: who.name, whoId: who.id, tick: sim.tick, group: G.Social ? G.Social.groupName(sim, G.Social.group(sim, who)) : "" };   // step 18: her group at the time, if any
     sim.discoveries.push(d);
     // her own log gets a "first" line (not the main log, where the action line already shows it)
     if (who.id != null) G.Sim.plogAdd(sim, who.id, { t: sim.tick, text: who.name + " was the first to see it: " + action + " " + mats.join(" / ") + " \u2192 " + result, ids: [who.id], k: "disc" });
