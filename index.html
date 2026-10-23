@@ -39,6 +39,19 @@
     background: var(--panel); border: 1px solid var(--line); border-radius: 16px; }
   #zoom button { width: 44px; height: 44px; padding: 0; justify-content: center; background: transparent; border: 0; }
 
+  /* step 22: god powers bar (Rain / Warm / Cool), over the bottom-left of the map, just above the tab bar; 44px+ buttons, cooldown under the label */
+  #powers { position: absolute; left: 8px; bottom: 8px; z-index: 5; display: flex; gap: 4px; padding: 4px; line-height: 1.2; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; }
+  #powers button { display: flex; align-items: center; gap: 6px; min-width: 44px; min-height: 48px; padding: 0 12px; font-size: 16px; background: transparent; border: 0; border-radius: 12px; }
+  #powers button.on { background: var(--on); color: var(--on-text); }
+  #powers button.cooling { color: var(--dim); }
+  #powers button .cd { font-size: 16px; font-variant-numeric: tabular-nums; } #powers button .cd:empty { display: none; }
+  #powers button svg { width: 24px; height: 24px; flex: 0 0 24px; }
+  /* step 23: Lightning / Spawn join the bar; the Spawn picker (Grazer / Predator) sits just above it. Phones in portrait: icons only (names in the toast and aria-label) */
+  #spawnpick { position: absolute; left: 8px; bottom: 72px; z-index: 6; display: flex; gap: 4px; padding: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; }
+  #spawnpick[hidden] { display: none; }
+  #spawnpick button { min-width: 96px; min-height: 48px; padding: 0 14px; font-size: 16px; background: transparent; border: 0; border-radius: 12px; }
+  @media (max-width: 700px) { #powers button { padding: 0 10px; } #powers button .lbl { display: none; } }
+  #cv.aiming { cursor: crosshair; }
   /* panels: the person card and the open tab's panel (Log / Discoveries / Prayers) */
   #side { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); min-height: 0; }
   #side.bare { display: none; }
@@ -143,7 +156,7 @@
     #info > * { flex-shrink: 0; }   /* the short card scrolls as a whole; her log follows the details */
   }
 </style>
-<link rel="stylesheet" href="data/ui/theme.css?v=16">
+<link rel="stylesheet" href="data/ui/theme.css?v=18">
 </head><body>
 <div id="top">
   <span class="grp"><button id="btn-menu" aria-expanded="false" aria-controls="files" title="World: save, load, new world"><span class="ico" data-icon="menu"></span><span class="wide">World</span></button></span>
@@ -153,7 +166,8 @@
 </div>
 <div id="main">
   <div id="stage"><div id="mapbox"><canvas id="cv"></canvas>
-    <div id="zoom"><button id="zoom-in" title="Zoom in (wheel up, pinch out)" aria-label="zoom in"><span class="ico" data-icon="zoom_in"></span></button><button id="zoom-out" title="Zoom out (wheel down, pinch in)" aria-label="zoom out"><span class="ico" data-icon="zoom_out"></span></button></div></div></div>
+    <div id="zoom"><button id="zoom-in" title="Zoom in (wheel up, pinch out)" aria-label="zoom in"><span class="ico" data-icon="zoom_in"></span></button><button id="zoom-out" title="Zoom out (wheel down, pinch in)" aria-label="zoom out"><span class="ico" data-icon="zoom_out"></span></button></div>
+    <div id="powers" role="group" aria-label="god powers"></div></div></div>
   <div id="side">
     <button id="sheet-handle" aria-expanded="false"><span class="grip"></span><span id="sheet-peek">Log</span><span id="sheet-arrow">▲</span></button>
     <div id="info" hidden><button id="info-close" aria-label="close" title="Close"><span class="ico" data-icon="close"></span></button><div id="info-body"></div>
@@ -163,29 +177,30 @@
 </div>
 <div id="panelbar" role="tablist" aria-label="panels"></div>
 <div id="toast"></div>
-<script src="data/config.js?v=16"></script>
-<script src="data/tiles.js?v=16"></script>
-<script src="data/names.js?v=16"></script>
-<script src="data/art.js?v=16"></script>
-<script src="data/materials.js?v=16"></script>
-<script src="src/rng.js?v=16"></script>
-<script src="src/world.js?v=16"></script>
-<script src="src/climate.js?v=16"></script>
-<script src="src/agent.js?v=16"></script>
-<script src="src/animal.js?v=16"></script>
-<script src="src/objects.js?v=16"></script>
-<script src="src/fire.js?v=16"></script>
-<script src="src/learn.js?v=16"></script>
-<script src="src/hunt.js?v=16"></script>
-<script src="src/cook.js?v=16"></script>
-<script src="src/social.js?v=16"></script>
-<script src="src/family.js?v=16"></script>
-<script src="src/faith.js?v=16"></script>
-<script src="src/shelter.js?v=16"></script>
-<script src="src/sim.js?v=16"></script>
-<script src="src/save.js?v=16"></script>
-<script src="src/icons.js?v=16"></script>
-<script src="src/render.js?v=16"></script>
-<script src="src/ui.js?v=16"></script>
-<script src="src/main.js?v=16"></script>
+<script src="data/config.js?v=18"></script>
+<script src="data/tiles.js?v=18"></script>
+<script src="data/names.js?v=18"></script>
+<script src="data/art.js?v=18"></script>
+<script src="data/materials.js?v=18"></script>
+<script src="src/rng.js?v=18"></script>
+<script src="src/world.js?v=18"></script>
+<script src="src/climate.js?v=18"></script>
+<script src="src/agent.js?v=18"></script>
+<script src="src/animal.js?v=18"></script>
+<script src="src/objects.js?v=18"></script>
+<script src="src/fire.js?v=18"></script>
+<script src="src/learn.js?v=18"></script>
+<script src="src/hunt.js?v=18"></script>
+<script src="src/cook.js?v=18"></script>
+<script src="src/social.js?v=18"></script>
+<script src="src/family.js?v=18"></script>
+<script src="src/faith.js?v=18"></script>
+<script src="src/shelter.js?v=18"></script>
+<script src="src/powers.js?v=18"></script>
+<script src="src/sim.js?v=18"></script>
+<script src="src/save.js?v=18"></script>
+<script src="src/icons.js?v=18"></script>
+<script src="src/render.js?v=18"></script>
+<script src="src/ui.js?v=18"></script>
+<script src="src/main.js?v=18"></script>
 </body></html>

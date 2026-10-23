@@ -45,6 +45,7 @@
     G.Family.init(sim);   // step 19: sex per founder, pairs, babies - its own stream (frng), so the others are unchanged
     G.Faith.init(sim);    // step 21: faith per founder, prayers - its own stream (prng)
     G.Shelter.init(sim);  // step 21b: natural shelters from the terrain (own hash-seeded stream); nobody knows any yet
+    G.Powers.init(sim);   // step 22: god powers (own stream, drawn only while one is active)
     return sim;
   };
   // Seeded names with no repeats until the list is used up, then a fresh shuffle (reuse is fine past the list).
@@ -79,6 +80,21 @@
     for (const a of s.agents || []) { a.shelters = []; a.den = null; }
     s.version = 16; return s;
   };
+  // v16 -> v17: no powers active, none on cooldown (own stream seeded from the seed); a same-sex pair goes back to friendship (pairs are man + woman only)
+  Sim.migrate17 = function (o) {
+    if (!o || o.version !== 16) return o; const s = JSON.parse(JSON.stringify(o));
+    s.powers = G.Powers.newState(); s.powers.rs = (s.seed ^ 0x5A1D0F22) >>> 0;
+    const by = {}; for (const a of s.agents || []) by[a.id] = a;
+    if (CFG().family.bond.mixedOnly) for (const a of s.agents || []) { const b = by[a.mate]; if (a.mate != null && (!b || b.sex === a.sex)) { if (b && b.mate === a.id) b.mate = null; a.mate = null; } }
+    s.version = 17; return s;
+  };
+  // v17 -> v18 (step 23): Lightning and Spawn powers. Their stats and cast counts start at 0, no cooldowns (ready); nobody is frightened or running;
+  // sticks lit by a lightning fire before v18 are not marked (only new ones are bolt sticks). Nothing else changes.
+  Sim.migrate18 = function (o) {
+    if (!o || o.version !== 17) return o; const s = JSON.parse(JSON.stringify(o)), N = G.Powers.newStats();
+    if (s.powers) { const t = s.powers.stats || {}; s.powers.stats = Object.assign(N, t, { casts: Object.assign(N.casts, t.casts || {}) }); s.powers.cd = s.powers.cd || {}; }
+    s.version = 18; return s;
+  };
   // One log line. who = the person(s) involved (person/body objects or ids): the line is tagged with their ids and also goes into each one's own
   // log (sim.plog[id], last log.personMax kept, saved). k = an optional kind for the personal log ("death", "birth", "disc").
   Sim.ids = who => (who == null ? [] : Array.isArray(who) ? who : [who]).map(w => w == null ? null : typeof w === "number" ? w : w.kind === "body" ? w.of : w.id).filter((v, i, a) => v != null && a.indexOf(v) === i);
@@ -93,10 +109,11 @@
 
   Sim.step = function (sim) {
     sim.tick++;
+    G.Powers.step(sim);   // step 22: rain ends, lit sticks in the rain go out, first-drop reactions, expired effects
     const B = CFG().bushes;
     // step 15: regrowth runs at the season's pace (counted in base-regrow minutes: 1 per minute in Greening, 1/3 in Deep Cold)
-    const rate = B.regrowMinutes / Sim.seasonal(sim.tick).regrowMinutes;
-    for (const b of sim.bushes) if (!b.ripe && (b.regrow = Math.round((b.regrow + rate) * 1e6) / 1e6) >= B.regrowMinutes / CFG().time.tickGameMinutes - 1e-9) { b.ripe = true; b.regrow = 0; b.burnt = false; sim.regrown = (sim.regrown || 0) + 1; }
+    const rate = B.regrowMinutes / Sim.seasonal(sim.tick).regrowMinutes, pw = G.Powers.any(sim);   // step 22: rained-on bushes regrow powers.rain.bushX as fast
+    for (const b of sim.bushes) if (!b.ripe && (b.regrow = Math.round((b.regrow + (pw ? rate * G.Powers.bushX(sim, b) : rate)) * 1e6) / 1e6) >= B.regrowMinutes / CFG().time.tickGameMinutes - 1e-9) { b.ripe = true; b.regrow = 0; b.burnt = false; sim.regrown = (sim.regrown || 0) + 1; }
     for (const a of sim.agents) { sim.prev[a.id] = { x: a.pos.x, y: a.pos.y }; G.Agent.step(sim, a); }
     G.Shelter.step(sim);   // step 21b: who is inside which shelter, step-ins, first warm night
     for (const a of sim.agents.slice()) { const c = G.Agent.deathCause(a); if (c) Sim.die(sim, a, c); }
@@ -114,7 +131,8 @@
   Sim.seasonal = tick => { const S = CFG().bushes.season, i = G.Climate.seasonIndex(tick); return { yield: S ? S.yield[i] : 1, regrowMinutes: S ? S.regrowMinutes[i] : CFG().bushes.regrowMinutes }; };
   // A death: one action line, the person leaves the living and a body stays where they were (no grave; people ignore it).
   Sim.die = function (sim, a, cause) {
-    Sim.log(sim, a.name + " lies still. " + a.name + " has died of " + cause + ".", a, "death");
+    const vb = (G.data.config.body.causeVerb || {})[cause];   // step 23: "was struck by lightning" rather than "has died of struck by lightning"
+    Sim.log(sim, a.name + " lies still. " + a.name + (vb ? " " + vb + " " : " has died of ") + cause + ".", a, "death");
     if (a.carry != null) G.Items.drop(sim, a);
     G.Family.onDeath(sim, a);
     G.Faith.onDeath(sim, a);   // step 21: those awake close by saw it
@@ -134,12 +152,15 @@
       groups: sim.groups || [], nextGroup: sim.nextGroup || 1, socStats: sim.socStats || null,
       frng: sim.frng.s, babies: sim.babies, famStats: sim.famStats,
       prng: sim.prng.s, faith: sim.faith, prayers: sim.prayers || [],
-      shelters: sim.shelters || [], shelterStats: sim.shelterStats || null, shelterFirst: sim.shelterFirst || null, srng: sim.srng ? sim.srng.s : null };
+      shelters: sim.shelters || [], shelterStats: sim.shelterStats || null, shelterFirst: sim.shelterFirst || null, srng: sim.srng ? sim.srng.s : null,
+      powers: sim.powers || null };
   };
   Sim.deserialize = function (o) {
     if (o && o.version === 13) o = Sim.migrate(o);
     if (o && o.version === 14) o = Sim.migrate15(o);
-    if (o && o.version === 15 && CFG().saveVersion === 16) o = Sim.migrate16(o);
+    if (o && o.version === 15) o = Sim.migrate16(o);
+    if (o && o.version === 16) o = Sim.migrate17(o);
+    if (o && o.version === 17) o = Sim.migrate18(o);
     if (!o || o.version !== CFG().saveVersion) throw new Error("unsupported save version " + (o && o.version));
     const s = JSON.parse(JSON.stringify(o));
     const world = { w: s.world.w, h: s.world.h, seed: s.seed, attempt: s.world.attempt, spawn: s.world.spawn, hills: s.world.hills, info: s.world.info, tiles: s.world.tiles.split("").map(c => TILE_CH.indexOf(c)) };
@@ -152,7 +173,8 @@
       groups: s.groups || [], nextGroup: s.nextGroup || 1, socStats: s.socStats || { took: 0 },
       frng: new G.RNG(s.frng), babies: s.babies || [], famStats: s.famStats,
       prng: new G.RNG(s.prng), faith: s.faith || G.Faith.newState(), prayers: s.prayers || [],
-      shelters: s.shelters || [], shelterStats: s.shelterStats || G.Shelter.newStats(), shelterFirst: s.shelterFirst || null, srng: s.srng != null ? new G.RNG(s.srng) : undefined };
+      shelters: s.shelters || [], shelterStats: s.shelterStats || G.Shelter.newStats(), shelterFirst: s.shelterFirst || null, srng: s.srng != null ? new G.RNG(s.srng) : undefined,
+      powers: s.powers || Object.assign(G.Powers.newState(), { rs: (s.seed ^ 0x5A1D0F22) >>> 0 }) };
   };
 
   G.Time = Time; G.Sim = Sim;

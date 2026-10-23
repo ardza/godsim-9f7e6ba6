@@ -73,6 +73,15 @@
   // all-time record of a form (sim.faith.forms): who held it (id -> copy generation, 0 = made it up), who prayed it, copies, reinforcements
   const reg = (sim, form) => sim.faith.forms[form] || (sim.faith.forms[form] = { holders: {}, prayed: {}, copies: 0, hits: 0, first: null });
 
+  // step 23: her latest prayer (begun within win ticks) is answered by a strike / new animal close by: reinforced like a need that rose after it
+  // (once per bout: e.ans = the bout's start tick). True = reinforced.
+  Faith.answer = function (sim, a, win) {
+    if (!sim.faith || !a.prayForms) return false; const C = FC(); let form = null, e = null;
+    for (const f in a.prayForms) { const r = a.prayForms[f]; if (r.last != null && sim.tick - r.last <= win && (!e || r.last > e.last)) { form = f; e = r; } }
+    if (!e || e.ans === e.last) return false; e.ans = e.last;
+    e.like = Math.min(100, e.like + C.likeGain); e.hits = (e.hits || 0) + 1; sim.faith.stats.reinforced++; sim.faith.stats.byPower = (sim.faith.stats.byPower || 0) + 1;
+    const R = reg(sim, form); R.hits++; (R.liked || (R.liked = {}))[a.id] = 1; return true;
+  };
   // ---- triggers ----
   // the need under needBelow (lowest), else "death" for a death seen in the last day, else null
   Faith.trigger = function (sim, a) {

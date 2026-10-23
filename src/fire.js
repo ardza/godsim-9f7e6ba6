@@ -13,6 +13,7 @@
   // fuel dryness on a tile: the ground (none if it is burning, ash or scorched) or a burnable thing lying there, whichever is drier
   Fire.dryness = function (sim, x, y) {
     if (!W.inb(sim.world, x, y) || !W.walkable(sim.world, x, y) || sim.fire[key(x, y)]) return 0;
+    if (G.Powers && G.Powers.wetAt(sim, x, y)) return 0;   // step 22: rained-on ground stays wet (no spark, spread, lightning or stick ember)
     let d = G.Climate.groundDryness(sim.world, x, y, sim.tick);
     for (const it of sim.items) if (!it.heldBy && !it.lit && it.x === x && it.y === y && G.Items.props(it).burns) d = Math.max(d, it.props.dryness);   // a burning stick is not fresh fuel
     return d;
@@ -63,15 +64,16 @@
     // here die down plus brand.litMinutes, then burns out
     for (const it of sim.items) if (!it.heldBy && it.x === x && it.y === y && G.Items.props(it).burns) {
       const until = sim.tick + mins(F().burnMinutes[tl] + F().brand.litMinutes); if (!it.lit) { sim.fireStats.itemsBurned = (sim.fireStats.itemsBurned || 0) + 1; sim.fireStats.brands = (sim.fireStats.brands || 0) + 1; }
-      it.lit = Math.max(it.lit || 0, until); }
+      it.lit = Math.max(it.lit || 0, until); if (ev && ev.lightning) it.bolt = 1; }   // step 23: lit by a lightning fire
     for (const b of sim.bodies) if (b.x === x && b.y === y && b.flesh > 0) { if (G.Hunt && G.Hunt.carcassMeat(b)) { G.Sim.log(sim, "Flames sweep over " + b.name + "'s carcass", b); continue; }   // step 17: a carcass with meat is roasted by the heat (cook.js), not burned to bones
       b.flesh = 0; b.stage = "bones"; b.stageAt = sim.tick; b.material = CF().body.material; b.burnt = true; G.Sim.log(sim, "Flames burn " + b.name + "'s body down to the bones", b); }
   }
   Fire.ignite = ignite;
   // Director (step 20 call 2): a stick lying within brand.catchTiles of a burning tile catches -> a burning stick until these flames die + litMinutes
   function catchNear(sim, x, y, e) { const R = F().brand.catchTiles; if (!R) return;
-    for (const it of sim.items) { if (it.heldBy != null || it.lit || Math.max(Math.abs(it.x - x), Math.abs(it.y - y)) > R || !G.Items.props(it).burns) continue;
-      it.lit = e.end + mins(F().brand.litMinutes); const S = sim.fireStats; S.brands = (S.brands || 0) + 1; S.caught = (S.caught || 0) + 1;
+    for (const it of sim.items) { if (it.heldBy != null || it.lit || Math.max(Math.abs(it.x - x), Math.abs(it.y - y)) > R || !G.Items.props(it).burns || (G.Powers && G.Powers.wetAt(sim, it.x, it.y))) continue;
+      it.lit = e.end + mins(F().brand.litMinutes); const S = sim.fireStats; if (evOf(sim, e) && evOf(sim, e).lightning) { it.bolt = 1; S.boltSticks = (S.boltSticks || 0) + 1; }   // step 23
+      S.brands = (S.brands || 0) + 1; S.caught = (S.caught || 0) + 1;
       if (sim.tick - (S.caughtLogAt == null ? -1e9 : S.caughtLogAt) >= 60) { S.caughtLogAt = sim.tick; G.Sim.log(sim, "A stick by the flames catches fire"); } } }
   Fire.catchNear = catchNear;
 
@@ -104,7 +106,7 @@
   };
   // Director (21): someone warming within brand.warmTiles (Chebyshev) of a burning stick lying on the ground rolls each hour too
   Fire.byBrand = (sim, a) => { const R = F().brand.warmTiles || 0; return R > 0 && sim.items.some(it => it.lit && it.heldBy == null && Math.max(Math.abs(it.x - Math.round(a.pos.x)), Math.abs(it.y - Math.round(a.pos.y))) <= R); };
-  Fire.grabOdds = (a) => { const B = F().brand; return Math.max(0, Math.min(1, (B.hourChance || 0) + B.grabChance * Math.pow(G.Learn.score(a, "fire") / 50, 2) * (1.5 - a.traits.fireFear / 100))); };
+  Fire.grabOdds = (a) => { const B = F().brand; return Math.max(0, Math.min(1, (B.hourChance || 0) + B.grabChance * Math.pow(G.Learn.score(a, "fire") / 50, 2) * (1.5 - (a.traits.fireFear + (a.fright ? a.fright.v : 0)) / 100))); };   // step 23: + fright after a strike
   Fire.grabHour = function (sim) {
     if (!sim.items.some(it => it.lit && it.heldBy == null)) return;
     for (const a of sim.agents.slice()) if (a.act.type === "idle" && a.carry == null && !(G.Family && G.Family.isChild(a)) && (Fire.byFire(sim, a) || Fire.byBrand(sim, a))) Fire.maybeGrab(sim, a);
@@ -154,11 +156,12 @@
     const keys = Object.keys(sim.fire); if (sim.fx.length) sim.fx = sim.fx.filter(f => sim.tick - f.t < 3);
     Fire.brands(sim);
     if ((sim.tick * TM()) % 60 === 0) Fire.grabHour(sim);   // once each game hour
+    const BS = CF().powers && CF().powers.boltStick; if (BS && (sim.tick * TM()) % BS.everyMinutes === 0) Fire.boltLook(sim);   // step 23: sticks lit by lightning
     if (!keys.length) return;
     const Fc = F(), live = {};
     for (const k of keys) { const e = sim.fire[k]; if (!e) continue; const [x, y] = k.split(",").map(Number), ev = evOf(sim, e);
       if (e.s === "ember") {
-        if (sim.orng.chance(Fc.emberToFire * (e.hold ? Fc.lightning.holdFlare : 1) * dryFactor(G.Climate.groundDryness(sim.world, x, y, sim.tick)) * TM() + (sim.items.some(it => !it.heldBy && it.x === x && it.y === y && G.Items.props(it).burns) ? Fc.emberToFire * TM() : 0))) {
+        if (!(G.Powers && G.Powers.wetAt(sim, x, y)) && sim.orng.chance(Fc.emberToFire * (e.hold ? Fc.lightning.holdFlare : 1) * dryFactor(G.Climate.groundDryness(sim.world, x, y, sim.tick)) * TM() + (sim.items.some(it => !it.heldBy && it.x === x && it.y === y && G.Items.props(it).burns) ? Fc.emberToFire * TM() : 0))) {
           delete sim.fire[k]; ignite(sim, x, y, e.ev); if (!ev.fired) { ev.fired = true; sim.fireStats.fires++; G.Sim.log(sim, "The ember flares up: the " + (W.tile(sim.world, x, y) === G.data.T.WOODS ? "woods catch" : "grass catches") + " fire", ev.by);
             const who = sim.agents.find(a => a.id === ev.by) || (ev.byName ? { id: ev.by, name: ev.byName } : null); if (who && ev.combo) G.Discoveries.note(sim, who, ev.combo.action, [ev.combo.held, ev.combo.target, ev.fuel], "fire"); } }
         else if (sim.tick >= e.end) { delete sim.fire[k]; if (!ev.fired) { ev.end = sim.tick; ev.regrown = sim.tick; G.Sim.log(sim, "The ember goes out"); } }
@@ -192,6 +195,26 @@
   Fire.nearestFlame = function (sim, x, y) { let d = Infinity; for (const k in sim.fire) { if (sim.fire[k].s !== "fire") continue; const [fx, fy] = k.split(",").map(Number); d = Math.min(d, Math.hypot(fx - x, fy - y)); } return d; };
   // step 20 call 2: fire score braveScore+ -> flames of a struck tree (lightning event) count only within braveTiles
   Fire.brave = a => !!a && G.Learn.score(a, "fire") >= F().brand.braveScore;
+  // step 23: a stick lit by a lightning fire (it.bolt) lying in sight draws a free adult: chance x clamp(0.5 + (curiosity - fireFear - fright) / 100) every
+  // boltStick.everyMinutes to walk over and pick it up (the walk is marked bolt: the flee rule does not turn her back; a burning tile on the way still burns)
+  const BOLT_FREE = { wander: 1, settle: 1, follow: 1, keep: 1 };
+  Fire.boltLook = function (sim) {
+    const BS = CF().powers.boltStick, B = F().brand, sticks = Fire.groundBrands(sim).filter(it => it.bolt); if (!sticks.length) return 0; let n = 0;
+    for (const a of sim.agents) {
+      if (a.carry != null || (G.Family && G.Family.isChild(a)) || !(a.act.type === "idle" || (a.act.type === "walk" && BOLT_FREE[a.act.goal])) || (a.runUntil && sim.tick < a.runUntil) || G.Agent.want(a)) continue;
+      let best = null, mpt = G.Agent.minutesPerTile(a);
+      for (const it of sticks) { const d = Math.hypot(it.x - a.pos.x, it.y - a.pos.y); if (d > BS.seeTiles || (best && d >= best.d)) continue;
+        if (d * mpt > (it.lit - sim.tick) * TM() - B.minLeftMinutes || sim.agents.some(b => b !== a && b.act.goal === "pickup" && b.act.target === it.id)) continue; best = { it, d }; }
+      if (!best) continue;
+      const fear = a.traits.fireFear + (a.fright ? a.fright.v : 0), p = BS.chance * Math.max(0, Math.min(1, 0.5 + ((a.traits.curiosity || 0) - fear) / 100)), S = sim.fireStats;
+      S.boltRolls = (S.boltRolls || 0) + 1; if (!sim.lrng.chance(p)) continue;
+      const it = best.it;
+      if (Math.round(a.pos.x) === it.x && Math.round(a.pos.y) === it.y && a.act.type === "idle") { if (G.Items.pickUp(sim, a, it.id)) { S.boltWalks = (S.boltWalks || 0) + 1; n++; } continue; }
+      if (G.Agent.claimed(sim, a, it.x, it.y)) continue;
+      if (G.Agent.walkTo(sim, a, it.x, it.y, "pickup", { target: it.id, brand: true, bolt: true })) { S.boltWalks = (S.boltWalks || 0) + 1; n++; G.Sim.log(sim, a.name + " creeps toward the smouldering stick", a); }
+    }
+    return n;
+  };
   Fire.fearedFlame = function (sim, a, x, y) { if (!Fire.brave(a)) return Fire.nearestFlame(sim, x, y); const B = F().brand; let d = Infinity;
     for (const k in sim.fire) { const e = sim.fire[k]; if (e.s !== "fire") continue; const [fx, fy] = k.split(",").map(Number), dd = Math.hypot(fx - x, fy - y), ev = evOf(sim, e);
       if (ev && ev.lightning && dd > B.braveTiles) continue; d = Math.min(d, dd); } return d; };

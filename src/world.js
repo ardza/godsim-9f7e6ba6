@@ -121,7 +121,7 @@
       const d = Math.hypot(x - W / 2, y - H / 2) + pr.float() * 6; if (!spawn || d < spawn.d) spawn = { x, y, d }; }
     if (!spawn) return null;
     w.spawn = { x: spawn.x, y: spawn.y };
-    Object.defineProperty(w, "moist", { value: moist, enumerable: false });   // used once for bush placement, not saved
+    Object.defineProperty(w, "moist", { value: moist, enumerable: false }); Object.defineProperty(w, "height", { value: height, enumerable: false });   // step 22: rain puddles in low tiles (not saved; a loaded world regenerates it)   // used once for bush placement, not saved
     w.hills = Array.from(hill).join("");
     w.info = { lakes: lakes.length, lakeSizes: lakes.map(L => L.size), rivers: rivers.length, riverInfo: rivers, waterPct: +waterPct.toFixed(1), forestDensity: +forestDensity.toFixed(2),
       moistureBias: +moistBias.toFixed(2), hillPct: +(100 * hillFrac).toFixed(1), woodsPct: +(100 * w.tiles.filter(t => t === T.WOODS).length / N).toFixed(1), attempt: n };

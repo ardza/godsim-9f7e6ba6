@@ -38,9 +38,14 @@
   };
 
   // Felt temperature for a person: air + shelter + huddle + fire heat + activity. Returns {c, sheltered, huddle, fire}.
+  // step 22: the air at a tile = the day's air + any Warm / Cool power there
+  Climate.airAt = (sim, x, y) => Climate.airC(sim.tick) + (G.Powers ? G.Powers.shiftC(sim, Math.round(x), Math.round(y)) : 0);
   Climate.felt = function (sim, a) {
     const Wm = CF().person.warmth, x = Math.round(a.pos.x), y = Math.round(a.pos.y);
-    let c = Climate.airC(sim.tick); const sheltered = G.World.tile(sim.world, x, y) === T().WOODS; if (sheltered) c += Wm.shelterC; else c += Wm.sunC * (1 - G.Time.darkness(sim.tick));
+    // step 22: rain on her (0..1): no sun, powers.rain.chillC x wet colder (warmth loss x lossX is applied in Agent.step)
+    const wet = G.Powers ? G.Powers.exposure(sim, a) : 0, rainy = wet > 0 || (G.Powers && G.Powers.any(sim) && G.Powers.raining(sim, x, y));
+    let c = Climate.airAt(sim, x, y); const sheltered = G.World.tile(sim.world, x, y) === T().WOODS; if (sheltered) c += Wm.shelterC; else if (!rainy) c += Wm.sunC * (1 - G.Time.darkness(sim.tick));
+    if (wet) c -= CF().powers.rain.chillC * wet;
     let hud = 0; for (const b of sim.agents) if (b !== a && Math.hypot(b.pos.x - a.pos.x, b.pos.y - a.pos.y) <= Wm.huddleTiles) hud++;
     hud = Math.min(hud, Wm.huddleMax); c += hud * Wm.huddleC;
     // step 20: at night a partner / group member / guardian (or ward) within bondTiles adds bondC (once)
@@ -51,7 +56,7 @@
     // step 21b: resting / asleep inside a shelter she got into; fire + huddle + sleeping together + this stay under shelter.capX fires
     const den = G.Shelter ? G.Shelter.warmC(sim, a, heat + hud * Wm.huddleC + sleepC + (bond ? Wm.bondC : 0)) : 0; c += den;
     if (a.act.type === "walk") c += Wm.walkingC; else if (a.act.type === "sleep") c += Wm.asleepC;
-    return { c: Math.round(c * 100) / 100, sheltered, huddle: hud, heat, bond: bond ? bond.name : null, sleepers, sleepC, den };
+    const o = { c: Math.round(c * 100) / 100, sheltered, huddle: hud, heat, bond: bond ? bond.name : null, sleepers, sleepC, den }; if (wet) o.wet = wet; return o;
   };
   // step 20: is b someone she keeps with (partner, same group, her guardian or the child she guards)?
   Climate.bonded = (a, b) => b !== a && (a.mate === b.id || b.mate === a.id || (a.group != null && a.group === b.group) || a.guard === b.id || b.guard === a.id);

@@ -86,6 +86,7 @@
   Shelter.step = function (sim) {
     if (!sim.shelters || !sim.shelters.length) return;
     const C = SC(), St = sim.shelterStats || (sim.shelterStats = Shelter.newStats());
+    if (sim.tick % 60 === 0) St.learned = Shelter.learnedCount(sim);   // v17: people who know a shelter and have learned den use (refreshed hourly; read-only, no rng)
     for (const a of sim.agents) {
       const s = Shelter.at(sim, a.pos.x, a.pos.y), rest = a.act.type === "sleep" || a.act.type === "idle";
       if (a.den != null && (!s || s.id !== a.den)) { a.den = null; a.denW0 = null; a.denSlept = false; }   // she left it

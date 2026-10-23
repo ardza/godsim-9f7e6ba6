@@ -64,7 +64,8 @@
       if (b.bonesLeft <= 0) b.gone = true;   // all its bones are carried off: the skeleton is no longer there as a body
       G.Sim.log(sim, a.name + " picks up a bone from " + b.name + "'s bones", [a, b]);
     } else { if (it.heldBy || Math.round(a.pos.x) !== it.x || Math.round(a.pos.y) !== it.y) return false; G.Sim.log(sim, a.name + " picks up " + Items.label(it), a); }
-    it.heldBy = a.id; a.carry = it.id; a.carryUntil = sim.tick + sim.orng.int(OC().carry[0], OC().carry[1]); if (it.lit) { a.carryUntil = it.lit + 1; it.lastBy = a.id; it.lastByName = a.name; if (sim.fireStats) sim.fireStats.brandPickups = (sim.fireStats.brandPickups || 0) + 1; }   /* step 19: a burning stick is kept until it burns out */ a.stats.pickups = (a.stats.pickups || 0) + 1;
+    it.heldBy = a.id; a.carry = it.id; a.carryUntil = sim.tick + sim.orng.int(OC().carry[0], OC().carry[1]); if (it.lit) { a.carryUntil = it.lit + 1; it.lastBy = a.id; it.lastByName = a.name; if (sim.fireStats) { sim.fireStats.brandPickups = (sim.fireStats.brandPickups || 0) + 1; if (it.bolt) sim.fireStats.boltPickups = (sim.fireStats.boltPickups || 0) + 1; }
+      const d = Discoveries.note(sim, a, "carried", ["burning stick"], "fire in hand"); if (d) d.title = "First lit stick carried"; }   /* step 23: the first carry of a lit stick, from the data */   /* step 19: a burning stick is kept until it burns out */ a.stats.pickups = (a.stats.pickups || 0) + 1;
     return true;
   }
   Items.pickUp = pickUp;

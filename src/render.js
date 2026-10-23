@@ -11,7 +11,7 @@
     if (A.person && A.person.src) loadImg(A.person.src, im => art.person = im);
     if (A.founders && A.founders.src) loadImg(A.founders.src, im => art.founders = im);
     loadImg(A.bush, im => art.bush = im); loadImg(A.bushEmpty, im => art.bushEmpty = im);
-    for (const k of ["body", "grazer", "scavenger", "items", "fx", "food", "carcass", "smoke", "baby", "child", "pray", "childPray", "spot", "shelter"]) if (A[k] && A[k].src) loadImg(A[k].src, im => art[k] = im);
+    for (const k of ["body", "grazer", "scavenger", "items", "fx", "food", "carcass", "smoke", "baby", "child", "pray", "childPray", "spot", "shelter", "rain", "lightning"]) if (A[k] && A[k].src) loadImg(A[k].src, im => art[k] = im);
   };
   R.art = () => art;
 
@@ -348,9 +348,46 @@
     for (const b of sim.babies || []) if (b.orphanAt != null) { R.screen[b.id] = { x: b.pos.x, y: b.pos.y }; drawBaby(b, Math.round(b.pos.x * tp), Math.round(b.pos.y * tp), "lying");   // left alone on the ground
       if (b.id === selectedId) { cx.strokeStyle = "#fff6b0"; cx.lineWidth = 1.5; cx.strokeRect(b.pos.x * tp + 0.5, b.pos.y * tp + 0.5, tp - 1, tp - 1); cx.lineWidth = 1; } }
     drawSparks(sim, time);
+    drawPowers(sim, time);   // step 22: rain falling and warm / cool tint over the circles (view only)
     const dk = G.Time.darkness(sim.tick); if (dk > 0) { cx.fillStyle = "rgba(8,14,40," + (dk * 0.55).toFixed(3) + ")"; cx.fillRect(0, 0, mw, mh); }
     cx.setTransform(1, 0, 0, 1, 0, 0);
   };
+
+  // step 22: active powers - a soft tint over the circle, rain frames tiled over every tile in a Rain circle; R.aim = the circle under the pointer while a power is armed
+  R.aim = null;
+  function drawPowers(sim, time) {
+    const P = G.data.config.powers, list = G.Powers ? G.Powers.active(sim) : [], disc = (x, y, r) => { cx.beginPath(); cx.arc((x + 0.5) * tp, (y + 0.5) * tp, (r + 0.5) * tp, 0, 7); };
+    for (const e of list) { const on = e.k === "rain" ? e.on && sim.tick < e.end : sim.tick < e.end; if (!on) continue;
+      const fade = e.fade ? Math.min(1, (e.end - sim.tick) / e.fade) : 1; cx.save(); cx.globalAlpha = fade; cx.fillStyle = P.tint[e.k]; disc(e.x, e.y, e.r); cx.fill();
+      if (e.k === "rain") { const im = art.rain, f = Math.floor(time * 1000 / P.rainFrameMs) % 4;
+        for (let y = Math.ceil(e.y - e.r); y <= e.y + e.r; y++) for (let x = Math.ceil(e.x - e.r); x <= e.x + e.r; x++) {
+          if (x < 0 || y < 0 || x >= G.data.config.map.w || y >= G.data.config.map.h || (x - e.x) * (x - e.x) + (y - e.y) * (y - e.y) > e.r * e.r) continue;
+          if (im) cx.drawImage(im, f * 16, 0, 16, 16, x * tp, y * tp, tp, tp);
+          else { cx.strokeStyle = "rgba(190,210,255,0.45)"; cx.beginPath(); for (let i = 0; i < 3; i++) { const sx = x * tp + ((i * 5 + f * 3) % tp), sy = y * tp + ((i * 7 + f * 4) % tp); cx.moveTo(sx, sy); cx.lineTo(sx - 1, sy + 4); } cx.stroke(); } } }
+      cx.restore(); }
+    drawFlashes(sim);
+    if (R.aim && R.aim.r === 0) { cx.save(); cx.strokeStyle = "rgba(255,246,176,0.9)"; cx.setLineDash([3, 2]); cx.strokeRect(R.aim.x * tp + 0.5, R.aim.y * tp + 0.5, tp - 1, tp - 1); cx.restore(); }
+    else if (R.aim) { cx.save(); cx.strokeStyle = "rgba(255,246,176,0.8)"; cx.setLineDash([4, 3]); disc(R.aim.x, R.aim.y, R.aim.r); cx.stroke(); cx.restore(); }
+  }
+
+  // step 23: a strike (bolt fx) and a new animal (shimmer fx), timed in real ms from when the view first sees them (view only, nothing saved)
+  const flashes = []; let seenFx = new WeakSet();
+  function drawFlashes(sim) {
+    const now = performance.now(), P = G.data.config.powers;
+    for (const f of sim.fx) if ((f.k === "bolt" || f.k === "shimmer") && !seenFx.has(f)) { seenFx.add(f); if (sim.tick - f.t <= 2) flashes.push({ k: f.k, x: f.x, y: f.y, t0: now }); }
+    for (let i = flashes.length - 1; i >= 0; i--) { const f = flashes[i], ms = now - f.t0;
+      if (f.k === "bolt") { const fm = P.lightning.frameMs, tot = fm[0] + fm[1] + fm[2]; if (ms > tot) { flashes.splice(i, 1); continue; }
+        const fr = ms < fm[0] ? 0 : ms < fm[0] + fm[1] ? 1 : 2, im = art.lightning, px = f.x * tp, py = (f.y - 2) * tp;
+        if (im) cx.drawImage(im, fr * 16, 0, 16, 48, px, py, tp, 3 * tp);
+        else { cx.save(); cx.globalAlpha = fr === 2 ? 0.6 : 1; cx.strokeStyle = "#fffbe0"; cx.lineWidth = fr === 1 ? 1 : 2; cx.beginPath(); cx.moveTo(px + 9, py); cx.lineTo(px + 5, py + 18); cx.lineTo(px + 10, py + 24); cx.lineTo(px + 7, py + 3 * tp - 2); cx.stroke();
+          if (fr === 2) { cx.fillStyle = "rgba(255,250,210,0.7)"; cx.fillRect(px, py + 2 * tp, tp, tp); } cx.restore(); }
+        if (fr === 0) { cx.save(); cx.fillStyle = "rgba(255,255,240,0.12)"; cx.fillRect(view.ox - tp, view.oy - tp, view.bw + 2 * tp, view.bh + 2 * tp); cx.restore(); }   // the whole sky lights for a moment
+        }
+      else { const tot = P.spawn.shimmerMs; if (ms > tot) { flashes.splice(i, 1); continue; }
+        const k = ms / tot, cxp = (f.x + 0.5) * tp, cyp = (f.y + 0.5) * tp; cx.save(); cx.globalAlpha = 1 - k; cx.fillStyle = "#fff6b0";
+        for (let j = 0; j < 8; j++) { const a = j / 8 * Math.PI * 2 + k * 3, r = 3 + k * 8; cx.fillRect(Math.round(cxp + Math.cos(a) * r) - 1, Math.round(cyp + Math.sin(a) * r) - 1, 2, 2); }
+        cx.strokeStyle = "rgba(255,246,176,0.8)"; cx.beginPath(); cx.arc(cxp, cyp, 2 + k * 9, 0, 7); cx.stroke(); cx.restore(); } }
+  }
 
   // canvas client px -> tile coords (zoom/pan aware), and back (used by tests)
   R.toTile = function (clientX, clientY) { const f = R.frac(clientX, clientY); return { x: (view.ox + f.fx * view.bw / view.z) / tp, y: (view.oy + f.fy * view.bh / view.z) / tp }; };

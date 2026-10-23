@@ -157,5 +157,14 @@
    "thicket"
   ],
   "note": "transparent overlays drawn on top of the tile under them (meadow, woods or sand); keeps the live tile art underneath"
+ },
+ "lightning_16.png": {
+  "frame": "16x48",
+  "cols": [
+   "strike",
+   "strike_fade",
+   "ground_flash"
+  ],
+  "note": "bottom 16px row sits on the struck tile; bolt reaches 2 tiles above. Show strike ~80ms, fade ~80ms, flash ~150ms, then the normal fire/scorch fx"
  }
 }

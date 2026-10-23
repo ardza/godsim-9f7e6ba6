@@ -9,7 +9,7 @@
   UI.tab = "all";
   const waterKnown = a => { const k = [...new Set(Object.values(a.knowledge.water || {}))].sort(); return k.length ? "the " + k.join(" and the ") : "no water yet"; };
   const inTab = text => { const T = LC().tabs || [], t = T.find(x => x.key === UI.tab); if (!t) return true;
-    if (t.rest) return !T.some(x => x.match && new RegExp(x.match, "i").test(text)); // "rest" tab: lines no other tab claims
+    if (t.rest) return (t.also && new RegExp(t.also, "i").test(text)) || !T.some(x => x.match && new RegExp(x.match, "i").test(text)); // "rest" tab: lines no other tab claims
     return !t.match || new RegExp(t.match, "i").test(text); };
   const isSheet = () => getComputedStyle($("side")).position === "fixed"; // phone landscape: collapsible bottom sheet
 
@@ -88,7 +88,7 @@
     const up = e => {
       if (!pts.has(e.pointerId)) return; pts.delete(e.pointerId);
       if (press && press.id === e.pointerId) {
-        if (!press.pan && e.type === "pointerup") { const t = R.toTile(press.x0, press.y0); app.clickTile(t.x, t.y); } // under tapSlop px = a tap
+        if (!press.pan && e.type === "pointerup") { const t = R.toTile(press.x0, press.y0); if (UI.power) app.castPower(UI.power, Math.floor(t.x), Math.floor(t.y)); else app.clickTile(t.x, t.y); } // under tapSlop px = a tap (step 22: an armed power lands there)
         press = null; cv.classList.remove("panning");
       }
       if (pts.size < 2) pinch = null;
@@ -97,6 +97,42 @@
     zoomUI();
   }
 
+  // ---- step 22: god powers bar (Rain / Warm / Cool) over the bottom of the map. Tap a power, then the map; tap the power again to cancel. ----
+  const PW = () => G.data.config.powers;
+  UI.power = null;
+  const cdText = m => m >= 60 ? Math.floor(m / 60) + " h " + (Math.round(m % 60) ? Math.round(m % 60) + " min" : "") : Math.ceil(m) + " min";
+  function initPowers(app) {
+    const box = $("powers"); if (!box || !PW()) return;
+    PW().order.forEach(k => { const b = document.createElement("button"), L = PW().labels[k];
+      b.id = "power-" + k; b.dataset.power = k; b.setAttribute("aria-pressed", "false"); b.title = L + ": tap, then tap the map (tap again to cancel)";
+      b.innerHTML = UI.icon(k) + '<span class="lbl">' + L + '</span><span class="cd"></span>'; b.onclick = () => UI.armPower(app, k); box.appendChild(b); });
+    // step 23: the Spawn picker (Grazer / Predator), shown above the bar when Spawn is tapped; a choice arms Spawn with that animal
+    const SP = PW().spawn; if (SP) { const pk = document.createElement("div"); pk.id = "spawnpick"; pk.setAttribute("role", "group"); pk.setAttribute("aria-label", "spawn which animal"); pk.hidden = true;
+      Object.keys(SP.kinds).forEach(kind => { const b = document.createElement("button"), L = SP.kindLabels[kind] || kind; b.id = "spawn-" + kind; b.dataset.kind = kind; b.textContent = L; b.setAttribute("aria-label", "Spawn a " + L.toLowerCase());
+        b.onclick = () => UI.pickSpawn(app, kind); pk.appendChild(b); }); box.parentNode.appendChild(pk); }
+    const cv = $("cv");
+    cv.addEventListener("pointermove", e => { if (!UI.power || e.pointerType === "touch") { G.Render.aim = null; return; } const t = G.Render.toTile(e.clientX, e.clientY); G.Render.aim = { x: Math.floor(t.x), y: Math.floor(t.y), r: UI.power === "lightning" || UI.power === "spawn" ? 0 : PW().radiusTiles }; });
+    cv.addEventListener("pointerleave", () => { G.Render.aim = null; });
+  }
+  UI.spawnKind = null;
+  const pickOpen = () => { const p = $("spawnpick"); return !!p && !p.hidden; }, showPick = on => { const p = $("spawnpick"); if (p) p.hidden = !on; };
+  UI.armPower = function (app, k) {
+    const L = PW().labels[k];
+    if (UI.power === k || (k === "spawn" && pickOpen())) { UI.power = null; showPick(false); G.Render.aim = null; UI.toast(L + " cancelled"); }
+    else { const left = G.Powers.cooldownLeft(app.sim, k); if (left > 0) { UI.toast(L + " is ready in " + cdText(left).trim()); return; }
+      showPick(false);
+      if (k === "spawn") { UI.power = null; showPick(true); UI.toast("Spawn which animal?"); }   // step 23: pick the animal first
+      else { UI.power = k; UI.toast("Tap the map: " + L); } }
+    UI.updatePowers(app);
+  };
+  UI.pickSpawn = function (app, kind) { showPick(false); UI.spawnKind = kind; UI.power = "spawn"; UI.toast("Tap the land: " + (PW().spawn.kindLabels[kind] || kind)); UI.updatePowers(app); };
+  UI.updatePowers = function (app) {
+    if (!PW()) return; $("cv").classList.toggle("aiming", !!UI.power);
+    for (const k of PW().order) { const b = $("power-" + k); if (!b) continue; const left = G.Powers.cooldownLeft(app.sim, k), on = UI.power === k, t = left > 0 ? cdText(left).trim() : "";
+      b.classList.toggle("on", on || (k === "spawn" && pickOpen())); b.classList.toggle("cooling", left > 0); b.setAttribute("aria-pressed", on);
+      const cd = b.querySelector(".cd"); if (cd.textContent !== t) cd.textContent = t;
+      b.setAttribute("aria-label", PW().labels[k] + (left > 0 ? ", ready in " + t : on ? ", tap the map" : "")); }
+  };
   UI.init = function (app) {
     const sp = $("speeds");
     document.querySelectorAll(".ico[data-icon]").forEach(el => { el.outerHTML = UI.icon(el.dataset.icon); });   // static buttons in index.html
@@ -117,10 +153,11 @@
     $("sheet-handle").onclick = () => { const o = !$("side").classList.contains("open");
       if (o && !UI.panel && $("info").hidden) { UI.panel = "log"; savePrefs(Object.assign(prefs(), { panel: "log" })); UI._logKey = null; }   // opening an empty sheet opens the Log
       UI.openSheet(o); UI.update(app); };
-    initPanels(app);
+    initPanels(app); initPowers(app);
     if (isSheet() && prefs().sheet) UI.openSheet(true, true);
     initMap(app);
-    window.addEventListener("keydown", e => { if (e.code === "Space") { app.setSpeed(app.speed ? 0 : (app.lastSpeed || 1)); e.preventDefault(); }
+    window.addEventListener("keydown", e => { if (e.key === "Escape" && (UI.power || pickOpen())) { UI.armPower(app, UI.power || "spawn"); return; }
+      if (e.code === "Space") { app.setSpeed(app.speed ? 0 : (app.lastSpeed || 1)); e.preventDefault(); }
       const sp = G.data.config.time.speeds, n = /^[0-9]$/.test(e.key) ? +e.key : -1; if (n >= 0 && n < sp.length) app.setSpeed(sp[n]); }); // 0 pause, 1 = 1x, 2 = 10x, 3 = 60x
     window.addEventListener("resize", UI.layout); UI.layout(); UI.fit();
   };
@@ -195,7 +232,7 @@
     const ck = c.year + c.season + c.day + G.Time.hhmm(c) + Math.round(G.Climate.airC(sim.tick));
     if (UI._ck !== ck) { UI._ck = ck;   // phones drop the year and season name (span.wide) so the clock fits next to the World button
       $("clock").innerHTML = '<span class="wide">Year ' + c.year + ' · ' + c.season + ' ' + c.dayOfSeason + ' · </span>Day ' + c.day + ' · ' + G.Time.hhmm(c) + ' · ' + G.Time.tempF(G.Climate.airC(sim.tick)); }
-    $("seedshow").textContent = "seed " + sim.seed;
+    $("seedshow").textContent = "seed " + sim.seed; UI.updatePowers(app);
     document.querySelectorAll("#speeds button").forEach(b => { const on = +b.dataset.speed === app.speed; b.classList.toggle("on", on); b.setAttribute("aria-pressed", on); });
     updatePanels(app);
     document.querySelectorAll("#tabs button").forEach(b => { const on = b.id === "tab-" + UI.tab; b.classList.toggle("on", on); b.setAttribute("aria-selected", on); });
@@ -224,7 +261,7 @@
     } else if (bd) {
       const BC = G.data.config.body, ago = sim.tick - bd.diedAt, days = Math.floor(ago / 1440), hrs = Math.floor(ago % 1440 / 60);
       const MC = G.data.config.meat;
-      $("info-body").innerHTML = '<h3>' + (bd.stage === "bones" ? 'Bones of ' : bd.species ? 'Carcass of ' : 'Body of ') + esc(bd.name) + '</h3><div class="sub">' + bd.stage + (bd.species ? ' · ' + (bd.killedBy ? 'killed by ' + esc(bd.killedBy) : bd.cause) : ' · died of ' + bd.cause + ' at ' + bd.age + ' years') + '</div>' +
+      $("info-body").innerHTML = '<h3>' + (bd.stage === "bones" ? 'Bones of ' : bd.species ? 'Carcass of ' : 'Body of ') + esc(bd.name) + '</h3><div class="sub">' + bd.stage + (bd.species ? ' · ' + (bd.killedBy ? 'killed by ' + esc(bd.killedBy) : bd.cause) : ' · ' + ((G.data.config.body.causeVerb || {})[bd.cause] ? '' : 'died of ') + bd.cause + ' at ' + bd.age + ' years') + '</div>' +
         (bd.species && bd.stage !== "bones" ? '<div class="sub">meat left: ' + (bd.meat || 0) + ' of ' + (MC.pieces[bd.species] || 0) + ' pieces' + (bd.stage === "fresh" ? ' (can be taken while fresh)' : ' (spoiled)') + '</div>' : '') +
         '<div class="sub">' + G.Time.stamp(bd.diedAt) + ' · ' + (days ? days + ' d ' : '') + hrs + ' h ago</div>' +
         (bd.stage === "bones"
@@ -319,7 +356,7 @@
     el.innerHTML = '<div class="sec">People <span class="sub">' + rows.length + ' alive</span></div>' +
       '<div class="psort" role="group" aria-label="sort"><button data-ps="name" class="' + (S.k === "name" ? "on" : "") + '">Name' + arrow("name") + '</button><button data-ps="age" class="' + (S.k === "age" ? "on" : "") + '">Age' + arrow("age") + '</button></div>' +
       '<div class="plist">' + rows.map(a => '<button class="prow" data-pid="' + a.id + '"><span class="pn">' + esc(a.name) + '</span><span class="pa">' + Math.floor(a.age) + ' y · ' + sx(a) + ' · ' + G.Family.stageWord(a) + '</span>' +
-        '<span class="pms">' + meter("", a.needs.fullness, '<span class="pl">Food</span>') + meter("water", a.needs.water, '<span class="pl">Water</span>') + meter("warm", a.needs.warmth, '<span class="pl">Warmth</span>') + '</span></button>').join("") + '</div>' +
+        '<span class="pms">' + meter("", a.needs.fullness, '<span class="pl">Fullness</span>') + meter("water", a.needs.water, '<span class="pl">Water</span>') + meter("warm", a.needs.warmth, '<span class="pl">Warmth</span>') + '</span></button>').join("") + '</div>' +
       '<details class="pdead"' + (UI.peopleDeadOpen ? " open" : "") + '><summary>Dead (' + dead.length + ')</summary>' +
         (dead.length ? dead.map(b => '<div class="drow"><span class="pn">' + esc(b.name) + '</span><span>' + (b.age != null ? b.age + ' y' : '') + '</span><span>' + esc(b.cause || "") + '</span></div>').join("") : '<div class="empty">No one has died.</div>') + '</details>';
     el.querySelectorAll("button[data-ps]").forEach(b => b.onclick = () => { const k = b.getAttribute("data-ps"); if (S.k === k) S.dir = -S.dir; else { S.k = k; S.dir = 1; } UI.panelRender.people(app, el, true); });

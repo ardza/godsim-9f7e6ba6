@@ -11,6 +11,11 @@
     const seed = String(seedText || "").trim() ? G.RNG.seedFrom(seedText) : (Math.random() * 4294967296) >>> 0;
     app.sim = G.Sim.create(seed); app.acc = 0; app.selected = null; app.save(false); G.UI.toast("New world " + seed); G.UI.update(app);
   };
+  // step 22: an armed power lands on tile (tx, ty); the bar goes back to normal either way
+  app.castPower = (k, tx, ty, opt) => { const P = G.data.config.powers, kind = opt || (k === "spawn" ? G.UI.spawnKind || "grazer" : undefined), r = G.Powers.cast(app.sim, k, tx, ty, kind), L = P.labels[k];
+    G.UI.power = null; G.Render.aim = null;
+    const what = k === "spawn" && P.spawn ? P.spawn.kindLabels[kind] || L : L;   // step 23: "Grazer near the woods"
+    G.UI.toast(r.ok ? what + " near " + r.effect.place : r.reason === "cooldown" ? L + " is not ready yet" : what + ": " + r.reason); G.UI.update(app); return r; };
   app.clickTile = (tx, ty) => { // nearest person, animal, body or thing on the ground within ~1 tile of the tap (people first, then animals, bodies, then things when equally near)
     let best = null; const S = G.Render.screen || {};
     const consider = (o, pos, pen) => { const p = S[o.id] || pos, d = Math.hypot(p.x + 0.5 - tx, p.y + 0.5 - ty) + pen; if (d < 1.3 + pen && (!best || d < best.d)) best = { id: o.id, d }; };

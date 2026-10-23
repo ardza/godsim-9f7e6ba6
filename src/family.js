@@ -67,6 +67,7 @@
       if (a.id < m.id && (G.Social.like(a, m) < B.breakBelow || G.Social.like(m, a) < B.breakBelow)) { a.mate = null; m.mate = null; St.breaks++; G.Sim.log(sim, a.name + " and " + m.name + " no longer stay close by night", [a, m]); } }
     const free = sim.agents.filter(a => a.mate == null && a.age >= B.age[0] && a.age <= B.age[1]), cand = [];
     for (let i = 0; i < free.length; i++) for (let j = i + 1; j < free.length; j++) { const a = free[i], b = free[j], p = G.Social.rel(a, b), q = G.Social.rel(b, a);
+      if (B.mixedOnly && a.sex === b.sex) continue;   // step 22 Director: mating pairs are man + woman only (a same-sex bond stays friendship: liking, groups, warmth)
       if (p && q && p.l >= B.like && q.l >= B.like && p.f >= B.fam && q.f >= B.fam) cand.push({ a, b, s: p.l + q.l }); }
     cand.sort((x, y) => y.s - x.s || Math.min(x.a.id, x.b.id) - Math.min(y.a.id, y.b.id) || Math.max(x.a.id, x.b.id) - Math.max(y.a.id, y.b.id));
     for (const c of cand) { if (c.a.mate != null || c.b.mate != null) continue; c.a.mate = c.b.id; c.b.mate = c.a.id; St.pairs++;

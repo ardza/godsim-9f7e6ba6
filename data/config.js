@@ -2,7 +2,7 @@
 (function (G) {
   G.data = G.data || {};
   G.data.config = {
-    saveVersion: 16,                // v16: natural shelters (sim.shelters, per-person known shelters, den score); v15: faith trait, prayer forms, prayer spots, Prayers feed (own stream prng); v14: children / youths as people (stage by age, guardian, learned-from), name numbering; v13: sex, pairs, pregnancy, babies (own stream frng), burning sticks; v12: relations (familiarity, liking) and groups; v11: cooked meat (heat), grazer births (own stream), cook score; v10: hunting, carcasses, meat, lightning; v9: varied maps (spawn, hills, map info; no lake/source); v8: learning (experience scores, copying), seasonal food, per-person logs; v7: objects, physics + discoveries, temperature + warmth, fire (v6: aging, death, bodies, animals); older saves are rejected
+    saveVersion: 18,                // v18: Lightning and Spawn powers (per-power cooldowns, strike / spawn stats, a.fright, bolt sticks); v17: god powers (sim.powers: active Rain / Warm / Cool effects, cooldowns, own stream), pairs man + woman only; v16: natural shelters (sim.shelters, per-person known shelters, den score); v15: faith trait, prayer forms, prayer spots, Prayers feed (own stream prng); v14: children / youths as people (stage by age, guardian, learned-from), name numbering; v13: sex, pairs, pregnancy, babies (own stream frng), burning sticks; v12: relations (familiarity, liking) and groups; v11: cooked meat (heat), grazer births (own stream), cook score; v10: hunting, carcasses, meat, lightning; v9: varied maps (spawn, hills, map info; no lake/source); v8: learning (experience scores, copying), seasonal food, per-person logs; v7: objects, physics + discoveries, temperature + warmth, fire (v6: aging, death, bodies, animals); older saves are rejected
     saveKey: "godsim.save",
     map: {
       w: 60, h: 40, tilePx: 16,      // map is 960x640 art px, scaled to fit the screen
@@ -118,7 +118,8 @@
       freshMinutes: 1440,             // fresh for 1 game day (flesh can already be eaten by scavengers)
       rotMinutes: 10080,              // rotting: the flesh (0-100) decays 100 -> 0 in 7 game days on its own; scavengers feeding make it go sooner (~2 days)
       bonesWeatherYears: 20,          // bones' condition falls 100 -> 0 over 20 game years, then they are gone
-      material: "bone"                // primitive material the bones are (data only for now)
+      material: "bone",               // primitive material the bones are (data only for now)
+      causeVerb: { "struck by lightning": "was" }   // step 23: death line / card wording for causes that are not "died of ..."
     },
     // Animals (no names; grazers die only when hunted and are born in Greening, step 17). All count toward pop.maxAnimals (40). They flee people: when a person is within fleeWithin tiles
     // they run (at fleeMinutesPerTile) to a tile at least fleeTo tiles from every person.
@@ -261,7 +262,7 @@
       enterLines: { cave: "crawls into the cave mouth", overhang: "ducks in under the overhang", thicket: "pushes into the thicket" },
       peerLines: { cave: "creeps toward a dark gap in the hillside", overhang: "edges toward the hanging rock", thicket: "parts the brush of a thicket" },
       tripLines: { cave: "heads back to the cave", overhang: "heads back to the overhang", thicket: "heads back to the thicket" } },
-    family: { bond: { age: [16, 45], like: 65, fam: 60, breakBelow: 40 },   // 21b Director: 65 / 60 (was 75 / 70)
+    family: { bond: { age: [16, 45], like: 65, fam: 60, breakBelow: 40, mixedOnly: true },   // step 22 Director: mixedOnly = pairs are man + woman only;   // 21b Director: 65 / 60 (was 75 / 70)
       conceive: { atMinute: 120, tiles: 1, fullness: 35, water: 35, warmth: 30, chance: 0.20 },   // 21b Director: 20% per night   // Director (call 1 on 19): 15%, gates 35 / 35 / 30
       pregnancy: { days: 7, drain: 1.25 }, drift: 0.05, mutation: { chance: 0.02, size: 0.2 }, lifespanClamp: [40, 120],
       babyYears: 3, adoptTiles: 2, orphanMinutes: 2880, seekTiles: 15, anyTiles: 10,
@@ -336,7 +337,7 @@
              { key: "food", label: "Food", match: "bush|berr|meal|hungry|starving|meat|grazer" },
              { key: "water", label: "Water", match: "water|drink|thirst|parched|lake|river" },
              { key: "sleep", label: "Sleep", match: "sleep|woke|exhausted" },
-             { key: "events", label: "Events", rest: true },   // rest = every line no other tab matches
+             { key: "events", label: "Events", rest: true, also: "^Rain falls|^The rain stops|^The air grows|^The air near .* settles|into the rain|from the rain" },   // rest = every line no other tab matches; also = lines it shows even if another tab claims them (step 22: power use)
              { key: "death", label: "Death", match: "died|lies still|body|bones" }]
     },
     // Side-panel tab bar (view only, not in the sim save). Each entry is one tab button; pressing it opens/closes that panel (one open at a time).
@@ -351,6 +352,39 @@
       copyTiles: 5,                    // a prayer seen this close may be copied (learn.copyChance x curiosity/50 x social.copy x child.copyX)
       reinforceMinutes: 360, riseBy: 10, likeGain: 25, likeScale: 25,   // triggering need up 10+ within 6 h: liking +25 for that form; pick weight 1 + liking/25
       spotTiles: 2, spotMin: 3, driftTiles: 10, placesMax: 400, feedMax: 300 },
+    // Step 22 god powers (src/powers.js; own seeded stream, drawn only while a power is active, so a run with no powers is unchanged).
+    //   Tap a power, then the map: it covers every tile within radiusTiles of the spot. Each power has its own cooldownMinutes (game time).
+    //   rain: minutes of rain. At once it puts out burning tiles, embers and lit sticks in the circle; a smouldering tree (a lightning hold ember)
+    //     goes out within holdOutMinutes. Lit sticks carried in while it rains go out. The ground stays wet for wetMinutes (no spark, spread,
+    //     lightning or flare there). Bushes in the circle regrow bushX as fast for bushMinutes. People out in the open lose warmth lossX as fast
+    //     (shelter types block by their shelter.*.rain; woods block fully) and feel chillC colder; no sun warmth under rain. Every checkMinutes an
+    //     awake idle / wandering person in the open may (coverChance x (0.5 + coldFear/100)) walk to the nearest cover within coverTiles and wait
+    //     there while it rains (up to waitMinutes). On first rain a person may turn her face up (faceChance x curiosity/50).
+    //     puddles: the lowest walkable dry tiles in the circle (count) hold drinkable water for minutes (data only, no tile art).
+    //   warm / cool: shift the air by deltaF (°F) inside the circle for minutes, fading out over the last fadeMinutes; overlapping effects add,
+    //     capped at +/- maxShiftF. tint = the overlay colour (view only); rainFrameMs = rain art frame time (view only).
+    // step 23: Lightning (one tile) and Spawn (one animal) join the bar; each power may set its own cooldownMinutes (else the shared one)
+    powers: { radiusTiles: 8, cooldownMinutes: 60, order: ["rain", "warm", "cool", "lightning", "spawn"], labels: { rain: "Rain", warm: "Warm", cool: "Cool", lightning: "Lightning", spawn: "Spawn" },
+      // Lightning: strikes the tapped tile. Fire chance by ground: grass (meadow) or forest only, 0 on bare ground (sand), rock (hills) or water; the lowest
+      // of the matching cases (rain = raining there or ground still wet from Rain; deepCold = season index). The fire then spreads by the normal wildfire rules.
+      // Anyone on the tile dies; awake or asleep, anyone within scareTiles gets +fearAdd fright (on top of fireFear) for fearMinutes and runs from it for runMinutes.
+      // A prayer by someone within faithTiles in the last faithMinutes counts as answered (reinforced) by a strike or a spawn.
+      lightning: { cooldownMinutes: 60, fire: { dry: 0.6, rain: 0.4, deepCold: 0.2, deepColdSeason: 3 }, cause: "struck by lightning", scareTiles: 6, fearAdd: 20, fearMinutes: 1440,
+                   runMinutes: 60, runTiles: [7, 10], frameMs: [80, 80, 150] },
+      // Spawn: one animal on a free land tile (at the tap or the nearest free one within 2), under the usual caps (pop.maxAnimals, grazer births.cap).
+      // kinds: picker key -> species ("predator" = the scavenger, the only meat-eater there is). Watchers awake within watchTiles: +curiosityAdd (trait, max 100);
+      // for a predator each watcher rolls fearChance x (1.5 - curiosity/100) to back away (fright fearAdd for fearMinutes, runs runMinutes).
+      spawn: { cooldownMinutes: 30, kinds: { grazer: "grazer", predator: "scavenger" }, kindLabels: { grazer: "Grazer", predator: "Scavenger" }, freeTiles: 2,
+               watchTiles: 6, curiosityAdd: 5, predator: { fearChance: 0.5, fearAdd: 10, fearMinutes: 720, runMinutes: 20, runTiles: [4, 6] }, shimmerMs: 700 },
+      faithTiles: 12, faithMinutes: 1440,
+      // lit sticks (step 23): a stick within fire.brand.catchTiles of a lightning fire (a struck tree, a strike, or a Lightning power) is a bolt stick, lit
+      // fire.brand.litMinutes past the flames. Every everyMinutes each free adult (idle / wandering, empty-handed) who can see one within seeTiles rolls
+      // chance x clamp(0.5 + (curiosity - fireFear - fright) / 100, 0, 1) to walk over and pick it up (the walk does not turn back at the flee rule).
+      boltStick: { everyMinutes: 30, seeTiles: 12, chance: 0.5 },
+      rain: { minutes: 360, holdOutMinutes: 60, wetMinutes: 1440, bushX: 3, bushMinutes: 4320, lossX: 1.5, chillC: 2, checkMinutes: 30, coverChance: 0.5, coverTiles: 10, waitMinutes: 180, faceChance: 0.3,
+              puddles: { count: 6, minutes: 1440 } },
+      warm: { deltaF: 15, minutes: 1440, fadeMinutes: 120 }, cool: { deltaF: -15, minutes: 1440, fadeMinutes: 120 }, maxShiftF: 30,
+      tint: { warm: "rgba(255,150,60,0.13)", cool: "rgba(90,170,255,0.15)", rain: "rgba(60,80,110,0.12)", lightning: "rgba(255,250,210,0.6)" }, rainFrameMs: 150 },
     ui: { prefsKey: "godsim.ui",
       panels: [{ key: "log", label: "Log", icon: "log", el: "logwrap", open: true },
                { key: "discoveries", label: "Discoveries", icon: "discoveries" },
