@@ -13,7 +13,7 @@
       props: props || { hardness: m.hardness, sharpness: m.sharpness, dryness: m.dryness, durability: m.durability } };
   };
   Items.props = it => Object.assign({ burns: !!M()[it.material].burns }, it.props);
-  Items.sharp = it => it.props.sharpness >= PH().break.sharpAt;
+  Items.sharp = it => !!it && it.props.sharpness >= PH().sharpAt;   // Director (step 17): one shared threshold for every rule
   // name from the data: a broken piece with a keen edge is a "<material> shard", a blunt one is a "broken <material>"
   Items.matLabel = it => { const l = M()[it.material].label; return it.form === "shard" ? (Items.sharp(it) ? l + " shard" : "broken " + l) : l; };
   Items.baseLabel = it => M()[it.material].label;   // the material's own name, whole or broken
@@ -86,7 +86,7 @@
       if (soft) { const s = soft === "held" ? h : t, o = soft === "held" ? t : h, B = P.break;
         const p = Math.min(B.max, B.scale * (o.hardness - s.hardness) / 100 * (100 - s.durability) / 100);
         if (s.whole !== false && rng.chance(p)) { out.broke = soft; s.sharpness = Math.max(s.sharpness, Math.min(100, Math.round(s.hardness * B.edgeFromHardness))); s.durability = Math.round(s.durability * B.shardDurability); s.whole = false;
-          res.push((soft === "held" ? "@held" : "@target") + " breaks" + (s.sharpness >= B.sharpAt ? ": sharp shard" : "")); } }
+          res.push((soft === "held" ? "@held" : "@target") + " breaks" + (s.sharpness >= PH().sharpAt ? ": sharp shard" : "")); } }
     } else if (action === "rub") {
       const R = P.rub, gap = h.hardness - t.hardness;
       if (Math.abs(gap) < R.hardnessGap) { if (h.hardness <= R.warmMaxHardness && t.hardness <= R.warmMaxHardness && h.dryness >= R.warmMinDryness && t.dryness >= R.warmMinDryness) res.push("grows warm"); }
@@ -104,7 +104,7 @@
   // An idle holder with nothing pressing may try an action on a thing lying within reach (walks there first). ~once per person per game day.
   Items.maybeTry = function (sim, a) {
     const O = OC(), it = Items.held(sim, a);
-    if (!it || sim.tick - (a.lastTry == null ? -1e9 : a.lastTry) < O.tryCooldown || !sim.orng.chance(O.tryChance)) return false;
+    if (!it || it.material === "meat" || sim.tick - (a.lastTry == null ? -1e9 : a.lastTry) < O.tryCooldown || !sim.orng.chance(O.tryChance)) return false;
     const c = sim.items.filter(i => !i.heldBy && Math.hypot(i.x - a.pos.x, i.y - a.pos.y) <= O.tryReach).sort((p, q) => Math.hypot(p.x - a.pos.x, p.y - a.pos.y) - Math.hypot(q.x - a.pos.x, q.y - a.pos.y) || p.id - q.id)[0];
     if (!c) return false;
     a.lastTry = sim.tick; const action = sim.orng.pick(PH().actions);
@@ -137,7 +137,7 @@
       bwords.forEach(w => Discoveries.note(sim, a, act.action, [bh, bt], w));
       for (const w of words) { st.results[act.action + " " + hl + " / " + tl + ": " + w] = (st.results[act.action + " " + hl + " / " + tl + ": " + w] || 0) + 1; }
       if (o.spark) { st.sparks++; G.Fire.spark(sim, t.x, t.y, a, { action: act.action, held: bh, target: bt }); }
-      if (o.broke) { st.breaks++; if ((o.broke === "held" ? it : t).props.sharpness >= PH().break.sharpAt) st.shards++; }
+      if (o.broke) { st.breaks++; if ((o.broke === "held" ? it : t).props.sharpness >= PH().sharpAt) st.shards++; }
     } else st.results[act.action + " " + hl + " / " + tl + ": nothing"] = (st.results[act.action + " " + hl + " / " + tl + ": nothing"] || 0) + 1;
     return false;
   };

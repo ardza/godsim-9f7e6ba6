@@ -9,7 +9,10 @@
       return { day, minuteOfDay: md, hour: Math.floor(md / 60), minute: md % 60, season: t.seasons[Math.floor((day - 1) / t.daysPerSeason) % t.seasons.length],
         dayOfSeason: (day - 1) % t.daysPerSeason + 1, year: Math.floor((day - 1) / Time.daysPerYear()) + 1 };
     },
-    hhmm: c => String(c.hour).padStart(2, "0") + ":" + String(c.minute).padStart(2, "0"),
+    // Display only (Commissioner): the clock reads 12-hour with AM/PM ("6:05 AM"); the sim keeps minutes since midnight.
+    hhmm: c => (c.hour % 12 || 12) + ":" + String(c.minute).padStart(2, "0") + (c.hour < 12 ? " AM" : " PM"),
+    // Display only: the sim works in Celsius; every temperature shown to the player goes through this ("41°F").
+    tempF: c => Math.round(c * 9 / 5 + 32) + "°F",
     stamp: tick => { const c = Time.at(tick); return "Day " + c.day + " " + Time.hhmm(c); },
     // darkness 0..1: full day 07:00-18:00, full night 21:00-04:00, linear dusk/dawn
     darkness(tick) { const h = Time.at(tick).minuteOfDay / 60; if (h >= 7 && h <= 18) return 0; if (h >= 21 || h <= 4) return 1; return h < 7 ? (7 - h) / 3 : (h - 18) / 3; }
@@ -68,6 +71,9 @@
     for (const a of sim.agents.slice()) { const c = G.Agent.deathCause(a); if (c) Sim.die(sim, a, c); }
     G.Animal.stepAll(sim);
     G.Body.stepAll(sim);
+    G.Hunt.step(sim);
+    G.Cook.step(sim);   // step 17: meat close to an ember / fire heats (cooked, then charred)
+    G.Fire.lightning(sim);
     G.Fire.step(sim);
   };
   // this season's bush numbers: {yield, regrowMinutes}
@@ -87,7 +93,8 @@
       bushes: sim.bushes, agents: sim.agents, log: sim.log, plog: sim.plog || {}, nameBag: sim.nameBag, nameRound: sim.nameRound,
       arng: sim.arng.s, animals: sim.animals, herds: sim.herds, bodies: sim.bodies,
       orng: sim.orng.s, items: sim.items, discoveries: sim.discoveries, fire: sim.fire, fireStats: sim.fireStats, physStats: sim.physStats || null, fx: sim.fx,
-      lrng: sim.lrng.s, learnStats: sim.learnStats };
+      lrng: sim.lrng.s, learnStats: sim.learnStats, huntStats: sim.huntStats || null,
+      brng: sim.brng ? sim.brng.s : null, grazerBirths: sim.grazerBirths || 0, cookStats: sim.cookStats || null };
   };
   Sim.deserialize = function (o) {
     if (!o || o.version !== CFG().saveVersion) throw new Error("unsupported save version " + (o && o.version));
@@ -97,7 +104,8 @@
     return { version: s.version, seed: s.seed, tick: s.tick, nextId: s.nextId, world, rng, bushes: s.bushes, agents: s.agents, log: s.log, plog: s.plog || {}, nameBag: s.nameBag, nameRound: s.nameRound || 0, prev: {},
       arng: new G.RNG(s.arng), animals: s.animals, herds: s.herds, bodies: s.bodies,
       orng: new G.RNG(s.orng), items: s.items, discoveries: s.discoveries, fire: s.fire, fireStats: s.fireStats, physStats: s.physStats || undefined, fx: s.fx || [],
-      lrng: new G.RNG(s.lrng), learnStats: s.learnStats };
+      lrng: new G.RNG(s.lrng), learnStats: s.learnStats, huntStats: s.huntStats || undefined,
+      brng: s.brng != null ? new G.RNG(s.brng) : undefined, grazerBirths: s.grazerBirths || 0, cookStats: s.cookStats || undefined };
   };
 
   G.Time = Time; G.Sim = Sim;

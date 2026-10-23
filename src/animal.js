@@ -1,5 +1,5 @@
 // Animals (grazers, scavengers) and bodies. Plain objects, tick-based, seeded through their own stream sim.arng, no DOM.
-// Animals have no names (shown as "Grazer 12"), no deaths or births yet, and they flee people.
+// Animals have no names (shown as "Grazer 12"), die only when hunted (step 16), grazers are born in Greening (step 17), and they flee people.
 // A body is what a death leaves on the ground: fresh -> rotting -> bones (a lasting object, material "bone"). People ignore bodies,
 // but bones are things: an idle person may pick up one of a skeleton's bones (objects.bonesPerBody) as a bone item (src/objects.js).
 (function (G) {
@@ -13,10 +13,10 @@
   const whole = a => a.pos.x === Math.round(a.pos.x) && a.pos.y === Math.round(a.pos.y);
 
   Animal.name = a => LABEL[a.species] + " " + a.id;
-  Animal.create = function (sim, species, x, y, herd) {
-    const S = AC()[species], f = S.fullness;
+  Animal.create = function (sim, species, x, y, herd, rng) {
+    const S = AC()[species], f = S.fullness; rng = rng || sim.arng;
     return { id: sim.nextId++, kind: "animal", species, herd: herd == null ? null : herd, pos: { x, y }, facing: "down",
-      needs: { fullness: r2(sim.arng.range(f.start[0], f.start[1])) }, act: { type: "idle", until: sim.tick + sim.arng.int(0, S.idleMax) }, stats: { meals: 0, flees: 0 } };
+      needs: { fullness: r2(rng.range(f.start[0], f.start[1])) }, act: { type: "idle", until: sim.tick + rng.int(0, S.idleMax) }, stats: { meals: 0, flees: 0 } };
   };
   Animal.fullnessDrainPerTick = a => 100 / AC()[a.species].fullness.minutesFullToEmpty * TM();
   Animal.doing = a => ({ graze: "grazing", feed: "feeding on a body" })[a.act.type] || ({ flee: "fleeing", wander: "wandering", meadow: "looking for grass", body: "going to a body" })[a.act.goal] || "resting";
@@ -151,7 +151,26 @@
   Animal.stepAll = function (sim) {
     driftHerds(sim);
     for (const a of sim.animals) { sim.prev[a.id] = { x: a.pos.x, y: a.pos.y }; Animal.step(sim, a); }
+    births(sim);
   };
+  // Director (step 17): grazer births in births.season (Greening). Each grazer with another within mateTiles: perSeason / season-minutes chance a minute
+  // of a calf on a free walkable tile next to it, same herd. Not at or above the grazer cap or pop.maxAnimals. Own stream (brng).
+  function births(sim) {
+    const Bi = AC().grazer.births; if (!Bi || G.Climate.seasonIndex(sim.tick) !== Bi.season) return;
+    const rng = sim.brng || (sim.brng = new G.RNG((sim.seed ^ 0xCA1FB0B5) >>> 0));
+    const p = Bi.perSeason / (CF().time.daysPerSeason * 1440 / TM()), gz = sim.animals.filter(a => a.species === "grazer");
+    for (const a of gz) {
+      if (!rng.chance(p)) continue;   // one draw per grazer per minute, whatever else happens (keeps the stream steady)
+      if (sim.animals.length >= CF().pop.maxAnimals || sim.animals.filter(o => o.species === "grazer").length >= Bi.cap) continue;
+      if (!gz.some(o => o !== a && sim.animals.indexOf(o) >= 0 && Math.hypot(o.pos.x - a.pos.x, o.pos.y - a.pos.y) <= Bi.mateTiles)) continue;
+      const x0 = Math.round(a.pos.x), y0 = Math.round(a.pos.y), spot = [[0, 1], [1, 0], [0, -1], [-1, 0], [1, 1], [-1, 1], [1, -1], [-1, -1]]
+        .map(([dx, dy]) => [x0 + dx, y0 + dy]).find(([x, y]) => W.inb(sim.world, x, y) && W.walkable(sim.world, x, y) && !Animal.occupied(sim, null, x, y) && !G.Agent.claimed(sim, null, x, y));
+      if (!spot) continue;
+      const c = Animal.create(sim, "grazer", spot[0], spot[1], a.herd, rng); sim.animals.push(c); sim.prev[c.id] = { x: c.pos.x, y: c.pos.y };
+      sim.grazerBirths = (sim.grazerBirths || 0) + 1;
+      G.Sim.log(sim, "A grazer calf is born");
+    }
+  }
 
   // Start animals (seeded), all under pop.maxAnimals: grazers in herds on meadow, scavengers scattered; both away from the founders.
   Animal.populate = function (sim) {

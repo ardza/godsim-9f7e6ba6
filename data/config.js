@@ -2,7 +2,7 @@
 (function (G) {
   G.data = G.data || {};
   G.data.config = {
-    saveVersion: 9,                 // v9: varied maps (spawn, hills, map info; no lake/source); v8: learning (experience scores, copying), seasonal food, per-person logs; v7: objects, physics + discoveries, temperature + warmth, fire (v6: aging, death, bodies, animals); older saves are rejected
+    saveVersion: 11,                // v11: cooked meat (heat), grazer births (own stream), cook score; v10: hunting, carcasses, meat, lightning; v9: varied maps (spawn, hills, map info; no lake/source); v8: learning (experience scores, copying), seasonal food, per-person logs; v7: objects, physics + discoveries, temperature + warmth, fire (v6: aging, death, bodies, animals); older saves are rejected
     saveKey: "godsim.save",
     map: {
       w: 60, h: 40, tilePx: 16,      // map is 960x640 art px, scaled to fit the screen
@@ -109,7 +109,7 @@
       bonesWeatherYears: 20,          // bones' condition falls 100 -> 0 over 20 game years, then they are gone
       material: "bone"                // primitive material the bones are (data only for now)
     },
-    // Animals (no names, no deaths or births yet). All count toward pop.maxAnimals (40). They flee people: when a person is within fleeWithin tiles
+    // Animals (no names; grazers die only when hunted and are born in Greening, step 17). All count toward pop.maxAnimals (40). They flee people: when a person is within fleeWithin tiles
     // they run (at fleeMinutesPerTile) to a tile at least fleeTo tiles from every person.
     animals: {
       grazer: {
@@ -120,7 +120,11 @@
         idleMin: 20, idleMax: 90, nightIdleScale: 3,   // stands about (rests) between moves; longer at night
         drift: { everyMinutes: 180, min: 3, max: 6, choices: 6, greenRadius: 2 },  // the herd's home spot drifts to another meadow tile 3-6 tiles away every ~3 h; members wander within herdRadius of it
                                       // step 15: of up to 6 candidate spots it takes the greenest (grass tiles around x dampness (100 - ground dryness))
-        grazeSeason: [1, 1, 1, 2]     // graze time x this by season: winter grass is thin, so a meal takes twice as long
+        grazeSeason: [1, 1, 1, 2],    // graze time x this by season: winter grass is thin, so a meal takes twice as long
+        // Director (step 17): births in Greening only. Each grazer with another grazer within mateTiles has perSeason / (season minutes) chance a minute
+        // of a calf (about one calf per pair a spring), on a free tile next to it, in its herd. No births at or above cap grazers or pop.maxAnimals in all.
+        // Own random stream (brng), so births do not shift the other streams.
+        births: { season: 0, perSeason: 0.5, mateTiles: 6, cap: 40 }
       },
       scavenger: {
         start: 4, startAway: 10,
@@ -147,11 +151,12 @@
     },
     // Step 10 physics: outcome rules over the material properties (data/materials.js). Actions: strike, rub, cut. "Held" = the thing in hand, "target" = the thing on the ground.
     physics: {
+      sharpAt: 45,   // Director (step 17): one threshold - sharpness >= 45 is "sharp" everywhere (hunting odds and the sharp-shard rule)
       actions: ["strike", "rub", "cut"],
       // strike: hard on hard with a keen edge throws a spark (steel-free flint sparks: an edge of a hard stone shaves hot grains off another hard stone)
       spark: { minHardness: 65, minEdge: 35, chance: 0.6 },
       // break (strike only): the softer of the two may break. p = scale x (harder - softer hardness)/100 x (100 - durability)/100, at most max
-      break: { scale: 6, max: 0.8, edgeFromHardness: 1.4, sharpAt: 60, shardDurability: 0.6 }, // a broken piece: sharpness = max(old, hardness x 1.4); "sharp shard" from 60
+      break: { scale: 6, max: 0.8, edgeFromHardness: 1.4, shardDurability: 0.6 }, // a broken piece: sharpness = max(old, hardness x 1.4); "sharp shard" from physics.sharpAt
       // rub: the softer one is abraded; a hard-enough softer thing gets keener (sharpens); soft dry on soft dry grows warm (friction)
       rub: { hardnessGap: 10, sharpenMinHardness: 45, sharpenBy: 4, wear: 3, warmMaxHardness: 40, warmMinDryness: 60 },
       // cut: a keen edge drawn across a softer thing notches it
@@ -174,7 +179,12 @@
       ashMinutes: 1440, regrowMinutes: 8640,                // ash 1 day, then scorched ground; fuel and grass back 6 more days later (a season = 7 days)
       heatC: 25, heatTiles: 4,                              // a fire adds up to 25 C to the felt temperature, falling to 0 at 4 tiles (ember: a third)
       fleeTiles: 2.5, fleeTo: 5,                            // people and animals move away from flames within 2.5 tiles (no burn damage yet)
-      bushBurns: true                                       // a bush on a burning tile is burnt bare and ripens again only once the ground has regrown
+      bushBurns: true,                                      // a bush on a burning tile is burnt bare and ripens again only once the ground has regrown
+      // Step 16 (Director tuning): natural fire starts. Lightning hits a random land tile perSeason times per season (seeded, orng); whether it
+      // catches is the same dryness rule as a spark (p = igniteScale x dryness factor), so wet ground (sand, near water, Deep Cold) rarely burns.
+      // On a woods tile it hits a tree: the dead wood in a snag is drier than the litter (+snagDry), and a struck tree can smoulder for days
+      // (a "holdover": ember lasting holdMinutes, flaring up at holdFlare x the normal ember rate); its smoke is seen from smokeTiles away.
+      lightning: { perSeason: [12, 6, 30, 8], snagDry: 20, holdMinutes: [2880, 30240], holdFlare: 0.01, smokeTiles: 40 }
     },
     // Steps 13-14 learning. Each person keeps their own experience score (0-100, 50 = no experience) per action they have felt the result of.
     // Behaviour shifts only from that score (what this person felt) or from copying someone nearby who benefited; nothing is scripted and nothing is said.
@@ -193,8 +203,32 @@
       // at least copyMargin above her own: p = copyChance x curiosity/50 x (fear factor: 1.5 - fear/100 for the action's fear trait, else 1).
       // Copied: her score moves copyShare of the way to theirs, tagged with who she copied (local only).
       copyTiles: 5, copyMargin: 10, copyChance: 0.35, copyShare: 0.5,
-      actions: { fire: { label: "sitting by the fire", fear: "fireFear" }, huddle: { label: "huddling up", fear: null }, shelter: { label: "sheltering under the trees", fear: null } }
+      actions: { fire: { label: "sitting by the fire", fear: "fireFear" }, huddle: { label: "huddling up", fear: null }, shelter: { label: "sheltering under the trees", fear: null },
+        hunt: { label: "going after grazers", fear: null },
+        cook: { label: "holding meat to the fire", fear: "fireFear" } }
     },
+    // Step 16 hunting. A hungry person (fullness under actAt, the normal "goes to eat" point) holding a thing hard enough to strike with
+    // (hardness >= minHardness: rock 70, stick 25, flint 80, bone 55; meat 5 is not) who sees a grazer within sightTiles may go after it instead of a bush:
+    //   p(go) = approachChance x hunt score / 50 (score 0-100, 50 = no experience; step 14 learning, copied like any other action).
+    // Grazers bolt from anyone inside their fleeWithin (4 tiles), so the one strike comes as she closes to strikeTiles (a lunge or a thrown stone):
+    //   p(kill) = base + sharp (held sharpness >= physics.sharpAt: flint 45, any sharp shard) + learned (her hunt score >= learnedAt).
+    // A kill raises her score by gain (a visible success others within copyTiles may copy); a miss lowers it by missDrop.
+    hunt: { minHardness: 20, sightTiles: 12, strikeTiles: 4, approachChance: 0.5, cooldownMinutes: 120, giveUpMinutes: 90,
+      odds: { base: 0.10, sharp: 0.30, learned: 0.20 }, learnedAt: 60,
+      gain: 20, missDrop: 2, sickDrop: 5,
+      scavengeChance: 0.5 },   // a fresh carcass with meat in sight (sightTiles): p(go and take meat) = scavengeChance x hunt score / 50
+    // Step 16 meat. A killed grazer is a body (fresh -> rotting -> bones, same timings as config.body). While it is fresh, meat can be taken from it:
+    // pieces per carcass, each taking fleshPerPiece of its flesh. A piece stays edible until the carcass would have begun to rot (diedAt + body.freshMinutes),
+    // then it rots away. Eating raw meat: +fullness (capped at 100) over eatMinutes; sickChance of being sick (energy - sickEnergy).
+    // Step 17 cooking. Meat (held, on the ground or on a fresh carcass) within emberTiles of an ember or fireTiles of a fire gains 1 heat a minute
+    // (people keep fire.fleeTiles 2.5 from flames, so 2.5-3 tiles is "next to" a fire). heat >= cookedAt: cooked; heat > charredAt: charred.
+    // Eating: raw = meat.fullness / meat.sickChance; cooked / charred = fullness / sickChance below.
+    // A hungry person with raw meat in hand and an ember or fire within sightTiles may hold it there first: p = holdChance x (cook score / 50)^2 x (1.5 - fireFear/100).
+    // She eats it once it is cooked, after waitMinutes, or after coldGiveUp minutes away from heat. Eating cooked meat: cook score + gain (others
+    // within copyTiles may copy it); eating charred: - charDrop.
+    cook: { emberTiles: 1.5, fireTiles: 3, cookedAt: 30, charredAt: 120, fullness: { cooked: 70, charred: 20 }, sickChance: { cooked: 0, charred: 0 },
+      sightTiles: 10, holdChance: 0.15, waitMinutes: 60, coldGiveUp: 10, gain: 20, charDrop: 10 },
+    meat: { pieces: { grazer: 4 }, fleshPerPiece: 20, takeMinutes: 10, fullness: 60, eatMinutes: 15, sickChance: 0.25, sickEnergy: 20 },
     bushes: { count: 60, minCount: 15, moistBase: 0.5, dry: { below: -0.1, at: -0.3, fewer: [0.3, 0.5] }, regrowMinutes: 1440, startRipe: 0.85, minSpacing: 4,   // eaten bush is ripe again 1 game day later (Greening; see season)
       // Step 15 seasons (Greening, High Sun, Leaffall, Deep Cold): a meal gives mealAdds x yield; an eaten bush ripens again after regrowMinutes
       // (people still expect it back after the base regrowMinutes, so in winter they find more bushes bare)
@@ -202,9 +236,9 @@
       weights: { edge: 6, meadow: 1, woods: 0.4 } }, // edge = meadow/woods border
     log: { max: 200, personMax: 200,   // personMax: each person's own log keeps their last 200 events (saved)
       // log line colours: first matching rule wins, else "info". Tabs filter the log; a tab with no match shows everything.
-      kinds: [{ kind: "warn", match: "has died|is freezing|is cold|catches fire|burns|burned|is starving|is hungry|bush bare|bush was bare|bush taken|is thirsty|is parched|is exhausted|woke up (hungry|thirsty)" }],
+      kinds: [{ kind: "warn", match: "has died|is freezing|is cold|catches fire|burns|burned|is sick|is starving|is hungry|bush bare|bush was bare|bush taken|is thirsty|is parched|is exhausted|woke up (hungry|thirsty)" }],
       tabs: [{ key: "all", label: "All" },
-             { key: "food", label: "Food", match: "bush|berr|meal|hungry|starving" },
+             { key: "food", label: "Food", match: "bush|berr|meal|hungry|starving|meat|grazer" },
              { key: "water", label: "Water", match: "water|drink|thirst|parched|lake|river" },
              { key: "sleep", label: "Sleep", match: "sleep|woke|exhausted" },
              { key: "events", label: "Events", rest: true },   // rest = every line no other tab matches

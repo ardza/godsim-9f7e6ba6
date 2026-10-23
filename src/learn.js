@@ -19,7 +19,7 @@
   Learn.nearestFire = function (sim, x, y, kinds) {
     let best = null;
     for (const k in sim.fire) { const e = sim.fire[k]; if (kinds.indexOf(e.s) < 0) continue; const i = k.indexOf(","), fx = +k.slice(0, i), fy = +k.slice(i + 1), d = Math.hypot(fx - x, fy - y);
-      if (!best || d < best.d) best = { s: e.s, x: fx, y: fy, d }; }
+      if (!best || d < best.d) best = { s: e.s, x: fx, y: fy, d, hold: !!e.hold }; }
     return best;
   };
 
@@ -81,7 +81,8 @@
   Learn.fireSpot = function (sim, a, free) {
     const F = L().fire, Fc = CF().fire, sight = CF().person.sightTiles;
     const em = Learn.nearestFire(sim, a.pos.x, a.pos.y, ["ember"]), fi = Learn.nearestFire(sim, a.pos.x, a.pos.y, ["fire"]);
-    const t = (fi && fi.d <= F.fireSight) ? fi : (em && em.d <= sight) ? em : null; if (!t) return null;
+    const LT = CF().fire.lightning, emSight = em && em.hold && LT ? Math.max(sight, LT.smokeTiles) : sight;   // step 16: a smouldering tree's smoke is seen from farther
+    const t = (fi && fi.d <= F.fireSight) ? fi : (em && em.d <= emSight) ? em : null; if (!t) return null;
     const lo = t.s === "ember" ? F.sitTiles[0] : Fc.fleeTiles, hi = t.s === "ember" ? F.sitTiles[1] : F.fireSitTiles + 0.5;
     if (t.d >= lo - 1e-9 && t.d <= hi + 1e-9) return Learn.score(a, "fire") >= F.stayMin ? { stay: true, s: t.s } : null;
     const seek = G.Agent.warmthSeekBelow(a), cold = clamp(0.5 + (seek - a.needs.warmth) / Math.max(1, seek), 0.5, 1.5);

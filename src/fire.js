@@ -36,6 +36,22 @@
     if (who && combo) G.Discoveries.note(sim, who, combo.action, [combo.held, combo.target, fuel], "ember");
     return ev;
   };
+  // Step 16 natural fire starts: lightning hits a random land tile (config.fire.lightning.perSeason strikes per season). It catches by the same
+  // dryness rule as a spark; nobody started it, so no Discoveries line.
+  Fire.lightning = function (sim) {
+    const L = F().lightning; if (!L) return null;
+    const per = L.perSeason[G.Climate.seasonIndex(sim.tick)] / (CF().time.daysPerSeason * 1440) * TM(); if (!(per > 0) || !sim.orng.chance(per)) return null;   // no draw when off, so a lightning-free run keeps its rng stream
+    const w = sim.world, x = sim.orng.int(0, w.w - 1), y = sim.orng.int(0, w.h - 1), S = sim.fireStats; S.lightning = (S.lightning || 0) + 1;
+    sim.fx.push({ k: "spark", x, y, t: sim.tick });
+    const tree = W.tile(w, x, y) === G.data.T.WOODS, d = Math.min(100, Fire.dryness(sim, x, y) + (tree && Fire.dryness(sim, x, y) > 0 ? L.snagDry : 0));
+    if (sim.fire[key(x, y)] || d <= F().minDryness || !sim.orng.chance(F().igniteScale * dryFactor(d))) { G.Sim.log(sim, "Lightning strikes the " + (W.walkable(w, x, y) ? (W.tile(w, x, y) === G.data.T.WOODS ? "woods" : "ground") : "water")); return null; }
+    const fuel = Fire.fuelName(sim, x, y), ev = { id: S.events.length + 1, start: sim.tick, x, y, by: null, byName: null, combo: null, fuel: tree ? "struck tree" : fuel, tiles: 0, fired: false, end: null, regrown: null, lightning: true };
+    S.events.push(ev); S.embers++; S.lightningEmbers = (S.lightningEmbers || 0) + 1;
+    const span = tree ? L.holdMinutes : F().emberMinutes;
+    sim.fire[key(x, y)] = { s: "ember", t: sim.tick, end: sim.tick + mins(sim.orng.int(span[0], span[1])), ev: ev.id, hold: tree || undefined };
+    G.Sim.log(sim, tree ? "Lightning strikes a tree and it smoulders" : "Lightning strikes and the " + fuel + " smoulders");
+    return ev;
+  };
   function evOf(sim, e) { return sim.fireStats.events[e.ev - 1]; }
   function ignite(sim, x, y, evId) {
     const ev = sim.fireStats.events[evId - 1], tl = W.tile(sim.world, x, y) === G.data.T.WOODS ? "woods" : "meadow";
@@ -55,7 +71,7 @@
     const Fc = F(), live = {};
     for (const k of keys) { const e = sim.fire[k]; if (!e) continue; const [x, y] = k.split(",").map(Number), ev = evOf(sim, e);
       if (e.s === "ember") {
-        if (sim.orng.chance(Fc.emberToFire * dryFactor(G.Climate.groundDryness(sim.world, x, y, sim.tick)) * TM() + (sim.items.some(it => !it.heldBy && it.x === x && it.y === y && G.Items.props(it).burns) ? Fc.emberToFire * TM() : 0))) {
+        if (sim.orng.chance(Fc.emberToFire * (e.hold ? Fc.lightning.holdFlare : 1) * dryFactor(G.Climate.groundDryness(sim.world, x, y, sim.tick)) * TM() + (sim.items.some(it => !it.heldBy && it.x === x && it.y === y && G.Items.props(it).burns) ? Fc.emberToFire * TM() : 0))) {
           delete sim.fire[k]; ignite(sim, x, y, e.ev); if (!ev.fired) { ev.fired = true; sim.fireStats.fires++; G.Sim.log(sim, "The ember flares up: the " + (W.tile(sim.world, x, y) === G.data.T.WOODS ? "woods catch" : "grass catches") + " fire", ev.by);
             const who = sim.agents.find(a => a.id === ev.by) || (ev.byName ? { id: ev.by, name: ev.byName } : null); if (who && ev.combo) G.Discoveries.note(sim, who, ev.combo.action, [ev.combo.held, ev.combo.target, ev.fuel], "fire"); } }
         else if (sim.tick >= e.end) { delete sim.fire[k]; if (!ev.fired) { ev.end = sim.tick; ev.regrown = sim.tick; G.Sim.log(sim, "The ember goes out"); } }

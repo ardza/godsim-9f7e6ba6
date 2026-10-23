@@ -75,5 +75,23 @@
    "scorched_tile"
   ],
   "note": "fire_0/fire_1 animate; scorched_tile is a full ground tile"
+ },
+ "food_16.png": {
+  "frame": 16,
+  "cols": [
+   "raw",
+   "cooked",
+   "burnt"
+  ],
+  "note": "meat item (step 16 uses raw; cooked/burnt for step 17)"
+ },
+ "grazer_carcass_16.png": {
+  "frame": 16,
+  "cols": [
+   "fresh",
+   "picked",
+   "bones"
+  ],
+  "note": "a killed grazer: fresh, meat taken / rotting, bones"
  }
 }

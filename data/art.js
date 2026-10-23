@@ -20,7 +20,10 @@
     scavenger: { src: "data/art/scavenger_16.png", frame: 16, frames: 2, rows: ["down", "left", "right", "up"] },   // 32x64
     // steps 9-12: things on the ground (half size over the hand when carried) and fire effects; column order from data/art/index.json
     items: { src: "data/art/items_16.png", frame: 16, cols: ["rock", "stick", "flint", "bone", "bone_shard"] },   // 80x16
-    fx: { src: "data/art/fx_16.png", frame: 16, cols: ["spark", "fire_0", "fire_1", "ember", "ash", "scorched_tile"] }   // 96x16
+    fx: { src: "data/art/fx_16.png", frame: 16, cols: ["spark", "fire_0", "fire_1", "ember", "ash", "scorched_tile"] },   // 96x16
+    // step 16-17: meat by cooking state (raw, cooked, charred = the burnt frame) and a killed grazer's carcass
+    food: { src: "data/art/food_16.png", frame: 16, cols: ["raw", "cooked", "burnt"] },   // 48x16
+    carcass: { src: "data/art/grazer_carcass_16.png", frame: 16, cols: ["fresh", "picked", "bones"] }   // 48x16
   };
   G.data.artItems = G.data.art.items.cols;   // which item frames exist (a sharp bone uses bone_shard; other shards use their material)
 })(this.GS = this.GS || {});

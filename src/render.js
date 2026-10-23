@@ -11,7 +11,7 @@
     if (A.person && A.person.src) loadImg(A.person.src, im => art.person = im);
     if (A.founders && A.founders.src) loadImg(A.founders.src, im => art.founders = im);
     loadImg(A.bush, im => art.bush = im); loadImg(A.bushEmpty, im => art.bushEmpty = im);
-    for (const k of ["body", "grazer", "scavenger", "items", "fx"]) if (A[k] && A[k].src) loadImg(A[k].src, im => art[k] = im);
+    for (const k of ["body", "grazer", "scavenger", "items", "fx", "food", "carcass"]) if (A[k] && A[k].src) loadImg(A[k].src, im => art[k] = im);
   };
   R.art = () => art;
 
@@ -137,6 +137,11 @@
     const px = b.x * tp, py = b.y * tp, B = G.data.art.body;
     if (sel) { cx.strokeStyle = "#fff6b0"; cx.lineWidth = 1.5; cx.strokeRect(px + 0.5, py + 0.5, tp - 1, tp - 1); cx.lineWidth = 1; }
     if (b.stage === "bones") cx.globalAlpha = 0.45 + 0.55 * b.condition / 100;   // weathering fades them slowly over the years
+    if (b.species) {   // step 16: a killed grazer: fresh -> picked (meat taken or rotting) -> bones
+      const C = G.data.art.carcass, col = G.Body.carcassFrame(b);
+      if (art.carcass && C) cx.drawImage(art.carcass, Math.max(0, C.cols.indexOf(col)) * C.frame, 0, C.frame, C.frame, px, py, tp, tp);
+      else { cx.fillStyle = col === "bones" ? "#e8e0c8" : col === "fresh" ? "#8a6a44" : "#7a3a2a"; cx.fillRect(px + 3, py + 8, 10, col === "bones" ? 2 : 4); }
+      cx.globalAlpha = 1; return; }
     if (art.body && B) cx.drawImage(art.body, Math.max(0, B.cols.indexOf(b.stage)) * B.frame, 0, B.frame, B.frame, px, py, tp, tp);
     else if (b.stage === "bones") { cx.fillStyle = "#e8e0c8"; cx.fillRect(px + 3, py + 9, 10, 1); cx.fillRect(px + 4, py + 7, 1, 5); cx.fillRect(px + 7, py + 7, 1, 5); cx.fillRect(px + 10, py + 7, 1, 5); cx.fillRect(px + 12, py + 7, 3, 3); }
     else { cx.fillStyle = "rgba(0,0,0,0.3)"; cx.beginPath(); cx.ellipse(px + 8, py + 12, 7, 2.5, 0, 0, 7); cx.fill();
@@ -168,6 +173,9 @@
   // ---- steps 9-12: items, fire, spark flashes ----
   function sheetCol(k, name) { const A = G.data.art[k]; return art[k] && A ? A.cols.indexOf(name) : -1; }
   function drawItemAt(it, px, py, size) {   // size 16 = on the ground, 8 = in the hand
+    if (it.material === "meat") { const c2 = sheetCol("food", ({ raw: "raw", cooked: "cooked", charred: "burnt" })[G.Cook.of(it)]);   // step 17: raw / cooked / charred (the "burnt" frame)
+      if (c2 >= 0) { cx.drawImage(art.food, c2 * 16, 0, 16, 16, px, py, size, size); return; }
+      const f2 = size / 16; cx.fillStyle = "#a8383a"; cx.fillRect(px + 4 * f2, py + 7 * f2, 8 * f2, 5 * f2); return; }
     const c = sheetCol("items", G.Items.frame(it)), f = size / 16;
     if (c >= 0) { cx.drawImage(art.items, c * 16, 0, 16, 16, px, py, size, size); return; }
     const m = it.material, sh = it.form === "shard";   // code fallback: small shapes in earthy colours

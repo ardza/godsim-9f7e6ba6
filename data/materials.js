@@ -13,6 +13,7 @@
     rock:  { label: "rock",  hardness: 70, sharpness: 10, dryness: 100, durability: 95, burns: false },
     stick: { label: "stick", hardness: 25, sharpness: 15, dryness: 70,  durability: 30, burns: true },
     flint: { label: "flint", hardness: 80, sharpness: 45, dryness: 100, durability: 60, burns: false },
-    bone:  { label: "bone",  hardness: 55, sharpness: 10, dryness: 85,  durability: 75, burns: false }   // bone chars but does not burn away
+    bone:  { label: "bone",  hardness: 55, sharpness: 10, dryness: 85,  durability: 75, burns: false },  // bone chars but does not burn away
+    meat:  { label: "meat",  hardness: 5,  sharpness: 0,  dryness: 10,  durability: 20, burns: false }   // step 16: raw flesh taken from a fresh carcass (wet: does not catch)
   };
 })(this.GS = this.GS || {});
