@@ -11,7 +11,7 @@
     if (A.person && A.person.src) loadImg(A.person.src, im => art.person = im);
     if (A.founders && A.founders.src) loadImg(A.founders.src, im => art.founders = im);
     loadImg(A.bush, im => art.bush = im); loadImg(A.bushEmpty, im => art.bushEmpty = im);
-    for (const k of ["body", "grazer", "scavenger"]) if (A[k] && A[k].src) loadImg(A[k].src, im => art[k] = im);
+    for (const k of ["body", "grazer", "scavenger", "items", "fx"]) if (A[k] && A[k].src) loadImg(A[k].src, im => art[k] = im);
   };
   R.art = () => art;
 
@@ -165,6 +165,46 @@
     st.frame = walking ? Math.floor(st.dist * G.data.config.render.stepsPerTile) : 0; st.x = x; st.y = y; return st;
   }
 
+  // ---- steps 9-12: items, fire, spark flashes ----
+  function sheetCol(k, name) { const A = G.data.art[k]; return art[k] && A ? A.cols.indexOf(name) : -1; }
+  function drawItemAt(it, px, py, size) {   // size 16 = on the ground, 8 = in the hand
+    const c = sheetCol("items", G.Items.frame(it)), f = size / 16;
+    if (c >= 0) { cx.drawImage(art.items, c * 16, 0, 16, 16, px, py, size, size); return; }
+    const m = it.material, sh = it.form === "shard";   // code fallback: small shapes in earthy colours
+    cx.fillStyle = { rock: "#7d766b", stick: "#7a5230", flint: "#3f4652", bone: "#e8e0c8" }[m] || "#999";
+    const R2 = (x, y, w, h) => cx.fillRect(px + x * f, py + y * f, Math.max(1, w * f), Math.max(1, h * f));
+    if (m === "stick") { if (sh) R2(5, 9, 6, 2); else { R2(2, 10, 12, 2); R2(9, 8, 2, 2); } }
+    else if (m === "bone") { if (sh) { R2(6, 7, 2, 6); R2(7, 5, 1, 2); } else { R2(3, 9, 10, 2); R2(2, 8, 2, 4); R2(12, 8, 2, 4); } }
+    else if (sh) { R2(6, 8, 4, 4); R2(7, 6, 2, 2); }
+    else { R2(4, 7, 8, 6); R2(5, 6, 6, 1); cx.fillStyle = "rgba(255,255,255,0.25)"; R2(5, 7, 3, 1); }
+  }
+  R.drawItemAt = drawItemAt;
+  function drawFx(name, px, py) {
+    const c = sheetCol("fx", name); if (c >= 0) { cx.drawImage(art.fx, c * 16, 0, 16, 16, px, py, tp, tp); return; }
+    if (name === "scorched_tile") { cx.fillStyle = "#3d3326"; cx.fillRect(px, py, tp, tp); cx.fillStyle = "#2a231a"; cx.fillRect(px + 3, py + 5, 4, 2); cx.fillRect(px + 9, py + 10, 3, 2); }
+    else if (name === "ash") { cx.fillStyle = "#8f8a80"; cx.fillRect(px + 2, py + 6, 12, 6); cx.fillStyle = "#b8b2a6"; cx.fillRect(px + 4, py + 7, 4, 2); cx.fillRect(px + 9, py + 9, 3, 2); }
+    else if (name === "ember") { cx.fillStyle = "#5a2a14"; cx.fillRect(px + 5, py + 9, 6, 3); cx.fillStyle = "#e0662a"; cx.fillRect(px + 6, py + 10, 2, 1); cx.fillRect(px + 9, py + 9, 1, 1); }
+    else if (name === "spark") { cx.fillStyle = "#fff3b0"; cx.fillRect(px + 7, py + 3, 2, 10); cx.fillRect(px + 3, py + 7, 10, 2); cx.fillStyle = "#ffd25a"; cx.fillRect(px + 5, py + 5, 1, 1); cx.fillRect(px + 10, py + 10, 1, 1); cx.fillRect(px + 10, py + 5, 1, 1); cx.fillRect(px + 5, py + 10, 1, 1); }
+    else { const b = name === "fire_1" ? 1 : 0; cx.fillStyle = "#c2401c"; cx.fillRect(px + 3, py + 6 + b, 10, 9 - b); cx.fillStyle = "#e88a2a"; cx.fillRect(px + 5, py + 4 - b, 6, 9); cx.fillStyle = "#f6d36a"; cx.fillRect(px + 7, py + 8, 2, 5); }
+  }
+  function drawFire(sim, time) {
+    for (const k in sim.fire || {}) {
+      const e = sim.fire[k], [x, y] = k.split(",").map(Number), px = x * tp, py = y * tp;
+      if (e.s === "scorched") { drawFx("scorched_tile", px, py); continue; }
+      if (e.s === "ash") { drawFx("scorched_tile", px, py); drawFx("ash", px, py); continue; }
+      if (e.s === "ember") { drawFx("ember", px, py); continue; }
+      drawFx("scorched_tile", px, py); drawFx(Math.floor(time * 6 + x * 3 + y) % 2 ? "fire_1" : "fire_0", px, py);
+    }
+  }
+  function drawSparks(sim, time) {   // a spark is a brief flash: shown for the tick it happens and the next, flickering
+    for (const f of sim.fx || []) if (f.k === "spark" && sim.tick - f.t < 2 && Math.floor(time * 12) % 3) drawFx("spark", f.x * tp, f.y * tp - 4);
+  }
+  function drawItems(sim, selectedId) {
+    for (const it of sim.items || []) { if (it.heldBy != null) continue;
+      if (it.id === selectedId) { cx.strokeStyle = "#fff6b0"; cx.lineWidth = 1.5; cx.strokeRect(it.x * tp + 0.5, it.y * tp + 0.5, tp - 1, tp - 1); cx.lineWidth = 1; }
+      drawItemAt(it, it.x * tp, it.y * tp, 16); }
+  }
+
   // alpha = fraction of the way to the next tick (the main loop's tick accumulator), for smooth movement between ticks.
   // Position, step frame and facing are computed here only; the sim stays tick-based and deterministic.
   R.draw = function (sim, alpha, time, selectedId) {
@@ -172,8 +212,10 @@
     cx.setTransform(1, 0, 0, 1, 0, 0); cx.fillStyle = "#000"; cx.fillRect(0, 0, cv.width, cv.height);
     const s = sc * view.z; cx.setTransform(s, 0, 0, s, -Math.round(view.ox * s), -Math.round(view.oy * s)); cx.imageSmoothingEnabled = false;
     cx.drawImage(terrain, 0, 0); drawWater(sim.world, time);
+    drawFire(sim, time);
     for (const b of sim.bushes) drawBush(b);
     R.screen = {};
+    drawItems(sim, selectedId);
     for (const b of sim.bodies || []) { R.screen[b.id] = { x: b.x, y: b.y }; drawBody(b, b.id === selectedId); }
     for (const a of sim.animals || []) {
       const p = sim.prev[a.id] || a.pos, x = p.x + (a.pos.x - p.x) * alpha, y = p.y + (a.pos.y - p.y) * alpha, st = animState(sim, a, x, y);
@@ -198,8 +240,13 @@
         cx.strokeStyle = "#fff6b0"; cx.lineWidth = 1.5; cx.beginPath(); cx.ellipse(x * tp + 8, y * tp + 14, 7, 3, 0, 0, 7); cx.stroke(); cx.lineWidth = 1;
         if (walking) { cx.strokeStyle = "rgba(255,246,176,0.45)"; cx.beginPath(); cx.moveTo(x * tp + 8, y * tp + 8); for (let i = a.act.i; i < a.act.path.length; i++) cx.lineTo(a.act.path[i][0] * tp + 8, a.act.path[i][1] * tp + 8); cx.stroke(); }
       }
-      drawPerson(a, x, y, st.frame, st.facing, time);
+      // shivering: a 1 px shake while cold and awake (render only)
+      const shiver = a.needs.warmth != null && a.needs.warmth < 30 && a.act.type !== "sleep" ? (Math.floor(time * 18 + a.id) % 2 ? 1 : -1) / tp : 0;
+      drawPerson(a, x + shiver, y, st.frame, st.facing, time);
+      const held = G.Items && G.Items.held(sim, a);
+      if (held && a.act.type !== "sleep") drawItemAt(held, Math.round((x + shiver) * tp + (st.facing === "left" ? 0 : 8)), Math.round(y * tp + 5), 8);   // half size over the hand
     }
+    drawSparks(sim, time);
     const dk = G.Time.darkness(sim.tick); if (dk > 0) { cx.fillStyle = "rgba(8,14,40," + (dk * 0.55).toFixed(3) + ")"; cx.fillRect(0, 0, mw, mh); }
     cx.setTransform(1, 0, 0, 1, 0, 0);
   };

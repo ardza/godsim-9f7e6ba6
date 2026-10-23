@@ -1,12 +1,14 @@
 // Animals (grazers, scavengers) and bodies. Plain objects, tick-based, seeded through their own stream sim.arng, no DOM.
 // Animals have no names (shown as "Grazer 12"), no deaths or births yet, and they flee people.
-// A body is what a death leaves on the ground: fresh -> rotting -> bones (a lasting object, material "bone"). People ignore bodies.
+// A body is what a death leaves on the ground: fresh -> rotting -> bones (a lasting object, material "bone"). People ignore bodies,
+// but bones are things: an idle person may pick up one of a skeleton's bones (objects.bonesPerBody) as a bone item (src/objects.js).
 (function (G) {
   const CF = () => G.data.config, AC = () => CF().animals, BC = () => CF().body, W = G.World;
   const TM = () => CF().time.tickGameMinutes, r2 = v => Math.round(v * 100) / 100, r9 = v => Math.round(v * 1e9) / 1e9;
   const Animal = {}, Body = {};
   const LABEL = { grazer: "Grazer", scavenger: "Scavenger" };
   const isMeadow = (w, x, y) => W.inb(w, x, y) && W.tile(w, x, y) === G.data.T.MEADOW;
+  const grass = (sim, x, y) => isMeadow(sim.world, x, y) && !(G.Fire && sim.fire && G.Fire.groundBare(sim, x, y));   // burned / scorched ground has no grass until it regrows
   const tileOf = a => ({ x: Math.round(a.pos.x), y: Math.round(a.pos.y) });
   const whole = a => a.pos.x === Math.round(a.pos.x) && a.pos.y === Math.round(a.pos.y);
 
@@ -53,7 +55,7 @@
   }
 
   function move(sim, a) {
-    const S = AC()[a.species], act = a.act; let budget = TM() / (act.goal === "flee" ? S.fleeMinutesPerTile : S.walkMinutesPerTile);
+    const S = AC()[a.species], act = a.act; let budget = TM() / ((act.goal === "flee" || act.goal === "fleeFire") ? S.fleeMinutesPerTile : S.walkMinutesPerTile);
     while (budget > 1e-9 && act.i < act.path.length) {
       const [nx, ny] = act.path[act.i], dx = nx - a.pos.x, dy = ny - a.pos.y, d = Math.hypot(dx, dy);
       if (Math.abs(dx) > Math.abs(dy)) a.facing = dx > 0 ? "right" : "left"; else if (dy) a.facing = dy > 0 ? "down" : "up";
@@ -64,17 +66,17 @@
   }
   function arrive(sim, a) {
     if (a.act.goal === "body") { const b = sim.bodies.find(q => q.id === a.act.body); if (b && b.flesh > 0 && Math.hypot(b.x - a.pos.x, b.y - a.pos.y) < 1.5) { a.act = { type: "feed", body: b.id }; return; } }
-    if (a.act.goal === "meadow" && isMeadow(sim.world, a.pos.x, a.pos.y)) { a.act = { type: "graze", t: 0, from: a.needs.fullness }; return; }
-    idle(sim, a, a.act.goal === "flee" ? 0.3 : 1);
+    if (a.act.goal === "meadow" && grass(sim, a.pos.x, a.pos.y)) { a.act = { type: "graze", t: 0, from: a.needs.fullness }; return; }
+    idle(sim, a, a.act.goal === "flee" || a.act.goal === "fleeFire" ? 0.3 : 1);
   }
 
   // ---- grazers: graze meadow when hungry, otherwise drift around their herd's home spot ----
   function grazerDecide(sim, a) {
     const S = AC().grazer, t = tileOf(a), w = sim.world;
     if (a.needs.fullness < S.fullness.grazeBelow) {
-      if (isMeadow(w, t.x, t.y) && whole(a)) { a.act = { type: "graze", t: 0, from: a.needs.fullness }; return; }
+      if (grass(sim, t.x, t.y) && whole(a)) { a.act = { type: "graze", t: 0, from: a.needs.fullness }; return; }
       for (let r = 1; r <= 8; r++) for (let y = t.y - r; y <= t.y + r; y++) for (let x = t.x - r; x <= t.x + r; x++)
-        if (Math.max(Math.abs(x - t.x), Math.abs(y - t.y)) === r && isMeadow(w, x, y) && free(sim, a, x, y) && walkTo(sim, a, x, y, "meadow")) return;
+        if (Math.max(Math.abs(x - t.x), Math.abs(y - t.y)) === r && grass(sim, x, y) && free(sim, a, x, y) && walkTo(sim, a, x, y, "meadow")) return;
     }
     const h = sim.herds[a.herd] || { x: t.x, y: t.y }, R = S.herdRadius;
     for (let k = 0; k < 16; k++) { const x = h.x + sim.arng.int(-R, R), y = h.y + sim.arng.int(-R, R);
@@ -127,6 +129,10 @@
     n.fullness = r9(Math.max(0, n.fullness - Animal.fullnessDrainPerTick(a)));
     const np = Animal.nearestPerson(sim, a.pos.x, a.pos.y);
     if (np.p && np.d < S.fleeWithin && a.act.goal !== "flee") flee(sim, a, np.p);
+    // flames close by: move away (no burn damage yet)
+    if (a.act.goal !== "fleeFire" && G.Fire.burning(sim) && G.Fire.nearestFlame(sim, a.pos.x, a.pos.y) < CF().fire.fleeTiles) {
+      const t = tileOf(a), b = G.Fire.awayTile(sim, t.x, t.y, (x, y) => free(sim, a, x, y)); if (b && walkTo(sim, a, b.x, b.y, "fleeFire")) { a.stats.fireFlees = (a.stats.fireFlees || 0) + 1;
+        if (sim.tick - (sim.animalFireLog == null ? -1e9 : sim.animalFireLog) >= 120) { sim.animalFireLog = sim.tick; G.Sim.log(sim, (a.species === "grazer" ? "Grazers" : "A scavenger") + " run" + (a.species === "grazer" ? "" : "s") + " from the flames"); } } }
     const act = a.act;
     if (act.type === "walk") return move(sim, a);
     if (act.type === "graze") return graze(sim, a);

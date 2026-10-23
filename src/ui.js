@@ -16,7 +16,7 @@
   // phone landscape sheet; its open/closed state is kept in localStorage godsim.ui (sheet) like the Log tab (panel). restore = boot, don't re-save.
   UI.openSheet = function (open, restore) { const s = $("side"); s.classList.toggle("open", !!open); $("sheet-handle").setAttribute("aria-expanded", !!open); $("sheet-arrow").textContent = open ? "▼" : "▲";
     if (!restore) savePrefs(Object.assign(prefs(), { sheet: !!open })); UI.layout(); };
-  // Any open panel (UI.panel != null) and the inspect card decide how much room the map gets. The panel area sits above the bottom tab bar:
+  // Any open panel (UI.panel != null: Log or Discoveries) and the inspect card decide how much room the map gets. The panel area sits above the bottom tab bar:
   // body.log-off = no panel open; #side.bare / body.side-off = nothing to show, the panel area goes away; #side.solo = only one of card/panel.
   // Refits the canvas whenever that, the sheet or the window size changes.
   UI.layout = function () {
@@ -131,7 +131,7 @@
 
   UI.update = function (app) {
     const sim = app.sim, c = G.Time.at(sim.tick);
-    $("clock").textContent = "Year " + c.year + " · " + c.season + " " + c.dayOfSeason + " · Day " + c.day + " · " + G.Time.hhmm(c);
+    $("clock").textContent = "Year " + c.year + " · " + c.season + " " + c.dayOfSeason + " · Day " + c.day + " · " + G.Time.hhmm(c) + " · " + Math.round(G.Climate.airC(sim.tick)) + "°C";
     $("seedshow").textContent = "seed " + sim.seed;
     document.querySelectorAll("#speeds button").forEach(b => { const on = +b.dataset.speed === app.speed; b.classList.toggle("on", on); b.setAttribute("aria-pressed", on); });
     updatePanels(app);
@@ -139,10 +139,17 @@
     const a = sim.agents.find(q => q.id === app.selected), info = $("info");
     const an = !a && (sim.animals || []).find(q => q.id === app.selected);
     let bd = !a && !an && (sim.bodies || []).find(q => q.id === app.selected);
+    const it = !a && !an && !bd && (sim.items || []).find(q => q.id === app.selected);
     if (!a && !an && !bd && app.selected != null) { bd = (sim.bodies || []).find(q => q.of === app.selected); if (bd) app.selected = bd.id; }   // the selected person died: follow to their body
-    info.hidden = !a && !an && !bd;
+    info.hidden = !a && !an && !bd && !it;
     const need = (label, v, cls, word, tip) => '<div class="row need" title="' + tip + '"><span>' + label + '</span>' + bar(v, 100, cls).replace('</div>', '<em>' + word + '</em></div>') + '<b>' + Math.round(v) + '/100</b></div>';
-    if (an) {
+    if (it) {   // a thing: its material, form, where it is, and its property numbers (these alone decide what happens when it is struck, rubbed or cut)
+      const P = G.Items.props(it), holder = it.heldBy != null && sim.agents.find(q => q.id === it.heldBy);
+      const prop = (k, tip) => '<div class="row" title="' + tip + '"><span>' + k + '</span>' + bar(P[k], 100, "trait") + '<b>' + Math.round(P[k]) + '/100</b></div>';
+      $("info-body").innerHTML = '<h3>' + esc(G.Items.matLabel(it).replace(/^./, ch => ch.toUpperCase())) + '</h3><div class="sub">' + (it.form === "shard" ? "a broken piece" : "whole") + ' · ' + (holder ? 'carried by ' + esc(holder.name) : 'on the ground') + (P.burns ? ' · burns' : '') + '</div>' +
+        '<div class="sec">Properties (0-100)</div>' + prop("hardness", "harder things break softer ones; hard on hard can spark") + prop("sharpness", "a keen edge can cut") +
+        prop("dryness", "dry things catch a spark") + prop("durability", "how much wear and striking it takes");
+    } else if (an) {
       const S = G.data.config.animals[an.species], f = an.needs.fullness, low = an.species === "grazer" ? S.fullness.grazeBelow : S.fullness.feedBelow, np = G.Animal.nearestPerson(sim, an.pos.x, an.pos.y);
       $("info-body").innerHTML = '<h3>' + esc(G.Animal.name(an)) + '</h3><div class="sub">' + (an.species === "grazer" ? "grazes on meadow" : "eats the flesh of bodies") + ' · ' + G.Animal.doing(an) + '</div>' +
         '<div class="sec">Needs (0-100, full = good)</div>' +
@@ -164,10 +171,12 @@
         '<div class="sec">Needs (0-100, full = good)</div>' +
         need("Fullness", n.fullness, n.fullness < A.fullnessThreshold(a) ? "hot" : "", A.fullnessWord(n.fullness), "100 = stuffed, " + PC.fullness.mealFillTo + " = full after a meal; eats below " + A.fullnessThreshold(a) + "; 0 = starving") +
         need("Water", n.water, n.water < A.waterThreshold(a) ? "hot" : "water", A.waterWord(n.water), "100 = just drank; drinks below " + A.waterThreshold(a) + "; 0 = parched") +
+        need("Warmth", n.warmth, n.warmth < 30 ? "hot" : "warm", A.warmthWord(n.warmth), "100 = warm; seeks shelter or company below " + Math.round(A.warmthSeekBelow(a)) + "; a full day at 0 is fatal" + (a.felt ? " · feels like " + Math.round(a.felt.c) + "°C" + (a.felt.sheltered ? ", under trees" : "") + (a.felt.huddle ? ", huddled with " + a.felt.huddle : "") + (a.felt.heat ? ", fire nearby" : "") : "")) +
         need("Energy", n.energy, n.energy < 25 ? "hot" : "energy", A.energyWord(n.energy), "100 = rested (" + PC.energy.restedAt + "+ reads rested); sleeps after dusk under " + PC.energy.sleepBelow) +
-        (a.zero && (a.zero.water > 0 || a.zero.fullness > 0) ? '<div class="sub hot">' + [a.zero.water > 0 ? 'no water for ' + (a.zero.water / 60).toFixed(1) + ' h' : '', a.zero.fullness > 0 ? 'no food for ' + (a.zero.fullness / 60).toFixed(1) + ' h' : ''].filter(Boolean).join(' · ') + '</div>' : '') +
+        (a.zero && (a.zero.water > 0 || a.zero.fullness > 0 || a.zero.warmth > 0) ? '<div class="sub hot">' + [a.zero.water > 0 ? 'no water for ' + (a.zero.water / 60).toFixed(1) + ' h' : '', a.zero.fullness > 0 ? 'no food for ' + (a.zero.fullness / 60).toFixed(1) + ' h' : '', a.zero.warmth > 0 ? 'freezing for ' + (a.zero.warmth / 60).toFixed(1) + ' h' : ''].filter(Boolean).join(' · ') + '</div>' : '') +
         (a.act.type === "sleep" ? '<div class="sub">asleep since ' + G.Time.hhmm(G.Time.at(a.act.since)) + '</div>' : '') +
         '<div class="sec">Traits (0-100, 50 = avg)</div>' + Object.entries(a.traits).map(([k, v]) => '<div class="row" title="' + esc(G.data.config.person.traits[k] || "") + '"><span>' + k + '</span>' + bar(v, 100, "trait") + '<b>' + Math.round(v) + '/100</b></div>').join("") +
+        '<div class="sub">carrying: ' + (G.Items.held(sim, a) ? esc(G.Items.label(G.Items.held(sim, a))) : 'nothing') + '</div>' +
         '<div class="sec">Knows</div><div class="sub">' + known + ' berry bush' + (known === 1 ? "" : "es") + ' · ' + waterKnown(a) + '</div>' +
         '<div class="sub">' + a.stats.meals + ' meal' + (a.stats.meals === 1 ? "" : "s") + ' · ' + (a.stats.drinks || 0) + ' drink' + (a.stats.drinks === 1 ? "" : "s") + ' · ' + (a.stats.sleeps || 0) + ' sleep' + (a.stats.sleeps === 1 ? "" : "s") + '</div>';
     }
@@ -180,6 +189,14 @@
     }
     if (UI.zoomUI) UI.zoomUI();
     UI.layout();
+  };
+  // ---- Discoveries tab (step 10): every first combination of action, materials and result, in order ----
+  UI.panelRender.discoveries = function (app, el) {
+    const D = app.sim.discoveries || [], key = D.length + "|" + app.sim.seed;
+    if (el._key === key) return; el._key = key;
+    el.innerHTML = '<div class="sec">Discoveries</div>' + (D.length ? '<table class="disc"><thead><tr><th>#</th><th>When</th><th>Who</th><th>What</th><th>Result</th><th>Group</th></tr></thead><tbody>' +
+      D.slice().reverse().map(d => '<tr><td>' + d.n + '</td><td>' + G.Time.stamp(d.tick) + '</td><td>' + esc(d.who || "-") + '</td><td>' + esc(d.action + " " + d.materials[0] + (d.materials[1] ? " on " + d.materials[1] : "") + (d.materials[2] ? ", over " + d.materials[2] : "")) + '</td><td>' + esc(d.result) + '</td><td>' + (esc(d.group) || '<span class="blank">-</span>') + '</td></tr>').join("") +
+      '</tbody></table>' : '<div class="empty">Nothing discovered yet.</div>');
   };
   G.UI = UI;
 })(this.GS = this.GS || {});

@@ -2,7 +2,7 @@
 (function (G) {
   G.data = G.data || {};
   G.data.config = {
-    saveVersion: 6,                 // v6: aging and death, bodies (fresh / rotting / bones), grazers and scavengers; older saves are rejected
+    saveVersion: 7,                 // v7: objects, physics + discoveries, temperature + warmth, fire (v6: aging, death, bodies, animals); older saves are rejected
     saveKey: "godsim.save",
     map: {
       w: 60, h: 40, tilePx: 16,      // map is 960x640 art px, scaled to fit the screen
@@ -29,7 +29,9 @@
       startAge: [16, 40], lifespan: [60, 100], // years; 1 year = 4 seasons x 7 days = 28 game days. Each person gets a seeded lifespan and dies of old age on reaching it
       traits: {                       // the only traits; integers 0-100, 50 = average; rolled as 50 + gaussian*spread, rounded, clamped (full 0-100 allowed)
         speed: "walk time per tile = 8 min / (0.5 + speed/100)",
-        appetite: "fullness drain x (0.5 + appetite/100): full (85) to hungry (50) in ~6 h at 50, ~12 h at 0, ~4 h at 100"
+        appetite: "fullness drain x (0.5 + appetite/100): full (85) to hungry (50) in ~6 h at 50, ~12 h at 0, ~4 h at 100",
+        curiosity: "chance to go and pick up a thing in sight when idle = objects.pickupChance x curiosity/50",
+        coldFear: "seeks shelter / huddles once warmth is below warmth.seekBelow + coldFear x warmth.seekPerFear (35 at 0, 60 at 50, 85 at 100)"
       },
       traitSpread: 17.5,              // gaussian sd in trait points
       sightTiles: 6,                  // fixed sight radius (tiles)
@@ -66,8 +68,23 @@
         asleepNeedRate: 0.25,         // fullness and water drain at a quarter of the waking rate while asleep
         start: [90, 100]              // energy 0 logs "is exhausted" once and they lie down where they are, day or night
       },
-      // Dying of need: a full game day at water 0, or 7 game days at fullness 0 (the clock restarts once the need is above 0). Energy 0 never kills.
-      death: { waterZeroMinutes: 1440, fullnessZeroMinutes: 10080 },
+      // Warmth (step 11): 0-100, 100 = warm. Each minute it moves toward an equilibrium set by the felt temperature:
+      //   felt = air + shelter (on a woods tile) + huddle (per other person within huddleTiles, up to huddleMax) + heat from fire + walking/asleep offsets
+      //   it rises by (felt - neutralC) x gainPerDegreeHour per hour when felt > neutralC, falls by (neutralC - felt) x lossPerDegreeHour when below.
+      warmth: {
+        neutralC: 10,                 // felt temperature with no net gain or loss
+        lossPerDegreeHour: 0.85, gainPerDegreeHour: 1.5,
+        shelterC: 5,                  // standing/lying on a woods tile (under trees: out of the wind)
+        huddleC: 4, huddleMax: 3, huddleTiles: 1.5,   // each other person this close adds 4 C, up to 3 people
+        walkingC: 2, asleepC: -1,     // moving makes heat; lying still loses a little
+        sunC: 3,                      // daylight out in the open (scaled by daylight; none under trees)
+        shelterTiles: 15,             // looks this far for a woods tile / company when seeking warmth
+        wakeBelow: 10,                // a sleeper this cold, not under trees with company, wakes once a night to find a better spot
+        seekBelow: 35, seekPerFear: 0.5,   // seeks warmth (shelter, others) below 35 + coldFear x 0.5
+        start: [80, 100], min: 0      // logs "is cold" below 30 and "is freezing" at 0; dies after 1 full game day at 0 (person.death)
+      },
+      // Dying of need: a full game day at water 0, a full game day at warmth 0, or 7 game days at fullness 0 (the clock restarts once the need is above 0). Energy 0 never kills.
+      death: { waterZeroMinutes: 1440, warmthZeroMinutes: 1440, fullnessZeroMinutes: 10080 },
       bedtimeMin: 25,                 // before lying down she drinks/eats first if that need would drop below this by the time she wakes
       bedtimeTripTiles: 6,            // ...but only if the water / a known ripe bush is within this many tiles of path (else she sleeps)
       mealMinutes: 15,                // one ripe bush = one meal, eaten in one sitting; fullness rises linearly by mealAdds
@@ -104,11 +121,56 @@
         wanderRadius: 8, idleMin: 30, idleMax: 120, nightIdleScale: 1
       }
     },
+    // Step 9 objects: seeded on the ground at world creation (their own stream, so the map, bushes and founders are unchanged).
+    // People carry one thing at a time: an idle person may walk over and pick up a thing in sight (curiosity), and drops it when a need takes over,
+    // before sleep, or after carry minutes. Bones from a body count: picking one up takes one of the body's bones (bonesPerBody).
+    objects: {
+      rock: { count: 40, where: "any" },            // anywhere on land
+      stick: { count: 40, where: "woodsEdge" },     // on or next to woods
+      flint: { count: 15, where: "river" },         // within 3 tiles of the river
+      minSpacing: 1,                                 // never two on one tile at the start
+      bonesPerBody: 4,                               // a skeleton gives 4 bones that can be picked up; the rest stays as the body's bones
+      pickupChance: 0.6,                            // at the end of an idle spell, x curiosity/50 (0.5 at curiosity 100)
+      carry: [60, 300],                              // minutes she holds it before putting it down (seeded per pick-up)
+      tryChance: 0.8, tryMinutes: 5, tryReach: 10,   // a holder may try an action on a thing on the ground within tryReach tiles, right after picking up or when idle (~1 try / person / day)
+      tryCooldown: 360                               // ...at most once per 6 game h each
+    },
+    // Step 10 physics: outcome rules over the material properties (data/materials.js). Actions: strike, rub, cut. "Held" = the thing in hand, "target" = the thing on the ground.
+    physics: {
+      actions: ["strike", "rub", "cut"],
+      // strike: hard on hard with a keen edge throws a spark (steel-free flint sparks: an edge of a hard stone shaves hot grains off another hard stone)
+      spark: { minHardness: 65, minEdge: 35, chance: 0.6 },
+      // break (strike only): the softer of the two may break. p = scale x (harder - softer hardness)/100 x (100 - durability)/100, at most max
+      break: { scale: 6, max: 0.8, edgeFromHardness: 1.4, sharpAt: 60, shardDurability: 0.6 }, // a broken piece: sharpness = max(old, hardness x 1.4); "sharp shard" from 60
+      // rub: the softer one is abraded; a hard-enough softer thing gets keener (sharpens); soft dry on soft dry grows warm (friction)
+      rub: { hardnessGap: 10, sharpenMinHardness: 45, sharpenBy: 4, wear: 3, warmMaxHardness: 40, warmMinDryness: 60 },
+      // cut: a keen edge drawn across a softer thing notches it
+      cut: { minSharpness: 55, wear: 5 }
+    },
+    // Step 11 air temperature (C) by season and time of day: each season has a mean, blended smoothly into the next; the day swings +-dayAmp,
+    // coldest at 05:00 and warmest at 15:00.
+    climate: { seasonMeanC: [13, 23, 12, -2], dayAmpC: 5, coldestHour: 5,
+      // ground dryness 0-100 by season (Greening, High Sun, Leaffall, Deep Cold), plus a fixed per-tile patchiness +-patch, minus wetC near water
+      dryness: { meadow: [35, 70, 55, 25], woods: [30, 50, 50, 20], sand: [0, 0, 0, 0], patch: 25, nearWaterTiles: 2, nearWater: -30 } },
+    // Step 12 fire. A spark lands on the target's tile: it catches if the fuel there (ground grass/litter, or a stick lying there) is dry enough:
+    //   p(ember) = igniteScale x (dryness - minDryness)/(100 - minDryness). An ember smoulders, then flares into fire (or dies out).
+    // A burning tile spreads each minute to each dry 8-neighbour with p = spreadScale x (dryness - minDryness)/(100 - minDryness), burns out to ash,
+    // and the scorched ground regrows (fuel back, bushes ripen again) within about a season.
+    fire: {
+      minDryness: 45, igniteScale: 0.5,
+      emberMinutes: [20, 60], emberToFire: 0.04,          // per minute while smouldering, x dryness factor; else it goes out at the end
+      burnMinutes: { meadow: 40, woods: 120 },              // how long a tile burns
+      spreadScale: 0.012,
+      ashMinutes: 1440, regrowMinutes: 8640,                // ash 1 day, then scorched ground; fuel and grass back 6 more days later (a season = 7 days)
+      heatC: 25, heatTiles: 4,                              // a fire adds up to 25 C to the felt temperature, falling to 0 at 4 tiles (ember: a third)
+      fleeTiles: 2.5, fleeTo: 5,                            // people and animals move away from flames within 2.5 tiles (no burn damage yet)
+      bushBurns: true                                       // a bush on a burning tile is burnt bare and ripens again only once the ground has regrown
+    },
     bushes: { count: 60, regrowMinutes: 1440, startRipe: 0.85, minSpacing: 4,   // eaten bush is ripe again 1 game day later
       weights: { edge: 6, meadow: 1, woods: 0.4 } }, // edge = meadow/woods border
     log: { max: 200,
       // log line colours: first matching rule wins, else "info". Tabs filter the log; a tab with no match shows everything.
-      kinds: [{ kind: "warn", match: "has died|is starving|is hungry|bush bare|bush was bare|bush taken|is thirsty|is parched|is exhausted|woke up (hungry|thirsty)" }],
+      kinds: [{ kind: "warn", match: "has died|is freezing|is cold|catches fire|burns|is starving|is hungry|bush bare|bush was bare|bush taken|is thirsty|is parched|is exhausted|woke up (hungry|thirsty)" }],
       tabs: [{ key: "all", label: "All" },
              { key: "food", label: "Food", match: "bush|berr|meal|hungry|starving" },
              { key: "water", label: "Water", match: "water|drink|thirst|parched|lake|river" },
@@ -121,7 +183,8 @@
     // <div id="panel-KEY" class="panel"> is created in the side panel, and GS.UI.panelRender[KEY](app, div) (if defined) fills it on each update.
     // open = open on a first visit. Which panel is open is remembered in localStorage "godsim.ui" (separate from the save).
     ui: { prefsKey: "godsim.ui",
-      panels: [{ key: "log", label: "Log", el: "logwrap", open: true }] },
+      panels: [{ key: "log", label: "Log", el: "logwrap", open: true },
+               { key: "discoveries", label: "Discoveries" }] },   // step 10: filled by GS.UI.panelRender.discoveries
     render: {                         // view only: nothing here is saved or affects the sim
       stepsPerTile: 2,                // walk frame flips every 0.5 tile actually covered; standing = frame 0
       zoom: { max: 4, wheelStep: 50, pinchStep: 1.35, tapSlop: 8 }  // whole-number zoom 1x (fit) .. 4x; wheel deltaY per step; pinch distance ratio per step; px of movement before a press becomes a pan

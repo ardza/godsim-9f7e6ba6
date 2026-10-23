@@ -47,7 +47,9 @@
   #info-close { position: absolute; right: 8px; top: 8px; width: 36px; padding: 0; font-size: 20px; }
   .row { display: grid; grid-template-columns: 5.6em 1fr 4.2em; gap: 8px; align-items: center; margin-top: 3px; } .row b { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
   .bar { height: 10px; background: #1b140d; border: 1px solid var(--frame); border-radius: 3px; overflow: hidden; } .bar i { display: block; height: 100%; background: var(--on); }
-  .bar.hot i { background: var(--warn); } .bar.trait i { background: var(--wheat); } .bar.water i { background: var(--info); } .bar.energy i { background: #d9b44a; }
+  .bar.hot i { background: var(--warn); } .bar.trait i { background: var(--wheat); } .bar.water i { background: var(--info); } .bar.energy i { background: #d9b44a; } .bar.warm i { background: #c9773a; }
+  table.disc { width: 100%; border-collapse: collapse; font-size: 16px; } table.disc th { text-align: left; color: var(--wheat); font-weight: 650; padding: 4px 4px; border-bottom: 1px solid var(--frame); }
+  table.disc td { padding: 4px 4px; border-bottom: 1px solid rgba(120,90,60,.35); vertical-align: top; } table.disc .blank { color: var(--dim); }
   .row.need .bar { position: relative; height: 22px; } .row.need .bar em { position: absolute; left: 6px; top: 0; line-height: 20px; font-style: normal; font-size: 16px; color: var(--text, #f1e6cf); text-shadow: 0 1px 2px #000, 0 0 2px #000; white-space: nowrap; }
   /* bottom tab bar, full width along the bottom of the screen on every size; built from config.ui.panels */
   #panelbar { flex: 0 0 auto; position: relative; z-index: 20; display: flex; gap: 6px; align-items: center; height: var(--bar); padding: 0 10px; background: var(--panel); border-top: 2px solid var(--frame); }
@@ -79,7 +81,8 @@
   }
   @media (max-width: 700px) and (orientation: portrait) {
     #stage { flex: 0 0 auto; }
-    #side { flex: 1 1 0; display: flex; flex-direction: column; } #info { flex: 0 1 auto; } #clock { width: 100%; }
+    #side { flex: 1 1 0; display: flex; flex-direction: column; } #clock { width: 100%; }
+    #info { flex: 0 1 auto; max-height: 55%; overflow-y: auto; min-height: 0; }   /* the card scrolls so the tabs and log stay on screen */
     body.log-off #stage { flex: 1 1 0; } body.log-off #side { flex: 0 0 auto; max-height: 50%; overflow-y: auto; }
   }
   @media (max-height: 500px) and (orientation: landscape) {
@@ -122,10 +125,14 @@
 <script src="data/tiles.js"></script>
 <script src="data/names.js"></script>
 <script src="data/art.js"></script>
+<script src="data/materials.js"></script>
 <script src="src/rng.js"></script>
 <script src="src/world.js"></script>
+<script src="src/climate.js"></script>
 <script src="src/agent.js"></script>
 <script src="src/animal.js"></script>
+<script src="src/objects.js"></script>
+<script src="src/fire.js"></script>
 <script src="src/sim.js"></script>
 <script src="src/save.js"></script>
 <script src="src/render.js"></script>

@@ -11,12 +11,13 @@
     const seed = String(seedText || "").trim() ? G.RNG.seedFrom(seedText) : (Math.random() * 4294967296) >>> 0;
     app.sim = G.Sim.create(seed); app.acc = 0; app.selected = null; app.save(false); G.UI.toast("New world " + seed); G.UI.update(app);
   };
-  app.clickTile = (tx, ty) => { // nearest person, animal or body within ~1 tile of the tap (people first, then animals, then bodies when equally near)
+  app.clickTile = (tx, ty) => { // nearest person, animal, body or thing on the ground within ~1 tile of the tap (people first, then animals, bodies, then things when equally near)
     let best = null; const S = G.Render.screen || {};
     const consider = (o, pos, pen) => { const p = S[o.id] || pos, d = Math.hypot(p.x + 0.5 - tx, p.y + 0.5 - ty) + pen; if (d < 1.3 + pen && (!best || d < best.d)) best = { id: o.id, d }; };
     for (const a of app.sim.agents) consider(a, a.pos, 0);
     for (const a of app.sim.animals || []) consider(a, a.pos, 0.15);
     for (const b of app.sim.bodies || []) consider(b, { x: b.x, y: b.y }, 0.3);
+    for (const it of app.sim.items || []) if (it.heldBy == null) consider(it, { x: it.x, y: it.y }, 0.4);
     app.select(best ? best.id : null);
   };
   // Test-only console hooks (not in the UI): hold a person's water / fullness at 0 so a need-death and the decay can be watched (README).
