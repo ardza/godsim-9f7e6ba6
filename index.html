@@ -64,6 +64,15 @@
   .prl { font-size: 16px; padding: 6px 0; border-bottom: 1px solid var(--line); } .prl time { color: var(--dim); margin-right: 8px; }
   table.disc td { padding: 4px; border-bottom: 1px solid var(--line); vertical-align: top; } table.disc .blank { color: var(--dim); }
   .panel { min-height: 0; overflow-y: auto; }
+  /* step 21b People tab: one 44px+ row per person (tap = card + centre), sort buttons, collapsed Dead list */
+  .psort { display: flex; gap: 6px; margin: 0 0 8px; } .psort button { min-height: 44px; min-width: 44px; padding: 0 14px; font-size: 16px; } .psort button.on { outline: 2px solid var(--wheat); }
+  .plist { display: flex; flex-direction: column; gap: 4px; }
+  .prow { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: center; width: 100%; min-height: 44px; padding: 6px 10px; font-size: 16px; text-align: left; }
+  .prow .pn { font-weight: 700; } .prow .pa { color: var(--dim); text-align: right; white-space: nowrap; }
+  .prow .pm { display: inline-flex; align-items: center; gap: 6px; font-size: 16px; } .prow .pm .bar { width: 44px; } .prow .pm b { font-variant-numeric: tabular-nums; min-width: 2ch; }
+  .prow .pms { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px 14px; } .prow .pm.low b, .prow .pm.low .pl { color: #f0a0aa; }
+  .pdead { margin-top: 10px; font-size: 16px; } .pdead summary { min-height: 44px; line-height: 44px; cursor: pointer; font-weight: 650; }
+  .drow { display: grid; grid-template-columns: 1fr auto 1.4fr; gap: 8px; min-height: 44px; align-items: center; border-bottom: 1px solid var(--line); }
   #logwrap { min-height: 0; display: flex; flex-direction: column; }
   #tabs { flex-wrap: wrap; }
   #log { flex: 1; min-height: 0; overflow-y: auto; }
@@ -134,7 +143,7 @@
     #info > * { flex-shrink: 0; }   /* the short card scrolls as a whole; her log follows the details */
   }
 </style>
-<link rel="stylesheet" href="data/ui/theme.css?v=15">
+<link rel="stylesheet" href="data/ui/theme.css?v=16">
 </head><body>
 <div id="top">
   <span class="grp"><button id="btn-menu" aria-expanded="false" aria-controls="files" title="World: save, load, new world"><span class="ico" data-icon="menu"></span><span class="wide">World</span></button></span>
@@ -154,28 +163,29 @@
 </div>
 <div id="panelbar" role="tablist" aria-label="panels"></div>
 <div id="toast"></div>
-<script src="data/config.js?v=15"></script>
-<script src="data/tiles.js?v=15"></script>
-<script src="data/names.js?v=15"></script>
-<script src="data/art.js?v=15"></script>
-<script src="data/materials.js?v=15"></script>
-<script src="src/rng.js?v=15"></script>
-<script src="src/world.js?v=15"></script>
-<script src="src/climate.js?v=15"></script>
-<script src="src/agent.js?v=15"></script>
-<script src="src/animal.js?v=15"></script>
-<script src="src/objects.js?v=15"></script>
-<script src="src/fire.js?v=15"></script>
-<script src="src/learn.js?v=15"></script>
-<script src="src/hunt.js?v=15"></script>
-<script src="src/cook.js?v=15"></script>
-<script src="src/social.js?v=15"></script>
-<script src="src/family.js?v=15"></script>
-<script src="src/faith.js?v=15"></script>
-<script src="src/sim.js?v=15"></script>
-<script src="src/save.js?v=15"></script>
-<script src="src/icons.js?v=15"></script>
-<script src="src/render.js?v=15"></script>
-<script src="src/ui.js?v=15"></script>
-<script src="src/main.js?v=15"></script>
+<script src="data/config.js?v=16"></script>
+<script src="data/tiles.js?v=16"></script>
+<script src="data/names.js?v=16"></script>
+<script src="data/art.js?v=16"></script>
+<script src="data/materials.js?v=16"></script>
+<script src="src/rng.js?v=16"></script>
+<script src="src/world.js?v=16"></script>
+<script src="src/climate.js?v=16"></script>
+<script src="src/agent.js?v=16"></script>
+<script src="src/animal.js?v=16"></script>
+<script src="src/objects.js?v=16"></script>
+<script src="src/fire.js?v=16"></script>
+<script src="src/learn.js?v=16"></script>
+<script src="src/hunt.js?v=16"></script>
+<script src="src/cook.js?v=16"></script>
+<script src="src/social.js?v=16"></script>
+<script src="src/family.js?v=16"></script>
+<script src="src/faith.js?v=16"></script>
+<script src="src/shelter.js?v=16"></script>
+<script src="src/sim.js?v=16"></script>
+<script src="src/save.js?v=16"></script>
+<script src="src/icons.js?v=16"></script>
+<script src="src/render.js?v=16"></script>
+<script src="src/ui.js?v=16"></script>
+<script src="src/main.js?v=16"></script>
 </body></html>

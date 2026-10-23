@@ -84,7 +84,8 @@
   }
 
   function walkTo(sim, a, tx, ty, goal, extra) {
-    const t = Agent.tilePos(a), path = W.findPath(sim.world, t.x, t.y, tx, ty);
+    const t = Agent.tilePos(a), sh = G.Shelter && sim.shelters && sim.shelters.some(q => q.walkX > 1),   // step 21b: thickets are slow, so she goes round them when that is quicker
+      path = W.findPath(sim.world, t.x, t.y, tx, ty, sh ? (x, y) => G.Shelter.walkX(sim, x, y) : null);
     if (!path) return false;
     a.act = Object.assign({ type: "walk", goal, path, i: 0 }, extra || {});
     return true;
@@ -194,6 +195,7 @@
   // ---- warmth (step 11): a spot under trees next to others is warmest; with no woods near, next to someone ----
   function spotScore(sim, a, x, y) { let n = 0; for (const b of sim.agents) if (b !== a) { const c = claimOf(b).split(",").map(Number); if (Math.hypot(c[0] - x, c[1] - y) <= P().warmth.huddleTiles) n++; } return Math.min(n, P().warmth.huddleMax); }
   Agent.goodSpot = (sim, a) => { const t = Agent.tilePos(a), wood = W.tile(sim.world, t.x, t.y) === G.data.T.WOODS, n = spotScore(sim, a, t.x, t.y);
+    if (a.den != null && G.Shelter && G.Shelter.at(sim, t.x, t.y)) return true;   // step 21b: inside a shelter
     return wood && (n >= 1 || sim.agents.length < 2) || n >= 2 || (n >= 1 && Agent.isNight(sim.tick) && !!G.Climate.bondNear(sim, a)); };   // step 20: next to her own people at night
   // step 13: cold and an ember / fire in sight - she may go and sit near it (odds from her fire score, fireFear and how cold she is)
   function seekFire(sim, a) {
@@ -206,6 +208,7 @@
   function seekWarmth(sim, a) {
     const f = seekFire(sim, a); if (f === "go") return true; if (f === "stay") { a.fireStay = sim.tick; return false; }
     if (Agent.goodSpot(sim, a)) return false;
+    if (G.Shelter && G.Shelter.seek(sim, a)) return true;   // step 21b: a shelter she knows (odds from her den score)
     const L = G.Learn, wW = 6 * (0.5 + L.score(a, "shelter") / 100), wH = 4 * (0.5 + L.score(a, "huddle") / 100);   // step 14: experience scales the pull of trees / company
     const t = Agent.tilePos(a), R = P().warmth.shelterTiles, cand = [];
     for (let y = t.y - R; y <= t.y + R; y++) for (let x = t.x - R; x <= t.x + R; x++) { if (!W.inb(sim.world, x, y) || !W.walkable(sim.world, x, y) || Agent.claimed(sim, a, x, y)) continue;
@@ -220,19 +223,29 @@
     if (n) { const o = sim.agents.find(b => b !== a && Math.hypot(b.pos.x - t.x, b.pos.y - t.y) <= P().warmth.huddleTiles); G.Sim.log(sim, a.name + " huddles up with " + (o ? o.name : "the others") + (wood ? " under the trees" : ""), [a, o]); }
     else if (wood) G.Sim.log(sim, a.name + " shelters under the trees", a);
   }
-  const WARM_GOALS = { fireside: 1, beside: 1, mate: 1, shelter: 1, fleeFire: 1, burnt: 1, collapse: 1, water: 1, exploreWater: 1, baby: 1 };
+  const WARM_GOALS = { den: 1, fireside: 1, beside: 1, mate: 1, shelter: 1, fleeFire: 1, burnt: 1, collapse: 1, water: 1, exploreWater: 1, baby: 1 };
   function urgentCold(sim, a, act, n) {
     const W = P().warmth; if (W.urgentBelow == null || n.warmth > W.urgentBelow || n.water < P().energy.wakeIfNeedBelow) return false;
     if (act.type !== "idle" && act.type !== "walk" || act.type === "walk" && WARM_GOALS[act.goal]) return false;
-    const heat = a.felt && a.felt.heat > 0, mate = G.Climate.bondNear(sim, a);
-    if (heat || mate) { if (act.type === "walk") { startIdle(sim, a); return true; } return false; }   // there already: she stays
+    const heat = a.felt && a.felt.heat > 0, mate = G.Climate.bondNear(sim, a), St = sim.famStats || (sim.famStats = {});
+    // 21b (Director): anyone beside her counts as company, group or not; the one she walked to (and she) get +1 familiarity, nobody is refused
+    const LT = W.lonerTiles || 0, comp = LT ? sim.agents.find(b => b !== a && Math.hypot(b.pos.x - a.pos.x, b.pos.y - a.pos.y) <= W.huddleTiles) : null;
+    if (a.lonerTo != null) { const q = sim.agents.find(b => b.id === a.lonerTo);
+      if (q && Math.hypot(q.pos.x - a.pos.x, q.pos.y - a.pos.y) <= W.huddleTiles) { G.Social.addFam(a, q, W.lonerFam); G.Social.addFam(q, a, W.lonerFam); St.lonerJoins = (St.lonerJoins || 0) + 1;
+        G.Sim.log(sim, a.name + " presses in beside " + q.name, [a, q]); a.lonerTo = null; }
+      else if (!q || act.type !== "walk") a.lonerTo = null; }
+    if (heat || mate || comp) { if (act.type === "walk") { startIdle(sim, a); return true; } return false; }   // there already: she stays
     if (a.urgentAt != null && sim.tick - a.urgentAt < W.urgentRetry / G.data.config.time.tickGameMinutes) return false;
-    a.urgentAt = sim.tick; const St = sim.famStats || (sim.famStats = {});
-    let best = null, bd = 1e9; for (const q of sim.agents) if (G.Climate.bonded(a, q)) { const d = Math.hypot(q.pos.x - a.pos.x, q.pos.y - a.pos.y); if (d < bd) { bd = d; best = q; } }
+    a.urgentAt = sim.tick;
+    let best = null, bd = 1e9, loner = false;
+    if (LT) for (const q of sim.agents) { if (q === a) continue; const d = Math.hypot(q.pos.x - a.pos.x, q.pos.y - a.pos.y); if (d <= LT && d < bd) { bd = d; best = q; } }   // nearest person / sleep pile within lonerTiles
+    if (best) loner = true;
+    else for (const q of sim.agents) if (G.Climate.bonded(a, q)) { const d = Math.hypot(q.pos.x - a.pos.x, q.pos.y - a.pos.y); if (d < bd) { bd = d; best = q; } }
     const df = G.Fire.burning(sim) || Object.keys(sim.fire || {}).length ? G.Fire.nearestFlame(sim, a.pos.x, a.pos.y) : Infinity;
     const tryFire = () => seekFire(sim, a) === "go", tryMate = () => best && G.Family.goBeside(sim, a, best, "beside");
     const ok = df <= bd ? tryFire() || tryMate() : tryMate() || tryFire();
-    if (ok) { St.urgentWarm = (St.urgentWarm || 0) + 1; if (a.act.type === "walk") move(sim, a); return true; }
+    if (ok) { St.urgentWarm = (St.urgentWarm || 0) + 1; if (loner && a.act.type === "walk" && a.act.goal === "beside") { a.lonerTo = best.id; St.lonerWalks = (St.lonerWalks || 0) + 1; }
+      if (a.act.type === "walk") move(sim, a); return true; }
     return false;
   }
   // move away from flames (no burn damage yet; step 12)
@@ -333,6 +346,7 @@
     if (g === "cook") { G.Cook.arrive(sim, a); return; }
     if (g === "collapse") { startSleep(sim, a); return; }
     if (g === "settle") { startIdle(sim, a, a.act.scale); return; }
+    if (g === "den") { startIdle(sim, a); return; }   // step 21b: in the shelter (Shelter.step lets her in or finds it full)
     if (g === "pickup") { G.Items.arrivePickup(sim, a); if (!G.Items.maybeTry(sim, a)) startIdle(sim, a, 0.5); return; }   // a fresh find is often tried on something close by
     if (g === "try") { if (!G.Items.arriveTry(sim, a)) startIdle(sim, a, 0.5); return; }
     if (g === "prayspot") { if (!G.Faith.arriveSpot(sim, a)) startIdle(sim, a); return; }   // step 21
@@ -351,8 +365,9 @@
     while (budget > 1e-9 && act.i < act.path.length) {
       const [nx, ny] = act.path[act.i], dx = nx - a.pos.x, dy = ny - a.pos.y, d = Math.hypot(dx, dy);
       if (Math.abs(dx) > Math.abs(dy)) a.facing = dx > 0 ? "right" : "left"; else if (dy) a.facing = dy > 0 ? "down" : "up";
-      if (d <= budget) { a.pos.x = nx; a.pos.y = ny; budget -= d; act.i++; }
-      else { a.pos.x += dx / d * budget; a.pos.y += dy / d * budget; budget = 0; }
+      const k = G.Shelter ? G.Shelter.walkX(sim, nx, ny) : 1;   // step 21b: pushing into a thicket takes walkX the time
+      if (d * k <= budget) { a.pos.x = nx; a.pos.y = ny; budget -= d * k; act.i++; }
+      else { a.pos.x += dx / d * budget / k; a.pos.y += dy / d * budget / k; budget = 0; }
     }
     a.pos.x = Math.round(a.pos.x * 1e6) / 1e6; a.pos.y = Math.round(a.pos.y * 1e6) / 1e6; // keep saves exact
     if (act.i >= act.path.length) arrive(sim, a);

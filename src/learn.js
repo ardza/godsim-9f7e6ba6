@@ -41,6 +41,7 @@
       if (e && (e.s === "ember" ? e.d <= C.fire.emberTiles + 1e-9 : e.d < CF().fire.heatTiles)) parts.push(["fire", felt.heat, C.fire.warmGain, e]); }
     if (felt.huddle) parts.push(["huddle", felt.huddle * Wm.huddleC, C.huddle.warmGain]);
     if (felt.sheltered) parts.push(["shelter", Wm.shelterC, C.shelter.warmGain]);
+    if (felt.den > 0 && C.den) parts.push(["den", felt.den, C.den.warmGain]);   // step 21b: warmed inside a cave / overhang / thicket
     for (const [key, dC, gain, src] of parts) {
       const got = (rate(felt.c) - rate(felt.c - dC)) * TM(); if (got <= 0) continue;
       const e = Learn.add(a, key, got * gain), ep = a.learnEp || (a.learnEp = {});
@@ -92,6 +93,7 @@
       const e = Learn.rec(b, key); e.score = r2(own + (sa - own) * C.copyShare); e.copied = { from: a.id, name: a.name, t: sim.tick };
       bump(sim, "copies", key); SS.copies++;
       G.Sim.log(sim, b.name + " watched " + a.name + " and copied: " + Learn.label(key), [b, a]);
+      if (G.Shelter) G.Shelter.copied(sim, b, a, key);   // step 21b: and now knows where that shelter is
     }
   };
 

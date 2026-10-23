@@ -44,6 +44,7 @@
     sim.groups = []; sim.nextGroup = 1; sim.socStats = { took: 0 };   // step 18 (no random draws)
     G.Family.init(sim);   // step 19: sex per founder, pairs, babies - its own stream (frng), so the others are unchanged
     G.Faith.init(sim);    // step 21: faith per founder, prayers - its own stream (prng)
+    G.Shelter.init(sim);  // step 21b: natural shelters from the terrain (own hash-seeded stream); nobody knows any yet
     return sim;
   };
   // Seeded names with no repeats until the list is used up, then a fresh shuffle (reuse is fine past the list).
@@ -71,6 +72,13 @@
     for (const a of s.agents || []) if (a.preg && a.preg.ftraits && a.preg.ftraits.faith == null) a.preg.ftraits.faith = roll();
     s.prng = r.s; s.faith = G.Faith.newState(); s.prayers = []; s.version = 15; return s;
   };
+  // v15 -> v16: the seed's natural shelters (the terrain fields come from regenerating the seed's map), nobody knows any yet, nobody inside
+  Sim.migrate16 = function (o) {
+    if (!o || o.version !== 15) return o; const s = JSON.parse(JSON.stringify(o)), w = G.World.generate(s.seed);
+    s.shelters = G.Shelter.generate(w, s.seed); s.shelterStats = G.Shelter.newStats(); s.shelterFirst = null; s.srng = null;
+    for (const a of s.agents || []) { a.shelters = []; a.den = null; }
+    s.version = 16; return s;
+  };
   // One log line. who = the person(s) involved (person/body objects or ids): the line is tagged with their ids and also goes into each one's own
   // log (sim.plog[id], last log.personMax kept, saved). k = an optional kind for the personal log ("death", "birth", "disc").
   Sim.ids = who => (who == null ? [] : Array.isArray(who) ? who : [who]).map(w => w == null ? null : typeof w === "number" ? w : w.kind === "body" ? w.of : w.id).filter((v, i, a) => v != null && a.indexOf(v) === i);
@@ -90,6 +98,7 @@
     const rate = B.regrowMinutes / Sim.seasonal(sim.tick).regrowMinutes;
     for (const b of sim.bushes) if (!b.ripe && (b.regrow = Math.round((b.regrow + rate) * 1e6) / 1e6) >= B.regrowMinutes / CFG().time.tickGameMinutes - 1e-9) { b.ripe = true; b.regrow = 0; b.burnt = false; sim.regrown = (sim.regrown || 0) + 1; }
     for (const a of sim.agents) { sim.prev[a.id] = { x: a.pos.x, y: a.pos.y }; G.Agent.step(sim, a); }
+    G.Shelter.step(sim);   // step 21b: who is inside which shelter, step-ins, first warm night
     for (const a of sim.agents.slice()) { const c = G.Agent.deathCause(a); if (c) Sim.die(sim, a, c); }
     G.Faith.step(sim);   // step 21: prayer bouts (own stream prng)
     G.Social.step(sim);   // step 18: familiarity, liking, daily groups
@@ -124,11 +133,13 @@
       brng: sim.brng ? sim.brng.s : null, grazerBirths: sim.grazerBirths || 0, cookStats: sim.cookStats || null,
       groups: sim.groups || [], nextGroup: sim.nextGroup || 1, socStats: sim.socStats || null,
       frng: sim.frng.s, babies: sim.babies, famStats: sim.famStats,
-      prng: sim.prng.s, faith: sim.faith, prayers: sim.prayers || [] };
+      prng: sim.prng.s, faith: sim.faith, prayers: sim.prayers || [],
+      shelters: sim.shelters || [], shelterStats: sim.shelterStats || null, shelterFirst: sim.shelterFirst || null, srng: sim.srng ? sim.srng.s : null };
   };
   Sim.deserialize = function (o) {
     if (o && o.version === 13) o = Sim.migrate(o);
-    if (o && o.version === 14 && CFG().saveVersion === 15) o = Sim.migrate15(o);
+    if (o && o.version === 14) o = Sim.migrate15(o);
+    if (o && o.version === 15 && CFG().saveVersion === 16) o = Sim.migrate16(o);
     if (!o || o.version !== CFG().saveVersion) throw new Error("unsupported save version " + (o && o.version));
     const s = JSON.parse(JSON.stringify(o));
     const world = { w: s.world.w, h: s.world.h, seed: s.seed, attempt: s.world.attempt, spawn: s.world.spawn, hills: s.world.hills, info: s.world.info, tiles: s.world.tiles.split("").map(c => TILE_CH.indexOf(c)) };
@@ -140,7 +151,8 @@
       brng: s.brng != null ? new G.RNG(s.brng) : undefined, grazerBirths: s.grazerBirths || 0, cookStats: s.cookStats || undefined,
       groups: s.groups || [], nextGroup: s.nextGroup || 1, socStats: s.socStats || { took: 0 },
       frng: new G.RNG(s.frng), babies: s.babies || [], famStats: s.famStats,
-      prng: new G.RNG(s.prng), faith: s.faith || G.Faith.newState(), prayers: s.prayers || [] };
+      prng: new G.RNG(s.prng), faith: s.faith || G.Faith.newState(), prayers: s.prayers || [],
+      shelters: s.shelters || [], shelterStats: s.shelterStats || G.Shelter.newStats(), shelterFirst: s.shelterFirst || null, srng: s.srng != null ? new G.RNG(s.srng) : undefined };
   };
 
   G.Time = Time; G.Sim = Sim;

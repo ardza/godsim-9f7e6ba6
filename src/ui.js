@@ -42,7 +42,7 @@
     if (UI.panel && !P.some(p => p.key === UI.panel)) UI.panel = null;
     P.forEach(p => {
       if (!UI.panelEl(p)) { const d = document.createElement("div"); d.id = "panel-" + p.key; d.className = "panel"; $("side").appendChild(d); }
-      const b = document.createElement("button"); b.innerHTML = UI.icon(p.icon) + '<span class="lbl">' + esc(p.label) + '</span>'; b.id = "ptab-" + p.key; b.setAttribute("role", "tab");
+      const b = document.createElement("button"); b.innerHTML = UI.icon(p.icon) + '<span class="lbl">' + esc(p.label) + '</span>'; b.id = "ptab-" + p.key; b.setAttribute("role", "tab"); b.setAttribute("aria-label", p.label); b.title = p.label;
       b.onclick = () => { UI.panel = UI.panel === p.key ? null : p.key; savePrefs(Object.assign(prefs(), { panel: UI.panel })); UI._logKey = null;
         if (UI.panel && isSheet()) UI.openSheet(true);   // phone landscape: opening a panel opens the sheet above the bar (closing one with nothing inspected hides the sheet: #side.bare)
         UI.update(app); };
@@ -258,7 +258,7 @@
         '<div class="sec">Experience (0-100, ' + G.data.config.learn.start + ' = untried)</div>' + expRows(sim, a) + learnedRow(sim, a) +
         '<div class="sec">Traits (0-100, 50 = avg' + (a.inh ? '; ▲▼ vs parents' : '') + ')</div>' + traitRows(a) +
         prayRows(a) + familyRows(sim, a) + relRows(sim, a) +
-        '<div class="sec">Knows</div><div class="chips">' + chip(known + ' berry bush' + (known === 1 ? "" : "es")) + chip(waterKnown(a)) +
+        '<div class="sec">Knows</div><div class="chips">' + chip(known + ' berry bush' + (known === 1 ? "" : "es")) + chip(waterKnown(a)) + chip('Known shelters: ' + (a.shelters || []).length) +
           chip('carrying ' + (G.Items.held(sim, a) ? esc(G.Items.label(G.Items.held(sim, a))) : 'nothing')) +
           (sim.discoveries || []).filter(d => d.who === a.name).map(d => chip(esc(d.action + " " + d.materials.slice(0, 2).join(" / ") + " → " + d.result), "disc")).join("") + '</div>' +
         '<div class="sub">' + a.stats.meals + ' meal' + (a.stats.meals === 1 ? "" : "s") + ' · ' + (a.stats.drinks || 0) + ' drink' + (a.stats.drinks === 1 ? "" : "s") + ' · ' + (a.stats.sleeps || 0) + ' sleep' + (a.stats.sleeps === 1 ? "" : "s") + '</div>';
@@ -301,8 +301,31 @@
     const D = app.sim.discoveries || [], key = D.length + "|" + app.sim.seed;
     if (el._key === key) return; el._key = key;
     el.innerHTML = '<div class="sec">Discoveries</div>' + (D.length ? '<table class="disc"><thead><tr><th>#</th><th>When</th><th>Who</th><th>What</th><th>Result</th><th>Group</th></tr></thead><tbody>' +
-      D.slice().reverse().map(d => '<tr><td>' + d.n + '</td><td>' + G.Time.stamp(d.tick) + '</td><td>' + esc(d.who || "-") + '</td><td>' + esc(d.action + " " + d.materials[0] + (d.materials[1] ? " on " + d.materials[1] : "") + (d.materials[2] ? ", over " + d.materials[2] : "")) + '</td><td>' + esc(d.result) + '</td><td>' + (esc(d.group) || '<span class="blank">-</span>') + '</td></tr>').join("") +
+      D.slice().reverse().map(d => '<tr><td>' + d.n + '</td><td>' + G.Time.stamp(d.tick) + '</td><td>' + esc(d.who || "-") + '</td><td>' + esc((d.title ? d.title + ": " : "") + d.action + " " + d.materials[0] + (d.materials[1] ? " on " + d.materials[1] : "") + (d.materials[2] ? ", over " + d.materials[2] : "")) + '</td><td>' + esc(d.result) + '</td><td>' + (esc(d.group) || '<span class="blank">-</span>') + '</td></tr>').join("") +
       '</tbody></table>' : '<div class="empty">Nothing discovered yet.</div>');
+  };
+  // ---- People tab (step 21b): everyone alive, one row each (tap = their card + the map centred on them); the dead in a collapsed list ----
+  UI.peopleSort = { k: "name", dir: 1 };
+  UI.panelRender.people = function (app, el, force) {
+    const sim = app.sim, now = Date.now();
+    if (!force && el._t && now - el._t < 1000 && el._seed === sim.seed) return;   // live, at most once per real second
+    el._t = now; el._seed = sim.seed;
+    const S = UI.peopleSort, A = G.Agent, rows = sim.agents.slice();
+    rows.sort((p, q) => (S.k === "age" ? p.age - q.age : p.name.localeCompare(q.name)) * S.dir || p.id - q.id);
+    const meter = (cls, v, ic) => { const lo = v < 50; return '<span class="pm' + (lo ? ' low' : '') + '">' + ic + bar(v, 100, lo ? "hot" : cls) + '<b>' + Math.round(v) + '</b></span>'; };
+    const arrow = k => S.k === k ? (S.dir > 0 ? " \u25B2" : " \u25BC") : "";
+    const dead = (sim.bodies || []).filter(b => !b.species).slice().sort((p, q) => q.diedAt - p.diedAt);
+    const sx = a => a.sex === "f" ? "F" : a.sex === "m" ? "M" : "-";
+    el.innerHTML = '<div class="sec">People <span class="sub">' + rows.length + ' alive</span></div>' +
+      '<div class="psort" role="group" aria-label="sort"><button data-ps="name" class="' + (S.k === "name" ? "on" : "") + '">Name' + arrow("name") + '</button><button data-ps="age" class="' + (S.k === "age" ? "on" : "") + '">Age' + arrow("age") + '</button></div>' +
+      '<div class="plist">' + rows.map(a => '<button class="prow" data-pid="' + a.id + '"><span class="pn">' + esc(a.name) + '</span><span class="pa">' + Math.floor(a.age) + ' y · ' + sx(a) + ' · ' + G.Family.stageWord(a) + '</span>' +
+        '<span class="pms">' + meter("", a.needs.fullness, '<span class="pl">Food</span>') + meter("water", a.needs.water, '<span class="pl">Water</span>') + meter("warm", a.needs.warmth, '<span class="pl">Warmth</span>') + '</span></button>').join("") + '</div>' +
+      '<details class="pdead"' + (UI.peopleDeadOpen ? " open" : "") + '><summary>Dead (' + dead.length + ')</summary>' +
+        (dead.length ? dead.map(b => '<div class="drow"><span class="pn">' + esc(b.name) + '</span><span>' + (b.age != null ? b.age + ' y' : '') + '</span><span>' + esc(b.cause || "") + '</span></div>').join("") : '<div class="empty">No one has died.</div>') + '</details>';
+    el.querySelectorAll("button[data-ps]").forEach(b => b.onclick = () => { const k = b.getAttribute("data-ps"); if (S.k === k) S.dir = -S.dir; else { S.k = k; S.dir = 1; } UI.panelRender.people(app, el, true); });
+    el.querySelectorAll("button[data-pid]").forEach(b => b.onclick = () => { const id = +b.getAttribute("data-pid"), a = sim.agents.find(q => q.id === id); if (!a) return;
+      G.Render.centerOn(Math.round(a.pos.x), Math.round(a.pos.y), UC().peopleZoom || 2); app.select(id); });
+    const d = el.querySelector("details.pdead"); if (d) d.ontoggle = () => { UI.peopleDeadOpen = d.open; };
   };
   G.UI = UI;
 })(this.GS = this.GS || {});

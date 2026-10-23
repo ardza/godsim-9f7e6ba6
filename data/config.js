@@ -2,7 +2,7 @@
 (function (G) {
   G.data = G.data || {};
   G.data.config = {
-    saveVersion: 15,                // v15: faith trait, prayer forms, prayer spots, Prayers feed (own stream prng); v14: children / youths as people (stage by age, guardian, learned-from), name numbering; v13: sex, pairs, pregnancy, babies (own stream frng), burning sticks; v12: relations (familiarity, liking) and groups; v11: cooked meat (heat), grazer births (own stream), cook score; v10: hunting, carcasses, meat, lightning; v9: varied maps (spawn, hills, map info; no lake/source); v8: learning (experience scores, copying), seasonal food, per-person logs; v7: objects, physics + discoveries, temperature + warmth, fire (v6: aging, death, bodies, animals); older saves are rejected
+    saveVersion: 16,                // v16: natural shelters (sim.shelters, per-person known shelters, den score); v15: faith trait, prayer forms, prayer spots, Prayers feed (own stream prng); v14: children / youths as people (stage by age, guardian, learned-from), name numbering; v13: sex, pairs, pregnancy, babies (own stream frng), burning sticks; v12: relations (familiarity, liking) and groups; v11: cooked meat (heat), grazer births (own stream), cook score; v10: hunting, carcasses, meat, lightning; v9: varied maps (spawn, hills, map info; no lake/source); v8: learning (experience scores, copying), seasonal food, per-person logs; v7: objects, physics + discoveries, temperature + warmth, fire (v6: aging, death, bodies, animals); older saves are rejected
     saveKey: "godsim.save",
     map: {
       w: 60, h: 40, tilePx: 16,      // map is 960x640 art px, scaled to fit the screen
@@ -94,7 +94,8 @@
         // Director (21): sleepers keep each other warm - 3+ people asleep within sleepTiles of each other get fire warmth (groupC = fire heatC 25),
         // 2 get half (pairC). Replaces bondC for sleepers (bondC stays for awake people at night). Anyone at warmth <= urgentBelow heads for the
         // nearest group member (or partner / guardian) or fire before anything else (retry every urgentRetry minutes).
-        sleepHeat: { tiles: 1.5, pairC: 12.5, groupC: 25, groupMin: 3 }, urgentBelow: 20, urgentRetry: 10,
+        sleepHeat: { tiles: 1.5, pairC: 12.5, groupC: 25, groupMin: 3 }, urgentBelow: 20, urgentRetry: 10, lonerTiles: 15, lonerFam: 1,   // 21b Director: at <= urgentBelow, the nearest person / sleep pile within lonerTiles (group or not); joining = +lonerFam familiarity both ways
+       
         nightFirstBelow: 60,          // on a Deep Cold night, below this warmth she makes no food trips (walks / bedtime meals): warmth first; water still wins
         shelterTiles: 15,             // looks this far for a woods tile / company when seeking warmth
         wakeBelow: 10,                // a sleeper this cold, not under trees with company, wakes once a night to find a better spot
@@ -203,7 +204,7 @@
       // Director (call 11 on 19): once each game hour, an awake idle person by a fire (an ember within learn.fire.emberTiles, a fire within
       // heatTiles) with a burning stick lying within reachTiles takes it up with p = hourChance + grabChance x (fire score / 50)^2 x (1.5 - fireFear/100).
       // Children (under youth age) never take one.
-      brand: { litMinutes: 120, hourChance: 0.05, grabChance: 0.1, minLeftMinutes: 30, reachTiles: 3,
+      brand: { litMinutes: 360,   /* 21b Director: a lit stick smolders ~6 h */ hourChance: 0.05, grabChance: 0.1, minLeftMinutes: 30, reachTiles: 3,
         // Director (step 20 call 2): a stick lying within catchTiles (Chebyshev, so diagonals too) of a burning tile catches and becomes a burning
         // stick (lit until those flames die down + litMinutes). A person whose fire score is braveScore+ no longer moves away from the flames of a
         // struck (smouldering) tree unless they are within braveTiles, and may take up a burning stick lying that close to them too.
@@ -243,8 +244,25 @@
     //     Learned scores are not inherited. Traits clamp 0-100; lifespan to lifespanClamp.
     //   babies (age < babyYears): carried on the carrier's tile; their needs follow hers (met when she eats, drinks, sleeps). If the carrier
     //     dies the baby lies alone; an adult of its group (or a parent) within adoptTiles takes it up; else it dies after orphanMinutes.
-    family: { bond: { age: [16, 45], like: 75, fam: 70, breakBelow: 40 },
-      conceive: { atMinute: 120, tiles: 1, fullness: 35, water: 35, warmth: 30, chance: 0.15 },   // Director (call 1 on 19): 15%, gates 35 / 35 / 30
+    // Step 21b natural shelters (src/shelter.js), per seed from the terrain on their own hash-seeded stream (salt): never built, never a hollow.
+    //   cave: 1-3 tiles from the side of a hill cluster (>= cave.minCluster tiles) inward; overhang: 1 edge tile of a hill cluster; thicket: 2-4 tiles of the
+    //   densest woods (5x5 woods count + moistW x moisture >= minDense). count: int in [count] x room (room = min(1, caves x roomCave + ...)), at least spacing apart;
+    //   the type for each pick is drawn by mix x sqrt(candidates), so the terrain sets the mix. cap = people inside (thicket: per tile). warmX x fire.heatC while
+    //   resting / asleep inside; fire + huddle + sleeping together + shelter at most capX x heatC. rain = share of rain kept off (data only until step 22).
+    //   Learning: idle with warmth < stepIn.below and a shelter within stepIn.tiles: p = stepIn.chance x curiosity/50 x (1.5 - fear/100) (fearTrait), every
+    //   everyMinutes. Warming inside raises the "den" score (learn.den); cold / bedtime: p(go to nearest known within seekTiles) = goChance x (score - scoreFloor)/(100 - scoreFloor).
+    //   Woke inside with warmth >= wokeWarm = a warm night (the first per seed is a Discovery). Full: she doesn't fit, liking of the nearest one inside + crowdLike.
+    shelter: { salt: 0x5E17E2D, count: [3, 8], roomCave: 0.25, roomOverhang: 0.02, roomThicket: 0.1, spacing: 6, mix: { cave: 1, overhang: 0.8, thicket: 1 },
+      cave: { minCluster: 12, tiles: [1, 3], cap: 6, warmX: 1.0, rain: 1 }, overhang: { minCluster: 3, cap: 3, warmX: 0.6, rain: 1 },
+      thicket: { tiles: [2, 4], minDense: 22, moistW: 4, growSlack: 3, cap: 3, perTile: true, warmX: 0.4, rain: 0.5, walkX: 2 },
+      capX: 1.5, crowdLike: -1, wokeWarm: 50, fearTrait: "fireFear", stepIn: { below: 50, tiles: 3, chance: 0.3, everyMinutes: 30 },
+      seekTiles: 30, goChance: 0.9, scoreFloor: 40,
+      articles: { cave: "a cave", overhang: "an overhang", thicket: "a thicket" },
+      enterLines: { cave: "crawls into the cave mouth", overhang: "ducks in under the overhang", thicket: "pushes into the thicket" },
+      peerLines: { cave: "creeps toward a dark gap in the hillside", overhang: "edges toward the hanging rock", thicket: "parts the brush of a thicket" },
+      tripLines: { cave: "heads back to the cave", overhang: "heads back to the overhang", thicket: "heads back to the thicket" } },
+    family: { bond: { age: [16, 45], like: 65, fam: 60, breakBelow: 40 },   // 21b Director: 65 / 60 (was 75 / 70)
+      conceive: { atMinute: 120, tiles: 1, fullness: 35, water: 35, warmth: 30, chance: 0.20 },   // 21b Director: 20% per night   // Director (call 1 on 19): 15%, gates 35 / 35 / 30
       pregnancy: { days: 7, drain: 1.25 }, drift: 0.05, mutation: { chance: 0.02, size: 0.2 }, lifespanClamp: [40, 120],
       babyYears: 3, adoptTiles: 2, orphanMinutes: 2880, seekTiles: 15, anyTiles: 10,
       minFounders: 2 },   // Director (call 2 on 19): every seed starts with at least 2 founders of each sex
@@ -270,7 +288,7 @@
         approachChance: 0.5, sitTiles: [1, 2], fireSitTiles: 3, stayMin: 30 },   // stays sitting near it while her score is >= stayMin
       // huddle / shelter: warmth felt from others close by / from the trees raises those scores the same way (warmGain per warmth point);
       // the score scales the pull of company / trees when seeking warmth: weight x (0.5 + score/100)  (= the old weights at 50)
-      huddle: { warmGain: 1 }, shelter: { warmGain: 1 },
+      huddle: { warmGain: 1 }, shelter: { warmGain: 1 }, den: { warmGain: 3 },   // 21b: den = warmed inside a cave / overhang / thicket
       successWarmth: 3, fireSuccessGain: 10,   // Director (call 11 on 19): each warming success at a fire also raises the fire score by 10
                    // every 3 warmth points gained this way is one visible "success" others nearby can see
       // Step 14 copying (generic, any action key): an awake person within copyTiles who sees a success may copy it if the other's score is
@@ -278,6 +296,7 @@
       // Copied: her score moves copyShare of the way to theirs, tagged with who she copied (local only).
       copyTiles: 5, copyMargin: 10, copyChance: 0.35, copyShare: 0.5,
       actions: { fire: { label: "sitting by the fire", short: "fire", fear: "fireFear" }, huddle: { label: "huddling up", short: "huddling", fear: null }, shelter: { label: "sheltering under the trees", short: "shelter", fear: null },
+        den: { label: "sleeping in a cave, overhang or thicket", short: "shelters", fear: null },
         hunt: { label: "going after grazers", short: "hunting", fear: null },
         cook: { label: "holding meat to the fire", short: "cooking", fear: "fireFear" } }
     },
@@ -335,7 +354,8 @@
     ui: { prefsKey: "godsim.ui",
       panels: [{ key: "log", label: "Log", icon: "log", el: "logwrap", open: true },
                { key: "discoveries", label: "Discoveries", icon: "discoveries" },
-               { key: "prayers", label: "Prayers", icon: "prayers" }],   // step 21: prayer feed (action lines only), filter by group
+               { key: "prayers", label: "Prayers", icon: "prayers" },
+               { key: "people", label: "People", icon: "people" }],   // step 21b: everyone alive (sortable, live at most once a second) + the dead (not saved)   // step 21: prayer feed (action lines only), filter by group
       speedIcons: ["pause", "play", "fast", "superfast"] },   // one per time.speeds entry (0, 1x, 10x, 60x); data/ui/icons via src/icons.js
     render: {                         // view only: nothing here is saved or affects the sim
       stepsPerTile: 2,                // walk frame flips every 0.5 tile actually covered; standing = frame 0

@@ -48,8 +48,10 @@
     const sleepC = sleepers + 1 >= (sh ? sh.groupMin : Infinity) ? sh.groupC : sleepers >= 1 ? sh.pairC : 0; c += sleepC;   // Director (21): sleeping together
     const bond = !sleepC && Wm.bondC && G.Agent && G.Agent.isNight(sim.tick) ? Climate.bondNear(sim, a) : null; if (bond) c += Wm.bondC;
     const heat = G.Fire ? G.Fire.heatAt(sim, a.pos.x, a.pos.y) : 0; c += heat;
+    // step 21b: resting / asleep inside a shelter she got into; fire + huddle + sleeping together + this stay under shelter.capX fires
+    const den = G.Shelter ? G.Shelter.warmC(sim, a, heat + hud * Wm.huddleC + sleepC + (bond ? Wm.bondC : 0)) : 0; c += den;
     if (a.act.type === "walk") c += Wm.walkingC; else if (a.act.type === "sleep") c += Wm.asleepC;
-    return { c: Math.round(c * 100) / 100, sheltered, huddle: hud, heat, bond: bond ? bond.name : null, sleepers, sleepC };
+    return { c: Math.round(c * 100) / 100, sheltered, huddle: hud, heat, bond: bond ? bond.name : null, sleepers, sleepC, den };
   };
   // step 20: is b someone she keeps with (partner, same group, her guardian or the child she guards)?
   Climate.bonded = (a, b) => b !== a && (a.mate === b.id || b.mate === a.id || (a.group != null && a.group === b.group) || a.guard === b.id || b.guard === a.id);

@@ -39,6 +39,8 @@
     childPray: { src: "data/art/child_pray_16.png", frame: 16, variants: 8 },   // 80x128, same columns and poses as pray, 75% figure
     // prayer spots on the map: few stones / more stones / a cairn, by how many prayers were made there (spot.n >= at[i])
     spot: { src: "data/art/prayer_spot_16.png", frame: 16, cols: ["few", "more", "many"], at: [0, 6, 12] },   // 48x16
+    // step 21b (Artist): natural shelters, transparent overlays on the tile beneath (slot 2 is blank: the hollow was dropped, never drawn)
+    shelter: { src: "data/art/shelter_16.png", frame: 16, cols: ["cave", "overhang", "", "thicket"] },   // 64x16
     baby: { src: "data/art/baby_16.png", frame: 16, cols: ["carried_down", "carried_left", "carried_right", "carried_up", "lying"] }   // 80x16
   };
   G.data.artItems = G.data.art.items.cols;   // which item frames exist (a sharp bone uses bone_shard; other shards use their material)

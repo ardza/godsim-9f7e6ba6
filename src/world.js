@@ -164,8 +164,8 @@
     return out;
   };
 
-  // A* on the tile grid. Returns [[x,y],...] excluding the start, [] if already there, null if unreachable.
-  World.findPath = function (w, sx, sy, tx, ty) {
+  // A* on the tile grid (time-weighted when cost is given). Returns [[x,y],...] excluding the start, [] if already there, null if unreachable.
+  World.findPath = function (w, sx, sy, tx, ty, cost) {   // cost(x, y): optional step-time multiplier (>= 1) for entering a tile (21b thickets)
     if (!World.walkable(w, tx, ty) || !World.walkable(w, sx, sy)) return null;
     if (sx === tx && sy === ty) return [];
     const N = w.w * w.h, g = new Float64Array(N).fill(Infinity), f = new Float64Array(N), came = new Int32Array(N).fill(-1), closed = new Uint8Array(N);
@@ -178,7 +178,7 @@
       if (i === t) { const path = []; for (let k = t; k !== s; k = came[k]) path.push([k % w.w, (k / w.w) | 0]); return path.reverse(); }
       const x = i % w.w, y = (i / w.w) | 0;
       for (const [nx, ny] of World.neighbors(w, x, y)) { const j = ny * w.w + nx; if (closed[j]) continue;
-        const ng = g[i] + (nx !== x && ny !== y ? Math.SQRT2 : 1);
+        const ng = g[i] + (nx !== x && ny !== y ? Math.SQRT2 : 1) * (cost ? cost(nx, ny) : 1);
         if (ng < g[j]) { g[j] = ng; came[j] = i; f[j] = ng + hz(nx, ny); push(j); } }
     }
     return null;

@@ -14,6 +14,7 @@
   Social.like = (a, b) => { const r = Social.rel(a, b); return r ? r.l : S().like.start; };
   Social.fam = (a, b) => { const r = Social.rel(a, b); return r ? r.f : 0; };
   const entry = (a, b) => { const R = a.rel || (a.rel = {}); return R[b.id] || (R[b.id] = { f: 0, l: S().like.start, m: 0, d: 0 }); };
+  Social.addFam = (a, b, d) => { const e = entry(a, b); e.f = r6(clamp(e.f + d, 0, 100)); return e; };   // 21b: a cold loner joining someone
   Social.addLike = (a, b, d) => { const e = entry(a, b); e.l = r6(clamp(e.l + d, 0, 100)); return e; };
 
   // did one of her needs rise this minute in a way company shares (eating, drinking, warmed by fire or huddling)?

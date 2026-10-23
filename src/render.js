@@ -11,7 +11,7 @@
     if (A.person && A.person.src) loadImg(A.person.src, im => art.person = im);
     if (A.founders && A.founders.src) loadImg(A.founders.src, im => art.founders = im);
     loadImg(A.bush, im => art.bush = im); loadImg(A.bushEmpty, im => art.bushEmpty = im);
-    for (const k of ["body", "grazer", "scavenger", "items", "fx", "food", "carcass", "smoke", "baby", "child", "pray", "childPray", "spot"]) if (A[k] && A[k].src) loadImg(A[k].src, im => art[k] = im);
+    for (const k of ["body", "grazer", "scavenger", "items", "fx", "food", "carcass", "smoke", "baby", "child", "pray", "childPray", "spot", "shelter"]) if (A[k] && A[k].src) loadImg(A[k].src, im => art[k] = im);
   };
   R.art = () => art;
 
@@ -37,6 +37,9 @@
   R.zoomBy = (d, fx, fy) => R.zoomTo(view.z + d, fx, fy);
   // pan by a drag of (dx, dy) CSS px on the canvas
   R.panBy = function (dx, dy) { const r = cv.getBoundingClientRect(); view.ox -= dx / r.width * view.bw / view.z; view.oy -= dy / r.height * view.bh / view.z; clampView(); };
+  // step 21b (People tab): put tile (x, y) in the middle of the view (zooming in to centerZoom first if at the whole-map view)
+  R.centerOn = function (x, y, minZ) { if (minZ && view.z < minZ) view.z = Math.min(ZC().max, minZ);
+    view.ox = (x + 0.5) * tp - view.bw / (2 * view.z); view.oy = (y + 0.5) * tp - view.bh / (2 * view.z); clampView(); };
   R.resetView = () => { view.z = 1; view.ox = 0; view.oy = 0; clampView(); };
   // canvas shape changed (Log opened/closed): aspect = canvas w/h, or null for the whole 3:2 map. Keeps the view centre, zoom and the pan clamp.
   R.setViewport = function (aspect) {
@@ -282,6 +285,14 @@
       if (art.spot && S) { cx.drawImage(art.spot, lv * S.frame, 0, S.frame, S.frame, px, py, tp, tp); continue; }
       cx.fillStyle = "#8a8378"; for (let k = 0; k <= lv + 1; k++) cx.fillRect(px + 3 + k * 3, py + 11 - (k % 2) * 2, 3, 3); }
   }
+  // step 21b: natural shelters over the tile beneath (cave / overhang blend into the hill, thicket over the woods); code fallback = dark mouth / brush
+  function drawShelters(sim) {
+    const S = G.data.art.shelter; R.sheltersDrawn = 0;
+    for (const q of sim.shelters || []) for (const [x, y] of q.tiles) { const px = x * tp, py = y * tp, c = S ? S.cols.indexOf(q.type) : -1; R.sheltersDrawn++;
+      if (art.shelter && c >= 0 && c !== 2) { cx.drawImage(art.shelter, c * S.frame, 0, S.frame, S.frame, px, py, tp, tp); continue; }
+      if (q.type === "thicket") { cx.fillStyle = "rgba(20,50,20,0.55)"; cx.fillRect(px + 1, py + 2, tp - 2, tp - 3); continue; }
+      cx.fillStyle = "#6e6558"; cx.fillRect(px + 1, py + 2, tp - 2, tp - 4); cx.fillStyle = "#1c1814"; cx.fillRect(px + 4, py + (q.type === "cave" ? 6 : 9), tp - 8, tp - (q.type === "cave" ? 8 : 11)); }
+  }
   function drawItems(sim, selectedId) {
     for (const it of sim.items || []) { if (it.heldBy != null) continue;
       if (it.id === selectedId) { cx.strokeStyle = "#fff6b0"; cx.lineWidth = 1.5; cx.strokeRect(it.x * tp + 0.5, it.y * tp + 0.5, tp - 1, tp - 1); cx.lineWidth = 1; }
@@ -296,6 +307,7 @@
     cx.setTransform(1, 0, 0, 1, 0, 0); cx.fillStyle = "#000"; cx.fillRect(0, 0, cv.width, cv.height);
     const s = sc * view.z; cx.setTransform(s, 0, 0, s, -Math.round(view.ox * s), -Math.round(view.oy * s)); cx.imageSmoothingEnabled = false;
     cx.drawImage(terrain, 0, 0); drawWater(sim.world, time);
+    drawShelters(sim);
     drawFire(sim, time);
     for (const b of sim.bushes) drawBush(b);
     R.screen = {};
