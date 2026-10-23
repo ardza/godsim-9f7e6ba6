@@ -2,7 +2,7 @@
 (function (G) {
   G.data = G.data || {};
   G.data.config = {
-    saveVersion: 7,                 // v7: objects, physics + discoveries, temperature + warmth, fire (v6: aging, death, bodies, animals); older saves are rejected
+    saveVersion: 8,                 // v8: learning (experience scores, copying), seasonal food, per-person logs; v7: objects, physics + discoveries, temperature + warmth, fire (v6: aging, death, bodies, animals); older saves are rejected
     saveKey: "godsim.save",
     map: {
       w: 60, h: 40, tilePx: 16,      // map is 960x640 art px, scaled to fit the screen
@@ -18,7 +18,7 @@
       realSecondsPerGameDay: 7200,    // 1x: 1 game day = 2 real hours -> 1 tick = 5 real seconds
       startMinute: 360,               // tick 0 = Day 1, 06:00
       daysPerSeason: 7,
-      seasons: ["Greening", "High Sun", "Leaffall", "Deep Cold"], // names only; no season effects yet
+      seasons: ["Greening", "High Sun", "Leaffall", "Deep Cold"], // season effects: climate (step 11), bushes.season and animals grazeSeason (step 15)
       speeds: [0, 1, 10, 60],         // pause, 1x, 10x, 60x (60x = 12 ticks per real second)
       maxTicksPerFrame: 240,
       autosaveRealSeconds: 60
@@ -31,7 +31,8 @@
         speed: "walk time per tile = 8 min / (0.5 + speed/100)",
         appetite: "fullness drain x (0.5 + appetite/100): full (85) to hungry (50) in ~6 h at 50, ~12 h at 0, ~4 h at 100",
         curiosity: "chance to go and pick up a thing in sight when idle = objects.pickupChance x curiosity/50",
-        coldFear: "seeks shelter / huddles once warmth is below warmth.seekBelow + coldFear x warmth.seekPerFear (35 at 0, 60 at 50, 85 at 100)"
+        coldFear: "seeks shelter / huddles once warmth is below warmth.seekBelow + coldFear x warmth.seekPerFear (35 at 0, 60 at 50, 85 at 100)",
+        fireFear: "step 13: going near embers / a fire when cold is less likely the higher it is (x (1.5 - fireFear/100)); also lowers the odds of copying someone at a fire"
       },
       traitSpread: 17.5,              // gaussian sd in trait points
       sightTiles: 6,                  // fixed sight radius (tiles)
@@ -110,7 +111,9 @@
         walkMinutesPerTile: 10, fleeMinutesPerTile: 3, fleeWithin: 4, fleeTo: 6,
         fullness: { minutesFullToEmpty: 1440, grazeBelow: 50, grazeMinutes: 60, start: [55, 100] },  // fullness 0-100 (100 = good); grazes on a meadow tile for an hour (fills linearly to 100)
         idleMin: 20, idleMax: 90, nightIdleScale: 3,   // stands about (rests) between moves; longer at night
-        drift: { everyMinutes: 180, min: 3, max: 6 }  // the herd's home spot drifts to another meadow tile 3-6 tiles away every ~3 h; members wander within herdRadius of it
+        drift: { everyMinutes: 180, min: 3, max: 6, choices: 6, greenRadius: 2 },  // the herd's home spot drifts to another meadow tile 3-6 tiles away every ~3 h; members wander within herdRadius of it
+                                      // step 15: of up to 6 candidate spots it takes the greenest (grass tiles around x dampness (100 - ground dryness))
+        grazeSeason: [1, 1, 1, 2]     // graze time x this by season: winter grass is thin, so a meal takes twice as long
       },
       scavenger: {
         start: 4, startAway: 10,
@@ -166,25 +169,48 @@
       fleeTiles: 2.5, fleeTo: 5,                            // people and animals move away from flames within 2.5 tiles (no burn damage yet)
       bushBurns: true                                       // a bush on a burning tile is burnt bare and ripens again only once the ground has regrown
     },
-    bushes: { count: 60, regrowMinutes: 1440, startRipe: 0.85, minSpacing: 4,   // eaten bush is ripe again 1 game day later
+    // Steps 13-14 learning. Each person keeps their own experience score (0-100, 50 = no experience) per action they have felt the result of.
+    // Behaviour shifts only from that score (what this person felt) or from copying someone nearby who benefited; nothing is scripted and nothing is said.
+    learn: {
+      start: 50,                      // score before any experience
+      // fire: a cold person (warmth < coldBelow) within emberTiles of an ember (or heatTiles of a fire) whose warmth the heat is helping gains
+      //   warmGain points per warmth point the heat gave them. Stepping onto a burning (or smouldering) tile is a burn: score - burnDrop, she moves away. No health damage.
+      fire: { coldBelow: 60, emberTiles: 2, warmGain: 4, burnDrop: 35, burnCooldown: 30, fireSight: 10,
+        // approach odds per warmth-seeking decision = approachChance x (score/50)^2 x (1.5 - fireFear/100) x (0.5 + how far below her seek level / that level)
+        approachChance: 0.5, sitTiles: [1, 2], fireSitTiles: 3, stayMin: 30 },   // stays sitting near it while her score is >= stayMin
+      // huddle / shelter: warmth felt from others close by / from the trees raises those scores the same way (warmGain per warmth point);
+      // the score scales the pull of company / trees when seeking warmth: weight x (0.5 + score/100)  (= the old weights at 50)
+      huddle: { warmGain: 1 }, shelter: { warmGain: 1 },
+      successWarmth: 3,               // every 3 warmth points gained this way is one visible "success" others nearby can see
+      // Step 14 copying (generic, any action key): an awake person within copyTiles who sees a success may copy it if the other's score is
+      // at least copyMargin above her own: p = copyChance x curiosity/50 x (fear factor: 1.5 - fear/100 for the action's fear trait, else 1).
+      // Copied: her score moves copyShare of the way to theirs, tagged with who she copied (local only).
+      copyTiles: 5, copyMargin: 10, copyChance: 0.35, copyShare: 0.5,
+      actions: { fire: { label: "sitting by the fire", fear: "fireFear" }, huddle: { label: "huddling up", fear: null }, shelter: { label: "sheltering under the trees", fear: null } }
+    },
+    bushes: { count: 60, regrowMinutes: 1440, startRipe: 0.85, minSpacing: 4,   // eaten bush is ripe again 1 game day later (Greening; see season)
+      // Step 15 seasons (Greening, High Sun, Leaffall, Deep Cold): a meal gives mealAdds x yield; an eaten bush ripens again after regrowMinutes
+      // (people still expect it back after the base regrowMinutes, so in winter they find more bushes bare)
+      season: { yield: [1, 1.25, 1.25, 0.8], regrowMinutes: [1440, 1080, 1080, 2160] },   // tuned (5 seeds x 1 year): 0.8 / 36 h -> 3% of winter minutes hungry, avg fullness 53; 0.6 / 72 h was 38% hungry and 17 deaths
       weights: { edge: 6, meadow: 1, woods: 0.4 } }, // edge = meadow/woods border
-    log: { max: 200,
+    log: { max: 200, personMax: 200,   // personMax: each person's own log keeps their last 200 events (saved)
       // log line colours: first matching rule wins, else "info". Tabs filter the log; a tab with no match shows everything.
-      kinds: [{ kind: "warn", match: "has died|is freezing|is cold|catches fire|burns|is starving|is hungry|bush bare|bush was bare|bush taken|is thirsty|is parched|is exhausted|woke up (hungry|thirsty)" }],
+      kinds: [{ kind: "warn", match: "has died|is freezing|is cold|catches fire|burns|burned|is starving|is hungry|bush bare|bush was bare|bush taken|is thirsty|is parched|is exhausted|woke up (hungry|thirsty)" }],
       tabs: [{ key: "all", label: "All" },
              { key: "food", label: "Food", match: "bush|berr|meal|hungry|starving" },
              { key: "water", label: "Water", match: "water|drink|thirst|parched|lake|river" },
              { key: "sleep", label: "Sleep", match: "sleep|woke|exhausted" },
-             { key: "death", label: "Death", match: "died|lies still|body|bones" },
-             { key: "events", label: "Events", rest: true }]  // rest = every line no other tab matches
+             { key: "events", label: "Events", rest: true },   // rest = every line no other tab matches
+             { key: "death", label: "Death", match: "died|lies still|body|bones" }]
     },
     // Side-panel tab bar (view only, not in the sim save). Each entry is one tab button; pressing it opens/closes that panel (one open at a time).
-    // Adding a tab is just a new entry here: { key, label, el?, open? }. el = id of an existing element in index.html; without el an empty
+    // Adding a tab is just a new entry here: { key, label, icon?, el?, open? } (icon = a data/ui/icons name, drawn above the label). el = id of an existing element in index.html; without el an empty
     // <div id="panel-KEY" class="panel"> is created in the side panel, and GS.UI.panelRender[KEY](app, div) (if defined) fills it on each update.
     // open = open on a first visit. Which panel is open is remembered in localStorage "godsim.ui" (separate from the save).
     ui: { prefsKey: "godsim.ui",
-      panels: [{ key: "log", label: "Log", el: "logwrap", open: true },
-               { key: "discoveries", label: "Discoveries" }] },   // step 10: filled by GS.UI.panelRender.discoveries
+      panels: [{ key: "log", label: "Log", icon: "log", el: "logwrap", open: true },
+               { key: "discoveries", label: "Discoveries", icon: "discoveries" }],
+      speedIcons: ["pause", "play", "fast", "superfast"] },   // one per time.speeds entry (0, 1x, 10x, 60x); data/ui/icons via src/icons.js
     render: {                         // view only: nothing here is saved or affects the sim
       stepsPerTile: 2,                // walk frame flips every 0.5 tile actually covered; standing = frame 0
       zoom: { max: 4, wheelStep: 50, pinchStep: 1.35, tapSlop: 8 }  // whole-number zoom 1x (fit) .. 4x; wheel deltaY per step; pinch distance ratio per step; px of movement before a press becomes a pan

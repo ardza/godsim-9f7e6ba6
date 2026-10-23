@@ -20,7 +20,7 @@
   const dryFactor = d => Math.max(0, (d - F().minDryness) / (100 - F().minDryness));
   Fire.fuelName = function (sim, x, y) {
     const g = G.Climate.groundDryness(sim.world, x, y, sim.tick), st = sim.items.find(it => !it.heldBy && it.x === x && it.y === y && G.Items.props(it).burns && it.props.dryness > g);
-    if (st) return "dry " + G.Items.matLabel(st);
+    if (st) return "dry " + G.Items.baseLabel(st);
     return W.tile(sim.world, x, y) === G.data.T.WOODS ? "dry leaf litter" : "dry grass";
   };
 
@@ -32,7 +32,7 @@
     const fuel = Fire.fuelName(sim, x, y), ev = { id: S.events.length + 1, start: sim.tick, x, y, by: who ? who.id : null, byName: who ? who.name : null, combo, fuel, tiles: 0, fired: false, end: null, regrown: null };
     S.events.push(ev); S.embers++;
     sim.fire[key(x, y)] = { s: "ember", t: sim.tick, end: sim.tick + mins(sim.orng.int(F().emberMinutes[0], F().emberMinutes[1])), ev: ev.id };
-    G.Sim.log(sim, "A spark catches in the " + fuel + " and smoulders");
+    G.Sim.log(sim, "A spark catches in the " + fuel + " and smoulders", who);
     if (who && combo) G.Discoveries.note(sim, who, combo.action, [combo.held, combo.target, fuel], "ember");
     return ev;
   };
@@ -45,7 +45,7 @@
     for (const b of sim.bushes) if (b.x === x && b.y === y && F().bushBurns) { b.ripe = false; b.burnt = true; b.regrow = -mins(F().ashMinutes + F().regrowMinutes); sim.fireStats.bushes = (sim.fireStats.bushes || 0) + 1; }
     const gone = sim.items.filter(it => !it.heldBy && it.x === x && it.y === y && G.Items.props(it).burns);
     if (gone.length) { sim.items = sim.items.filter(it => !gone.includes(it)); sim.fireStats.itemsBurned = (sim.fireStats.itemsBurned || 0) + gone.length; }
-    for (const b of sim.bodies) if (b.x === x && b.y === y && b.flesh > 0) { b.flesh = 0; b.stage = "bones"; b.stageAt = sim.tick; b.material = CF().body.material; b.burnt = true; G.Sim.log(sim, "Flames burn " + b.name + "'s body down to the bones"); }
+    for (const b of sim.bodies) if (b.x === x && b.y === y && b.flesh > 0) { b.flesh = 0; b.stage = "bones"; b.stageAt = sim.tick; b.material = CF().body.material; b.burnt = true; G.Sim.log(sim, "Flames burn " + b.name + "'s body down to the bones", b); }
   }
   Fire.ignite = ignite;
 
@@ -56,7 +56,7 @@
     for (const k of keys) { const e = sim.fire[k]; if (!e) continue; const [x, y] = k.split(",").map(Number), ev = evOf(sim, e);
       if (e.s === "ember") {
         if (sim.orng.chance(Fc.emberToFire * dryFactor(G.Climate.groundDryness(sim.world, x, y, sim.tick)) * TM() + (sim.items.some(it => !it.heldBy && it.x === x && it.y === y && G.Items.props(it).burns) ? Fc.emberToFire * TM() : 0))) {
-          delete sim.fire[k]; ignite(sim, x, y, e.ev); if (!ev.fired) { ev.fired = true; sim.fireStats.fires++; G.Sim.log(sim, "The ember flares up: the " + (W.tile(sim.world, x, y) === G.data.T.WOODS ? "woods catch" : "grass catches") + " fire");
+          delete sim.fire[k]; ignite(sim, x, y, e.ev); if (!ev.fired) { ev.fired = true; sim.fireStats.fires++; G.Sim.log(sim, "The ember flares up: the " + (W.tile(sim.world, x, y) === G.data.T.WOODS ? "woods catch" : "grass catches") + " fire", ev.by);
             const who = sim.agents.find(a => a.id === ev.by) || (ev.byName ? { id: ev.by, name: ev.byName } : null); if (who && ev.combo) G.Discoveries.note(sim, who, ev.combo.action, [ev.combo.held, ev.combo.target, ev.fuel], "fire"); } }
         else if (sim.tick >= e.end) { delete sim.fire[k]; if (!ev.fired) { ev.end = sim.tick; ev.regrown = sim.tick; G.Sim.log(sim, "The ember goes out"); } }
       } else if (e.s === "fire") {

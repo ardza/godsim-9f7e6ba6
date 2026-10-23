@@ -4,119 +4,143 @@
 <meta name="robots" content="noindex, nofollow">
 <title>Godsim</title>
 <style>
-  /* Earthy theme to match the pixel art. Palette from the Artist: panels #2b2118 with a 2px #6b4a2c frame and 4px radius,
-     text #f1e6cf, dim #b9a585, active/selected #7fb04a, inactive buttons #3d2f22, warn #c42848, info #4a86c6. All text >= 16px. */
-  :root { --bg: #1d1610; --panel: #2b2118; --panel2: #33271c; --frame: #6b4a2c; --text: #f1e6cf; --dim: #b9a585;
-    --on: #7fb04a; --btn: #3d2f22; --warn: #c42848; --info: #4a86c6; --wheat: #d9b65d; --peek: 52px; --bar: 56px; }
+  /* Layout + base look. data/ui/theme.css (the Artist's kit: tokens, buttons, meters, tabs, motion) loads AFTER this block and wins on looks.
+     Rules kept: all text >= 16px, tap targets >= 44px, the canvas map stays pixel art (render.js unchanged), system fonts only. */
+  :root { --bg: #0f0c09; --panel: #2b2118; --panel-raised: rgba(255,244,225,.06); --line: rgba(241,230,207,.10); --text: #f1e6cf; --dim: #b9a585;
+    --on: #8cbf55; --on-text: #14100b; --warn: #e05a6e; --info: #5b9bd8; --wheat: #e3c98f; --peek: 52px; --bar: 64px; --gap: 12px; }
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--text);
-    font: 16px/1.35 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
-  body { display: flex; flex-direction: column; height: 100dvh; }
-  #top { position: relative; z-index: 20; display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; padding: 8px 10px; background: var(--panel); border-bottom: 2px solid var(--frame); }
-  #clock { font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
-  #seedshow { color: var(--dim); white-space: nowrap; }
-  button { background: var(--btn); color: var(--text); border: 2px solid var(--frame); border-radius: 4px; padding: 5px 12px; min-height: 36px;
-    font: inherit; font-size: 16px; cursor: pointer; touch-action: manipulation; }
-  button:hover { border-color: var(--wheat); }
-  button:focus-visible { outline: 2px solid var(--wheat); outline-offset: 1px; }
-  button.on { background: var(--on); border-color: var(--on); color: #1b140d; font-weight: 700; }
-  button:disabled { opacity: .45; cursor: default; border-color: var(--frame); }
-  #speeds { display: inline-flex; gap: 0; border: 2px solid var(--frame); border-radius: 4px; overflow: hidden; }
-  #speeds button { border: 0; border-radius: 0; border-left: 2px solid var(--frame); min-width: 3.2em; }
-  #speeds button:first-child { border-left: 0; }
-  #files { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-  #btn-menu { display: none; margin-left: auto; }
-  input { width: 7.5em; background: #1b140d; color: var(--text); border: 2px solid var(--frame); border-radius: 4px; padding: 5px 8px; min-height: 36px; font: inherit; font-size: 16px; }
-  input::placeholder { color: var(--dim); }
-  #main { flex: 1; display: flex; flex-direction: column; min-height: 0; }
-  #stage { flex: 1; min-width: 0; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 6px; }
-  #mapbox { position: relative; border-radius: 4px; box-shadow: 0 0 0 2px var(--frame), 0 4px 14px rgba(0,0,0,.5); line-height: 0; }
-  #cv { image-rendering: pixelated; image-rendering: crisp-edges; display: block; touch-action: none; background: #000; border-radius: 4px; cursor: grab; }
-  #cv.panning { cursor: grabbing; }
-  #zoom { position: absolute; right: 8px; bottom: 8px; display: flex; flex-direction: column; gap: 6px; line-height: 1.2; }
-  #zoom button { width: 44px; height: 44px; padding: 0; font-size: 24px; font-weight: 700; background: rgba(43,33,24,.88); }
-  /* panel area ABOVE the bottom tab bar (all sizes): inspect card left, open panel right; just one of them = full width (.solo) */
-  #side { flex: 0 0 clamp(190px, 32%, 320px); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); background: var(--panel); border-top: 2px solid var(--frame); min-height: 0; }
-  #side.solo > * { grid-column: 1 / -1; }
-  /* no panel open and nothing inspected: the panel area goes away and the map takes the room (UI.layout) */
-  #side.bare { display: none; }
-  #sheet-handle { display: none; }
-  #info { position: relative; margin: 8px; padding: 10px 12px; overflow-y: auto; min-height: 0; background: var(--panel2); border: 2px solid var(--frame); border-radius: 4px; }
-  #info h3 { margin: 0 44px 2px 0; font-size: 19px; } .sub { color: var(--dim); } .sub.hot { color: var(--warn); }
-  .sec { margin-top: 8px; color: var(--wheat); font-size: 16px; font-weight: 650; text-transform: uppercase; letter-spacing: .03em; }
-  #info-close { position: absolute; right: 8px; top: 8px; width: 36px; padding: 0; font-size: 20px; }
-  .row { display: grid; grid-template-columns: 5.6em 1fr 4.2em; gap: 8px; align-items: center; margin-top: 3px; } .row b { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
-  .bar { height: 10px; background: #1b140d; border: 1px solid var(--frame); border-radius: 3px; overflow: hidden; } .bar i { display: block; height: 100%; background: var(--on); }
-  .bar.hot i { background: var(--warn); } .bar.trait i { background: var(--wheat); } .bar.water i { background: var(--info); } .bar.energy i { background: #d9b44a; } .bar.warm i { background: #c9773a; }
-  table.disc { width: 100%; border-collapse: collapse; font-size: 16px; } table.disc th { text-align: left; color: var(--wheat); font-weight: 650; padding: 4px 4px; border-bottom: 1px solid var(--frame); }
-  table.disc td { padding: 4px 4px; border-bottom: 1px solid rgba(120,90,60,.35); vertical-align: top; } table.disc .blank { color: var(--dim); }
-  .row.need .bar { position: relative; height: 22px; } .row.need .bar em { position: absolute; left: 6px; top: 0; line-height: 20px; font-style: normal; font-size: 16px; color: var(--text, #f1e6cf); text-shadow: 0 1px 2px #000, 0 0 2px #000; white-space: nowrap; }
-  /* bottom tab bar, full width along the bottom of the screen on every size; built from config.ui.panels */
-  #panelbar { flex: 0 0 auto; position: relative; z-index: 20; display: flex; gap: 6px; align-items: center; height: var(--bar); padding: 0 10px; background: var(--panel); border-top: 2px solid var(--frame); }
-  #panelbar button { min-height: 44px; min-width: 44px; padding: 4px 16px; color: var(--dim); }
-  #panelbar button.on { background: var(--on); border-color: var(--on); color: #1b140d; }
-  .panel { flex: 1; min-height: 0; overflow-y: auto; padding: 6px 8px; }
-  #side .closed { display: none !important; }
-  #logwrap { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-  #tabs { display: flex; gap: 3px; padding: 8px 6px 0; border-bottom: 2px solid var(--frame); }
-  #tabs button { border-radius: 4px 4px 0 0; border-bottom: 0; margin-bottom: 0; min-height: 36px; padding: 4px 5px; color: var(--dim); flex: 1 1 auto; min-width: 0; white-space: nowrap; }
-  #tabs button.on { background: var(--on); border-color: var(--on); color: #1b140d; }
-  #log { flex: 1; overflow-y: auto; padding: 6px 8px; }
-  .ev { margin: 4px 0; padding: 4px 8px; border-left: 4px solid var(--info); background: rgba(0,0,0,.18); border-radius: 0 4px 4px 0; }
-  .ev.warn { border-left-color: var(--warn); background: rgba(196,40,72,.16); }
-  .ev time { color: var(--dim); margin-right: 6px; font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .empty { color: var(--dim); padding: 6px 2px; }
-  #hint { color: var(--dim); padding: 6px 10px 8px; border-top: 2px solid var(--frame); }
-  .touch-only { display: none; }
-  #toast { position: fixed; z-index: 40; left: 50%; top: 60px; transform: translateX(-50%); background: var(--on); color: #1b140d; font-weight: 600; padding: 6px 14px; border-radius: 4px; opacity: 0; transition: opacity .3s; pointer-events: none; }
+    font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+  body { position: relative; display: flex; flex-direction: column; height: 100dvh; }
+  svg { display: block; pointer-events: none; }
+  button { cursor: pointer; touch-action: manipulation; font: inherit; font-size: 16px; color: var(--text); }
+  button:disabled { opacity: .4; cursor: default; }
 
-  /* Phones (portrait and landscape): Save/Load/New world move into a menu; log + inspect become a bottom sheet. */
+  /* top: floating rounded control groups (World menu, clock, 4 speeds) */
+  #top { position: relative; z-index: 20; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px var(--gap) 4px; }
+  #top .grp { display: flex; gap: 4px; align-items: center; padding: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; }
+  #top .grp button { background: transparent; border: 0; min-width: 44px; justify-content: center; padding: 0 12px; }
+  #top .grp button.on { background: var(--on); color: var(--on-text); }
+  #clock { display: block; line-height: 44px; min-height: 44px; padding: 0 12px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  #speeds button { padding: 0 12px 0 10px; }
+  #files { display: none; position: absolute; top: calc(100% + 4px); left: var(--gap); flex-wrap: wrap; gap: 8px; align-items: center; max-width: calc(100vw - 2 * var(--gap)); padding: 12px; }
+  #top.menu-open #files { display: flex; }
+  #seedshow { color: var(--dim); white-space: nowrap; }
+  input { width: 8em; }
+  input::placeholder { color: var(--dim); }
+
+  /* map area: the stage takes everything between the top groups and the bottom tab bar */
+  #main { flex: 1; position: relative; display: flex; flex-direction: column; min-height: 0; }
+  #stage { flex: 1; min-width: 0; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 6px; }
+  #mapbox { position: relative; border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.45); line-height: 0; }
+  #cv { image-rendering: pixelated; image-rendering: crisp-edges; display: block; touch-action: none; background: #000; border-radius: 8px; cursor: grab; }
+  #cv.panning { cursor: grabbing; }
+  #zoom { position: absolute; right: 8px; top: 8px; display: flex; flex-direction: column; gap: 4px; padding: 4px; line-height: 1.2;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 16px; }
+  #zoom button { width: 44px; height: 44px; padding: 0; justify-content: center; background: transparent; border: 0; }
+
+  /* panels: the person card and the open tab's panel (Log / Discoveries) */
+  #side { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); min-height: 0; }
+  #side.bare { display: none; }
+  #side .closed { display: none !important; }
+  #sheet-handle { display: none; }
+  #info { position: relative; display: flex; flex-direction: column; min-height: 0; overflow-y: auto; }
+  #info .sec { margin-top: 12px; padding-top: 8px; } #info .row { margin-top: 4px; }
+  #info h3 { margin: 0 52px 2px 0; } .sub { color: var(--dim); } .sub.hot { color: var(--warn); }
+  #info-close { position: absolute; right: 12px; top: 12px; }
+  .row { display: grid; grid-template-columns: 6.2em 1fr 4.4em; gap: 8px; align-items: center; margin-top: 6px; } .row b { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .row.need .bar { position: relative; } .row.need .bar em { position: absolute; left: 8px; top: 0; line-height: 22px; font-style: normal; font-size: 16px; color: var(--text); text-shadow: 0 1px 2px #000, 0 0 2px #000; white-space: nowrap; }
+  .bar { height: 10px; background: rgba(255,255,255,.08); border-radius: 999px; overflow: hidden; } .bar i { display: block; height: 100%; background: var(--on); }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+  .chip { display: inline-block; padding: 2px 10px; border-radius: 999px; background: var(--panel-raised); border: 1px solid var(--line); color: var(--wheat); }
+  .exp-note { color: var(--dim); margin: 2px 0 0 calc(6.2em + 8px); }
+  #info[hidden], #plog-sec[hidden], #plog[hidden] { display: none !important; }
+  .plog .empty { padding: 4px 0; }
+  table.disc { width: 100%; border-collapse: collapse; font-size: 16px; } table.disc th { text-align: left; color: var(--wheat); font-weight: 650; padding: 4px; border-bottom: 1px solid var(--line); }
+  table.disc td { padding: 4px; border-bottom: 1px solid var(--line); vertical-align: top; } table.disc .blank { color: var(--dim); }
+  .panel { min-height: 0; overflow-y: auto; }
+  #logwrap { min-height: 0; display: flex; flex-direction: column; }
+  #tabs { flex-wrap: wrap; }
+  #log { flex: 1; min-height: 0; overflow-y: auto; }
+  .ev.warn { color: #f0a0aa; }
+  .empty { color: var(--dim); padding: 6px 2px; }
+  #hint { flex: 1 1 100%; color: var(--dim); max-width: 34em; }
+  .touch-only { display: none; }
+  #toast { position: fixed; z-index: 40; left: 50%; top: 72px; transform: translateX(-50%); background: var(--on); color: var(--on-text); font-weight: 600; opacity: 0; transition: opacity .3s; pointer-events: none; }
+
+  /* bottom tab bar (all sizes): 56px tabs, icon over label (theme.css styles it) */
+  #panelbar { flex: 0 0 auto; position: relative; z-index: 20; display: flex; justify-content: center; }
+  #panelbar button { max-width: 128px; }
+  #panelbar button svg { width: 24px; height: 24px; }
+
+  /* Desktop / tablet: the card floats on the left, the open panel on the right, both over the map and above the bar */
+  @media (min-width: 701px) and (min-height: 501px) {
+    /* the top groups float over the map too, so the 3:2 map gets the full height above the bar */
+    #top { position: absolute; left: 0; right: 0; top: 0; pointer-events: none; } #top > * { pointer-events: auto; }
+    #side { position: absolute; inset: 0; display: block; pointer-events: none; }
+    #side > * { pointer-events: auto; }
+    #info { position: absolute; left: var(--gap); top: 68px; width: 340px; max-height: calc(100% - 68px - var(--gap)); overflow: hidden; }
+    #info-body { flex: 1 1 auto; min-height: min(380px, 46vh); overflow-y: auto; }   /* card details scroll; its own log (max 40vh) stays at the bottom */
+    #plog-sec { flex: 0 0 auto; } #plog { flex: 0 1 auto; min-height: 96px; }
+    #logwrap { position: absolute; right: var(--gap); bottom: var(--gap); width: 380px; height: min(320px, calc(100% - 68px - var(--gap))); }
+    #panel-discoveries { position: absolute; right: var(--gap); bottom: var(--gap); width: min(620px, calc(100% - 340px - 3 * var(--gap))); max-height: calc(100% - 68px - var(--gap)); }
+    #zoom { top: 60px; }
+    #stage { padding: 0; }
+  }
+  /* Phones (portrait and landscape): Save/Load/New world stay in the World menu; season name dropped from the clock */
   @media (max-width: 700px), (max-height: 500px) {
-    #btn-menu { display: inline-block; }
-    #files { display: none; position: absolute; top: calc(100% + 2px); right: 8px; max-width: calc(100vw - 16px); padding: 10px; background: var(--panel); border: 2px solid var(--frame); border-radius: 4px; box-shadow: 0 6px 18px rgba(0,0,0,.5); }
-    #top.menu-open #files { display: flex; }
-    .desk-only { display: none; } .touch-only { display: inline; }
-    #side { border-radius: 4px 4px 0 0; box-shadow: 0 -6px 18px rgba(0,0,0,.45); }
+    .wide { display: none; } .desk-only { display: none; } .touch-only { display: inline; }
     #hint { display: none; }
   }
   @media (max-width: 700px) and (orientation: portrait) {
+    #top { padding: 8px 8px 4px; }
+    #top .clockgrp { flex: 1; justify-content: center; }
+    #speeds { width: 100%; } #speeds button { flex: 1; padding: 0 4px; }
     #stage { flex: 0 0 auto; }
-    #side { flex: 1 1 0; display: flex; flex-direction: column; } #clock { width: 100%; }
-    #info { flex: 0 1 auto; max-height: 55%; overflow-y: auto; min-height: 0; }   /* the card scrolls so the tabs and log stay on screen */
-    body.log-off #stage { flex: 1 1 0; } body.log-off #side { flex: 0 0 auto; max-height: 50%; overflow-y: auto; }
+    #side { flex: 1 1 0; display: flex; flex-direction: column; padding: 0 8px 8px; }
+    #logwrap, .panel { flex: 1 1 0; }
+    /* the person card slides up over the map, at most 58% of the screen, just above the tab bar */
+    #info { position: fixed; z-index: 15; left: 8px; right: 8px; bottom: calc(var(--bar) + 8px + env(safe-area-inset-bottom)); max-height: 58dvh; }
+    #info:not([hidden]) { animation: card-up .2s cubic-bezier(.2,.8,.2,1); }
+    #info { overflow: hidden; } #info-body { flex: 1 1 auto; min-height: min(240px, 28dvh); overflow-y: auto; } #plog-sec { flex: 0 0 auto; } #plog { flex: 0 1 auto; min-height: 96px; }   /* details scroll; her log keeps >= 96px at the bottom */
+    body.log-off #stage { flex: 1 1 0; } body.log-off #side { flex: 0 0 0; padding: 0; }
   }
+  @keyframes card-up { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
   @media (max-height: 500px) and (orientation: landscape) {
-    #top { padding: 6px 10px; }
+    #top { padding: 4px 8px; }
     #main { padding-bottom: var(--peek); } body.side-off #main { padding-bottom: 0; }
     /* sheet sits on top of the bottom tab bar */
-    #side { position: fixed; left: 0; right: 0; bottom: var(--bar); z-index: 15; height: var(--peek); border-bottom: 0; }
+    #side { position: fixed; left: 0; right: 0; bottom: var(--bar); z-index: 15; height: var(--peek); background: rgba(28,22,17,.96); border-top: 1px solid var(--line); border-radius: 16px 16px 0 0; }
     #side.open { height: calc(100dvh - 56px - var(--bar)); }
     #side:not(.open) > :not(#sheet-handle) { display: none !important; }
-    #sheet-handle { display: flex; align-items: center; gap: 10px; width: 100%; min-height: calc(var(--peek) - 2px); border: 0; border-radius: 4px 4px 0 0; background: var(--panel); text-align: left; padding: 6px 12px; }
-    #sheet-handle .grip { flex: 0 0 36px; height: 5px; border-radius: 3px; background: var(--frame); }
+    #sheet-handle { display: flex; align-items: center; gap: 10px; width: 100%; min-height: calc(var(--peek) - 2px); border: 0; border-radius: 16px 16px 0 0; background: transparent; text-align: left; padding: 6px 12px; }
+    #sheet-handle .grip { flex: 0 0 36px; height: 5px; border-radius: 3px; background: var(--dim); }
     #sheet-peek { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--dim); }
     #side.open #sheet-peek { color: var(--text); }
-    /* open sheet: inspect card on the left, log tabs + log on the right, so both fit in 390px of height */
     #side { grid-template-rows: auto minmax(0, 1fr); }
     #sheet-handle { grid-column: 1 / -1; }
-    #info { margin: 6px 8px; }
+    #info, #logwrap, .panel { margin: 4px 8px 8px; padding: 12px; }
+    #panelbar button { min-height: 52px; }
+    :root { --peek: 46px; }   /* 6px more map: the 3:2 map stays > 300px wide on a 390px-high phone */
+    #info > * { flex-shrink: 0; }   /* the short card scrolls as a whole; her log follows the details */
   }
 </style>
+<link rel="stylesheet" href="data/ui/theme.css">
 </head><body>
 <div id="top">
-  <span id="clock">-</span>
-  <span id="speeds" role="group" aria-label="speed"></span>
-  <button id="btn-menu" aria-expanded="false" aria-controls="files">☰ World</button>
-  <span id="files"><button id="btn-save">Save</button><button id="btn-load">Load</button><input id="seed" placeholder="seed" aria-label="seed"><button id="btn-new">New world</button><span id="seedshow"></span></span>
+  <span class="grp"><button id="btn-menu" aria-expanded="false" aria-controls="files" title="World: save, load, new world"><span class="ico" data-icon="menu"></span><span class="wide">World</span></button></span>
+  <span class="grp clockgrp"><span id="clock">-</span></span>
+  <span id="speeds" class="grp" role="group" aria-label="speed"></span>
+  <span id="files" class="panel-files"><button id="btn-save"><span class="ico" data-icon="save"></span>Save</button><button id="btn-load"><span class="ico" data-icon="load"></span>Load</button><input id="seed" placeholder="seed" aria-label="seed"><button id="btn-new">New world</button><span id="seedshow"></span><span id="hint">Click a person, animal or body to inspect. Wheel or +/− zooms, drag pans. Space pauses; 0 pause, 1 = 1x, 2 = 10x, 3 = 60x.</span></span>
 </div>
 <div id="main">
   <div id="stage"><div id="mapbox"><canvas id="cv"></canvas>
-    <div id="zoom"><button id="zoom-in" title="Zoom in (wheel up, pinch out)" aria-label="zoom in">+</button><button id="zoom-out" title="Zoom out (wheel down, pinch in)" aria-label="zoom out">−</button></div></div></div>
+    <div id="zoom"><button id="zoom-in" title="Zoom in (wheel up, pinch out)" aria-label="zoom in"><span class="ico" data-icon="zoom_in"></span></button><button id="zoom-out" title="Zoom out (wheel down, pinch in)" aria-label="zoom out"><span class="ico" data-icon="zoom_out"></span></button></div></div></div>
   <div id="side">
     <button id="sheet-handle" aria-expanded="false"><span class="grip"></span><span id="sheet-peek">Log</span><span id="sheet-arrow">▲</span></button>
-    <div id="info" hidden><button id="info-close" aria-label="close">×</button><div id="info-body"></div></div>
-    <div id="logwrap"><div id="tabs" role="tablist"></div><div id="log" role="log"></div>
-      <div id="hint">Click a person, animal or body to inspect. Wheel or +/− zooms, drag pans. Space pauses; 0 pause, 1 = 1x, 2 = 10x, 3 = 60x.</div></div>
+    <div id="info" hidden><button id="info-close" aria-label="close" title="Close"><span class="ico" data-icon="close"></span></button><div id="info-body"></div>
+      <div class="sec" id="plog-sec" hidden></div><div class="plog" id="plog" role="log" hidden></div></div>
+    <div id="logwrap"><div id="tabs" role="tablist"></div><div id="log" role="log"></div></div>
   </div>
 </div>
 <div id="panelbar" role="tablist" aria-label="panels"></div>
@@ -133,8 +157,10 @@
 <script src="src/animal.js"></script>
 <script src="src/objects.js"></script>
 <script src="src/fire.js"></script>
+<script src="src/learn.js"></script>
 <script src="src/sim.js"></script>
 <script src="src/save.js"></script>
+<script src="src/icons.js"></script>
 <script src="src/render.js"></script>
 <script src="src/ui.js"></script>
 <script src="src/main.js"></script>

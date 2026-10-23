@@ -1,0 +1,83 @@
+/* godsim modern UI theme (Game Artist). Map stays pixel art; this only styles DOM UI.
+   All text >= 16px. Tap targets >= 44px on phone. Icons: data/ui/icons/*.svg (stroke=currentColor, 24px). */
+:root {
+  --font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --panel: rgba(28, 22, 17, .82);        /* soft dark, slight transparency */
+  --panel-solid: #1c1611;
+  --panel-raised: rgba(255, 244, 225, .06);
+  --line: rgba(241, 230, 207, .10);      /* hairline borders instead of thick frames */
+  --text: #f1e6cf; --dim: #b9a585; --wheat: #e3c98f;
+  --on: #8cbf55; --on-text: #14100b;
+  --warn: #e05a6e; --info: #5b9bd8;
+  --meter-bg: rgba(255,255,255,.08);
+  --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-pill: 999px;
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px;   /* spacing scale: use only these */
+  --shadow: 0 8px 24px rgba(0,0,0,.35), 0 1px 0 rgba(255,255,255,.04) inset;
+  --blur: blur(10px) saturate(1.2);
+  --ease: cubic-bezier(.2,.8,.2,1); --t-fast: .15s; --t-med: .25s;
+}
+body { font: 16px/1.4 var(--font); color: var(--text); -webkit-font-smoothing: antialiased; }
+.panel, #info, #logwrap, #files {
+  background: var(--panel); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+  border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow); padding: var(--s4);
+}
+button {
+  font: 600 16px/1 var(--font); color: var(--text); background: var(--panel-raised);
+  border: 1px solid var(--line); border-radius: var(--r-md); min-height: 44px; padding: 0 var(--s4);
+  display: inline-flex; align-items: center; gap: var(--s2);
+  transition: background var(--t-fast) var(--ease), transform var(--t-fast) var(--ease), color var(--t-fast);
+}
+button:hover { background: rgba(255,244,225,.12); }
+button:active { transform: scale(.96); }
+button.on { background: var(--on); color: var(--on-text); border-color: transparent; }
+button:focus-visible { outline: 2px solid var(--info); outline-offset: 2px; }
+button img.icon, button svg { width: 22px; height: 22px; flex: none; }
+input { font: 16px var(--font); color: var(--text); background: rgba(0,0,0,.25);
+  border: 1px solid var(--line); border-radius: var(--r-md); min-height: 44px; padding: 0 var(--s3); }
+
+/* bottom tab bar: icon over label, pill highlight on active */
+#panelbar { background: var(--panel); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+  border-top: 1px solid var(--line); display: flex; gap: var(--s1); padding: var(--s1) var(--s2) calc(var(--s1) + env(safe-area-inset-bottom)); }
+#panelbar button { flex: 1; flex-direction: column; justify-content: center; gap: 2px; min-height: 56px;
+  background: transparent; border: 0; border-radius: var(--r-md); color: var(--dim); font-size: 16px; }
+#panelbar button.on { color: var(--on); background: rgba(140,191,85,.14); }
+#panelbar button { min-width: 0; padding: 0 var(--s1); }
+#panelbar button .lbl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+/* phone portrait with 4+ tabs: icons only, label shown on the active tab */
+@media (max-width: 599px) { #panelbar:has(button:nth-child(4)) button:not(.on) .lbl { display: none; } #panelbar:has(button:nth-child(4)) button.on { flex: 2; } }
+
+/* log filter tabs become pills */
+#tabs { display: flex; gap: var(--s2); padding: 0 0 var(--s3); border: 0; overflow-x: auto; }
+#tabs button { border-radius: var(--r-pill); min-height: 44px; padding: 0 var(--s4); color: var(--dim); }
+#tabs button.on { background: var(--on); color: var(--on-text); }
+
+/* headings and sections */
+#info h3 { font-size: 20px; font-weight: 700; margin: 0 52px var(--s1) 0; }
+.sec { font-size: 16px; font-weight: 700; color: var(--wheat); letter-spacing: .02em; text-transform: none;
+  margin-top: var(--s4); padding-top: var(--s3); border-top: 1px solid var(--line); }
+#info-close { width: 44px; height: 44px; padding: 0; justify-content: center; border-radius: var(--r-pill); }
+
+/* smooth meter bars: rounded track, gradient fill, animated width */
+.bar { height: 10px; background: var(--meter-bg); border: 0; border-radius: var(--r-pill); overflow: hidden; }
+.row.need .bar { height: 22px; }
+.bar i { display: block; height: 100%; border-radius: var(--r-pill);
+  background: linear-gradient(90deg, #6fa042, #9fd168); transition: width var(--t-med) var(--ease); }
+.bar.hot i    { background: linear-gradient(90deg, #c4404f, #e86a72); }
+.bar.trait i  { background: linear-gradient(90deg, #c9a862, #ead199); }
+.bar.water i  { background: linear-gradient(90deg, #3f7fc0, #6eaee6); }
+.bar.energy i { background: linear-gradient(90deg, #c99a3a, #e6c062); }
+.bar.warm i   { background: linear-gradient(90deg, #b8652e, #e08f52); }
+
+/* log rows and personal log */
+.ev { padding: var(--s2) 0; border-bottom: 1px solid var(--line); animation: ev-in var(--t-med) var(--ease); }
+.ev time { color: var(--dim); margin-right: var(--s2); font-variant-numeric: tabular-nums; }
+.plog { max-height: 40vh; overflow-y: auto; margin-top: var(--s2); padding-right: var(--s1); }
+.plog .ev.death { color: var(--warn); } .plog .ev.birth { color: var(--on); } .plog .ev.disc { color: var(--wheat); }
+#toast { border-radius: var(--r-pill); padding: var(--s2) var(--s4); box-shadow: var(--shadow); }
+
+/* subtle motion: panels fade/slide in; respect reduced motion */
+#info:not([hidden]), .panel-open { animation: panel-in var(--t-med) var(--ease); }
+@keyframes panel-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes ev-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+::-webkit-scrollbar { width: 8px; } ::-webkit-scrollbar-thumb { background: rgba(241,230,207,.2); border-radius: 8px; }

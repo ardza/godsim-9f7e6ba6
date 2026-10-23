@@ -16,6 +16,7 @@
   Items.sharp = it => it.props.sharpness >= PH().break.sharpAt;
   // name from the data: a broken piece with a keen edge is a "<material> shard", a blunt one is a "broken <material>"
   Items.matLabel = it => { const l = M()[it.material].label; return it.form === "shard" ? (Items.sharp(it) ? l + " shard" : "broken " + l) : l; };
+  Items.baseLabel = it => M()[it.material].label;   // the material's own name, whole or broken
   Items.label = it => "a " + Items.matLabel(it);
   Items.frame = it => (it.form === "shard" && G.data.artItems && G.data.artItems.indexOf(it.material + "_shard") >= 0) ? it.material + "_shard" : it.material;
   Items.byId = (sim, id) => sim.items.find(i => i.id === id) || null;
@@ -56,8 +57,8 @@
       if (b.bonesLeft == null) b.bonesLeft = OC().bonesPerBody; if (b.bonesLeft <= 0) return false;
       it = Items.create(sim, "bone", b.x, b.y); sim.items.push(it); b.bonesLeft--;
       if (b.bonesLeft <= 0) b.gone = true;   // all its bones are carried off: the skeleton is no longer there as a body
-      G.Sim.log(sim, a.name + " picks up a bone from " + b.name + "'s bones");
-    } else { if (it.heldBy || Math.round(a.pos.x) !== it.x || Math.round(a.pos.y) !== it.y) return false; G.Sim.log(sim, a.name + " picks up " + Items.label(it)); }
+      G.Sim.log(sim, a.name + " picks up a bone from " + b.name + "'s bones", [a, b]);
+    } else { if (it.heldBy || Math.round(a.pos.x) !== it.x || Math.round(a.pos.y) !== it.y) return false; G.Sim.log(sim, a.name + " picks up " + Items.label(it), a); }
     it.heldBy = a.id; a.carry = it.id; a.carryUntil = sim.tick + sim.orng.int(OC().carry[0], OC().carry[1]); a.stats.pickups = (a.stats.pickups || 0) + 1;
     return true;
   }
@@ -67,7 +68,7 @@
   Items.drop = function (sim, a, why) {
     const it = Items.held(sim, a); a.carry = null; a.carryUntil = null; if (!it) return;
     it.heldBy = null; it.x = Math.round(a.pos.x); it.y = Math.round(a.pos.y);
-    G.Sim.log(sim, a.name + " puts down the " + Items.matLabel(it));
+    G.Sim.log(sim, a.name + " puts down the " + Items.matLabel(it), a);
   };
   Items.dropAll = (sim, a) => { if (a.carry != null) Items.drop(sim, a); };
 
@@ -127,21 +128,28 @@
     const verb = { strike: "strikes", rub: "rubs", cut: "cuts at" }[act.action], combo = act.action === "cut" ? verb + " " + tl + " with " + hl : verb + " " + hl + " on " + tl;
     if (o.results.length) {
       const words = o.results.map(r => r.replace("@held", hl).replace("@target", tl));
-      G.Sim.log(sim, a.name + " " + combo + ": " + words.join(", "));
-      for (const w of words) { Discoveries.note(sim, a, act.action, [hl, tl], w); st.results[act.action + " " + hl + " / " + tl + ": " + w] = (st.results[act.action + " " + hl + " / " + tl + ": " + w] || 0) + 1; }
-      if (o.spark) { st.sparks++; G.Fire.spark(sim, t.x, t.y, a, { action: act.action, held: hl, target: tl }); }
+      G.Sim.log(sim, a.name + " " + combo + ": " + words.join(", "), a);
+      // Discoveries key on base materials (a broken stick is a stick) in any order (flint on rock = rock on flint)
+      const bh = Items.baseLabel(it), bt = Items.baseLabel(t), bwords = o.results.map(r => r.replace("@held", bh).replace("@target", bt));
+      bwords.forEach(w => Discoveries.note(sim, a, act.action, [bh, bt], w));
+      for (const w of words) { st.results[act.action + " " + hl + " / " + tl + ": " + w] = (st.results[act.action + " " + hl + " / " + tl + ": " + w] || 0) + 1; }
+      if (o.spark) { st.sparks++; G.Fire.spark(sim, t.x, t.y, a, { action: act.action, held: bh, target: bt }); }
       if (o.broke) { st.breaks++; if ((o.broke === "held" ? it : t).props.sharpness >= PH().break.sharpAt) st.shards++; }
     } else st.results[act.action + " " + hl + " / " + tl + ": nothing"] = (st.results[act.action + " " + hl + " / " + tl + ": nothing"] || 0) + 1;
     return false;
   };
 
   // ---------- Discoveries: each first-ever combination of action + materials + result, detected from what happened ----------
-  Discoveries.key = (action, mats, result) => [action].concat(mats, [result]).join("|");
+  // the key ignores the order of the materials (sorted); callers pass base material names (Items.baseLabel), so a broken stick counts as a stick
+  Discoveries.key = (action, mats, result) => [action].concat(mats.slice().sort(), [result]).join("|");
   Discoveries.note = function (sim, who, action, mats, result) {
     sim.discoveries = sim.discoveries || []; const key = Discoveries.key(action, mats, result);
     if (sim.discoveries.some(d => d.key === key)) return null;
     const d = { n: sim.discoveries.length + 1, key, action, materials: mats.slice(), result, who: who.name, whoId: who.id, tick: sim.tick, group: "" };
-    sim.discoveries.push(d); return d;
+    sim.discoveries.push(d);
+    // her own log gets a "first" line (not the main log, where the action line already shows it)
+    if (who.id != null) G.Sim.plogAdd(sim, who.id, { t: sim.tick, text: who.name + " was the first to see it: " + action + " " + mats.join(" / ") + " \u2192 " + result, ids: [who.id], k: "disc" });
+    return d;
   };
 
   G.Items = Items; G.Physics = Physics; G.Discoveries = Discoveries;

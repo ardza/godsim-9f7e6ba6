@@ -49,8 +49,8 @@
     if (!best || !walkTo(sim, a, best.x, best.y, "flee")) return false;
     a.stats.flees++;
     if (a.species === "grazer") { const h = sim.herds[a.herd]; if (h) { h.x = best.x; h.y = best.y; h.next = sim.tick + AC().grazer.drift.everyMinutes;   // the herd regroups away from her
-        if (sim.tick - (h.logged == null ? -1e9 : h.logged) >= 120) { h.logged = sim.tick; G.Sim.log(sim, "Grazers scatter from " + from.name); } } }
-    else if (sim.tick - (a.logged == null ? -1e9 : a.logged) >= 240) { a.logged = sim.tick; G.Sim.log(sim, Animal.name(a) + " runs from " + from.name); }
+        if (sim.tick - (h.logged == null ? -1e9 : h.logged) >= 120) { h.logged = sim.tick; G.Sim.log(sim, "Grazers scatter from " + from.name, from); } } }
+    else if (sim.tick - (a.logged == null ? -1e9 : a.logged) >= 240) { a.logged = sim.tick; G.Sim.log(sim, Animal.name(a) + " runs from " + from.name, from); }
     return true;
   }
 
@@ -85,15 +85,22 @@
     idle(sim, a);
   }
   function graze(sim, a) {
-    const S = AC().grazer, act = a.act, n = S.fullness.grazeMinutes / TM(); act.t++;
+    const S = AC().grazer, act = a.act, n = S.fullness.grazeMinutes * (S.grazeSeason ? S.grazeSeason[G.Climate.seasonIndex(sim.tick)] : 1) / TM(); act.t++;
     a.needs.fullness = r9(Math.min(100, act.from + (100 - act.from) * act.t / n));
     if (act.t >= n) { a.needs.fullness = 100; a.stats.meals++; idle(sim, a); }
   }
+  // how green the grazing is around (x, y): grass tiles within r x (100 - ground dryness)/100 (dry or burned ground counts for less / nothing)
+  Animal.greenness = function (sim, x, y, r) { let g = 0;
+    for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (grass(sim, x + dx, y + dy)) g += (100 - G.Climate.groundDryness(sim.world, x + dx, y + dy, sim.tick)) / 100;
+    return Math.round(g * 100) / 100; };
   function driftHerds(sim) {
     const D = AC().grazer.drift, w = sim.world;
     sim.herds.forEach(h => { if (sim.tick < h.next) return; h.next = sim.tick + D.everyMinutes;
-      for (let k = 0; k < 20; k++) { const ang = sim.arng.float() * Math.PI * 2, d = sim.arng.range(D.min, D.max), x = Math.round(h.x + Math.cos(ang) * d), y = Math.round(h.y + Math.sin(ang) * d);
-        if (isMeadow(w, x, y) && personDist(sim, x, y) >= AC().grazer.fleeTo + 2) { h.x = x; h.y = y; return; } } });
+      // step 15: of up to D.choices acceptable spots, go to the greenest (most grass around, dampest ground)
+      let best = null, n = 0;
+      for (let k = 0; k < 20 && n < (D.choices || 1); k++) { const ang = sim.arng.float() * Math.PI * 2, d = sim.arng.range(D.min, D.max), x = Math.round(h.x + Math.cos(ang) * d), y = Math.round(h.y + Math.sin(ang) * d);
+        if (isMeadow(w, x, y) && personDist(sim, x, y) >= AC().grazer.fleeTo + 2) { n++; const g = Animal.greenness(sim, x, y, D.greenRadius || 0); if (!best || g > best.g) best = { x, y, g }; } }
+      if (best) { h.x = best.x; h.y = best.y; } });
   }
 
   // ---- scavengers: notice a body with flesh within noticeTiles, go and eat it (unless a person is near it); else roam ----
@@ -119,7 +126,7 @@
   function feed(sim, a) {
     const F = AC().scavenger.fullness, b = sim.bodies.find(q => q.id === a.act.body);
     if (!b || b.flesh <= 0 || a.needs.fullness >= 100) { if (b && a.needs.fullness >= 100) a.stats.meals++; idle(sim, a); return; }
-    if (!b.scavenged) { b.scavenged = true; G.Sim.log(sim, "A scavenger feeds on " + b.name + "'s body"); }
+    if (!b.scavenged) { b.scavenged = true; G.Sim.log(sim, "A scavenger feeds on " + b.name + "'s body", b); }
     const add = Math.min(100 - a.needs.fullness, F.fillPerMinute * TM());
     a.needs.fullness = r9(a.needs.fullness + add); b.eaten = r9((b.eaten || 0) + add * F.fleshPerFullness); b.flesh = r9(Math.max(0, b.flesh - add * F.fleshPerFullness));
   }
@@ -178,12 +185,12 @@
   Body.yearsMinutes = () => 1440 * G.Time.daysPerYear();
   Body.step = function (sim, b) {
     const B = BC(), tm = TM();
-    if (b.stage === "fresh" && sim.tick - b.stageAt >= B.freshMinutes) { b.stage = "rotting"; b.stageAt = sim.tick; G.Sim.log(sim, b.name + "'s body begins to rot"); }
+    if (b.stage === "fresh" && sim.tick - b.stageAt >= B.freshMinutes) { b.stage = "rotting"; b.stageAt = sim.tick; G.Sim.log(sim, b.name + "'s body begins to rot", b); }
     if (b.stage === "rotting") { // flesh left = what rot (by time since rotting began) and scavengers (eaten) have not taken
       b.flesh = r9(Math.max(0, 100 * (1 - (sim.tick - b.stageAt) / B.rotMinutes) - (b.eaten || 0)));
-      if (b.flesh <= 0) { b.stage = "bones"; b.stageAt = sim.tick; b.material = B.material; G.Sim.log(sim, "Only " + b.name + "'s bones remain"); } }
+      if (b.flesh <= 0) { b.stage = "bones"; b.stageAt = sim.tick; b.material = B.material; G.Sim.log(sim, "Only " + b.name + "'s bones remain", b); } }
     else if (b.stage === "bones") { b.condition = r9(Math.max(0, b.condition - 100 / (B.bonesWeatherYears * Body.yearsMinutes()) * tm));
-      if (b.condition <= 0) { b.gone = true; G.Sim.log(sim, b.name + "'s bones have crumbled away"); } }
+      if (b.condition <= 0) { b.gone = true; G.Sim.log(sim, b.name + "'s bones have crumbled away", b); } }
   };
   Body.stepAll = function (sim) { for (const b of sim.bodies) Body.step(sim, b); if (sim.bodies.some(b => b.gone)) sim.bodies = sim.bodies.filter(b => !b.gone); };
 

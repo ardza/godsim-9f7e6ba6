@@ -13,7 +13,7 @@
       pos: { x, y }, facing: "down",
       age: r2(rng.range(p.startAge[0], p.startAge[1])), lifespan: r2(rng.range(p.lifespan[0], p.lifespan[1])),
       needs: { fullness: r2(rng.range(p.fullness.start[0], p.fullness.start[1])), water: r2(rng.range(p.water.start[0], p.water.start[1])), energy: r2(rng.range(p.energy.start[0], p.energy.start[1])), warmth: r2(rng.range(p.warmth.start[0], p.warmth.start[1])) },
-      traits, knowledge: { bushes: {}, water: {} }, relations: {},
+      traits, knowledge: { bushes: {}, water: {} }, relations: {}, exp: {},   // exp: step 13-14 experience scores per action (see learn.js)
       act: { type: "idle", until: 0 }, stats: { meals: 0, drinks: 0, sleeps: 0 }, carry: null,   // carry = id of the one thing in hand
       zero: { water: 0, fullness: 0, warmth: 0 }   // game minutes in a row at water / fullness / warmth 0 (death after a day / a week / a day)
     };
@@ -42,7 +42,7 @@
   Agent.sight = a => P().sightTiles;
   Agent.tilePos = a => ({ x: Math.round(a.pos.x), y: Math.round(a.pos.y) });
   Agent.doing = a => (a.act.type === "idle" || a.act.type === "sleep") && a.felt && a.felt.huddle && a.needs.warmth < 60 ? (a.act.type === "sleep" ? "asleep, huddled" : "huddling") :
-    ({ idle: "resting", try: ({ strike: "striking", rub: "rubbing", cut: "cutting" })[a.act.action] || "trying", eat: "eating a meal", drink: "drinking", sleep: "asleep" })[a.act.type] || ({ wander: "wandering", food: "going to a bush", explore: "looking for food", water: "going to the water", exploreWater: "looking for water", collapse: "stumbling to a stop", pickup: "going to pick something up", try: "going to try something", shelter: "seeking warmth", fleeFire: "moving away from flames" })[a.act.goal] || a.act.type;
+    ({ idle: "resting", try: ({ strike: "striking", rub: "rubbing", cut: "cutting" })[a.act.action] || "trying", eat: "eating a meal", drink: "drinking", sleep: "asleep" })[a.act.type] || ({ wander: "wandering", food: "going to a bush", explore: "looking for food", water: "going to the water", exploreWater: "looking for water", collapse: "stumbling to a stop", pickup: "going to pick something up", try: "going to try something", shelter: "seeking warmth", fleeFire: "moving away from flames", fireside: "going to sit by the fire", burnt: "jumping back from the flames" })[a.act.goal] || a.act.type;
 
   // Two people never end a move on the same tile: each person claims one tile (where they stand, or the end of their path),
   // and nobody picks a destination someone else has claimed. Passing through is fine.
@@ -68,11 +68,11 @@
       if (!b.ripe && (K[b.id].ripe || K[b.id].emptySince === undefined || sim.tick - K[b.id].emptySince >= G.data.config.bushes.regrowMinutes)) K[b.id].emptySince = sim.tick;
       K[b.id].ripe = b.ripe; K[b.id].seen = sim.tick; if (b.ripe) ripe = true;
     }
-    if (found) G.Sim.log(sim, a.name + (found === 1 ? " found a berry bush" : " found " + found + " berry bushes"));
+    if (found) G.Sim.log(sim, a.name + (found === 1 ? " found a berry bush" : " found " + found + " berry bushes"), a);
     const KW = a.knowledge.water || (a.knowledge.water = {}); let waterNew = false;
     for (const s of Agent.shore(sim.world)) {
       if (KW[s.k] || (s.x - a.pos.x) ** 2 + (s.y - a.pos.y) ** 2 > R * R) continue;
-      if (!Object.values(KW).includes(s.kind)) G.Sim.log(sim, a.name + " found water at the " + s.kind);
+      if (!Object.values(KW).includes(s.kind)) G.Sim.log(sim, a.name + " found water at the " + s.kind, a);
       KW[s.k] = s.kind; waterNew = true;
     }
     return { found, ripe, ripeNew, waterNew };
@@ -144,7 +144,7 @@
   }
   function startDrink(sim, a, kind) {
     a.act = { type: "drink", t: 0, from: a.needs.water, water: kind };
-    G.Sim.log(sim, a.name + " drinks at the " + kind);
+    G.Sim.log(sim, a.name + " drinks at the " + kind, a);
   }
   function drink(sim, a) {
     const act = a.act, n = P().drinkMinutes / G.data.config.time.tickGameMinutes;
@@ -170,48 +170,72 @@
       const p = W.findPath(sim.world, t.x, t.y, k.x, k.y); if (p && p.length && W.pathLength(p) <= max && (!best || W.pathLength(p) < best.len)) best = { id, p, len: W.pathLength(p) }; }
     return best;
   }
-  function startSleep(sim, a, again) { a.topUp = null; a.act = { type: "sleep", since: sim.tick }; if (!again) a.stats.sleeps++; G.Sim.log(sim, a.name + " lies down to sleep"); }
+  function startSleep(sim, a, again) { a.topUp = null; a.act = { type: "sleep", since: sim.tick }; if (!again) a.stats.sleeps++; G.Sim.log(sim, a.name + " lies down to sleep", a); }
   function sleep(sim, a) {
     const E = P().energy, n = a.needs;
     const night = G.Time.at(sim.tick + 720).day;
-    if (n.warmth < P().warmth.wakeBelow && a.coldWoke !== night && !Agent.goodSpot(sim, a)) { a.coldWoke = night; G.Sim.log(sim, a.name + " wakes up cold");
+    if (n.warmth < P().warmth.wakeBelow && a.coldWoke !== night && !Agent.goodSpot(sim, a)) { a.coldWoke = night; G.Sim.log(sim, a.name + " wakes up cold", a);
       if (seekWarmth(sim, a)) { a.wokeEarly = true; a.act.coldWake = true; return; } }
-    if (n.fullness < E.wakeIfNeedBelow || n.water < E.wakeIfNeedBelow) { G.Sim.log(sim, a.name + " woke up " + (n.water <= n.fullness ? "thirsty" : "hungry")); startIdle(sim, a, 0); a.act.until = sim.tick; a.wokeEarly = true; return; }
+    if (n.fullness < E.wakeIfNeedBelow || n.water < E.wakeIfNeedBelow) { G.Sim.log(sim, a.name + " woke up " + (n.water <= n.fullness ? "thirsty" : "hungry"), a); startIdle(sim, a, 0); a.act.until = sim.tick; a.wokeEarly = true; return; }
     if (n.energy >= 100 && !Agent.isNight(sim.tick)) { const m = G.Time.at(sim.tick).minuteOfDay;
-      G.Sim.log(sim, a.name + (m >= E.dawnAt && m < E.dawnAt + 120 ? " woke at dawn" : " woke up rested")); startIdle(sim, a, 0.3); a.wokeEarly = false; }
+      G.Sim.log(sim, a.name + (m >= E.dawnAt && m < E.dawnAt + 120 ? " woke at dawn" : " woke up rested"), a); startIdle(sim, a, 0.3); a.wokeEarly = false; }
   }
 
   // ---- warmth (step 11): a spot under trees next to others is warmest; with no woods near, next to someone ----
   function spotScore(sim, a, x, y) { let n = 0; for (const b of sim.agents) if (b !== a) { const c = claimOf(b).split(",").map(Number); if (Math.hypot(c[0] - x, c[1] - y) <= P().warmth.huddleTiles) n++; } return Math.min(n, P().warmth.huddleMax); }
   Agent.goodSpot = (sim, a) => { const t = Agent.tilePos(a), wood = W.tile(sim.world, t.x, t.y) === G.data.T.WOODS, n = spotScore(sim, a, t.x, t.y);
     return wood && (n >= 1 || sim.agents.length < 2) || n >= 2; };
+  // step 13: cold and an ember / fire in sight - she may go and sit near it (odds from her fire score, fireFear and how cold she is)
+  function seekFire(sim, a) {
+    const c = G.Learn.fireSpot(sim, a, (x, y) => W.walkable(sim.world, x, y) && !Agent.claimed(sim, a, x, y)); if (!c) return null;
+    if (c.stay) return "stay";
+    for (const q of c.slice(0, 4)) if (walkTo(sim, a, q.x, q.y, "fireside", { fire: q.s })) { G.Learn.bump(sim, "approaches", "fire"); return "go"; }
+    return null;
+  }
+  Agent.seekFire = seekFire;
   function seekWarmth(sim, a) {
+    const f = seekFire(sim, a); if (f === "go") return true; if (f === "stay") { a.fireStay = sim.tick; return false; }
     if (Agent.goodSpot(sim, a)) return false;
+    const L = G.Learn, wW = 6 * (0.5 + L.score(a, "shelter") / 100), wH = 4 * (0.5 + L.score(a, "huddle") / 100);   // step 14: experience scales the pull of trees / company
     const t = Agent.tilePos(a), R = P().warmth.shelterTiles, cand = [];
     for (let y = t.y - R; y <= t.y + R; y++) for (let x = t.x - R; x <= t.x + R; x++) { if (!W.inb(sim.world, x, y) || !W.walkable(sim.world, x, y) || Agent.claimed(sim, a, x, y)) continue;
       const d = Math.hypot(x - t.x, y - t.y); if (d > R) continue; const wood = W.tile(sim.world, x, y) === G.data.T.WOODS, n = spotScore(sim, a, x, y); if (!wood && !n) continue;
-      cand.push({ x, y, sc: d - (wood ? 6 : 0) - 4 * n }); }
+      cand.push({ x, y, sc: d - (wood ? wW : 0) - wH * n }); }
     cand.sort((p, q) => p.sc - q.sc || p.x - q.x || p.y - q.y);
     for (const c of cand.slice(0, 4)) { if (c.x === t.x && c.y === t.y) return false; if (walkTo(sim, a, c.x, c.y, "shelter")) return true; }
     return false;
   }
   function arriveShelter(sim, a) {
     const t = Agent.tilePos(a), n = spotScore(sim, a, t.x, t.y), wood = W.tile(sim.world, t.x, t.y) === G.data.T.WOODS;
-    if (n) { const o = sim.agents.find(b => b !== a && Math.hypot(b.pos.x - t.x, b.pos.y - t.y) <= P().warmth.huddleTiles); G.Sim.log(sim, a.name + " huddles up with " + (o ? o.name : "the others") + (wood ? " under the trees" : "")); }
-    else if (wood) G.Sim.log(sim, a.name + " shelters under the trees");
+    if (n) { const o = sim.agents.find(b => b !== a && Math.hypot(b.pos.x - t.x, b.pos.y - t.y) <= P().warmth.huddleTiles); G.Sim.log(sim, a.name + " huddles up with " + (o ? o.name : "the others") + (wood ? " under the trees" : ""), [a, o]); }
+    else if (wood) G.Sim.log(sim, a.name + " shelters under the trees", a);
   }
   // move away from flames (no burn damage yet; step 12)
   function fleeFire(sim, a) {
     const t = Agent.tilePos(a), best = G.Fire.awayTile(sim, t.x, t.y, (x, y) => W.walkable(sim.world, x, y) && !Agent.claimed(sim, a, x, y));
     if (!best || !walkTo(sim, a, best.x, best.y, "fleeFire")) return false;
-    if (sim.tick - (a.fledFireAt == null ? -1e9 : a.fledFireAt) >= 120) G.Sim.log(sim, a.name + " moves away from the flames");
+    if (sim.tick - (a.fledFireAt == null ? -1e9 : a.fledFireAt) >= 120) G.Sim.log(sim, a.name + " moves away from the flames", a);
     a.fledFireAt = sim.tick; return true;
   }
 
+  // step 13: burned - step off to a tile 2-3 tiles from the burning spot (away from any flames)
+  function fleeBurn(sim, a, b) {
+    const t = Agent.tilePos(a), c = [];
+    for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) { const x = b.x + dx, y = b.y + dy, d = Math.hypot(dx, dy), f = sim.fire[x + "," + y];
+      if (d < 2 || d > 3.2 || f && (f.s === "fire" || f.s === "ember") || !W.walkable(sim.world, x, y) || Agent.claimed(sim, a, x, y)) continue;
+      c.push({ x, y, k: (G.Fire.burning(sim) ? -G.Fire.nearestFlame(sim, x, y) * 2 : 0) + Math.hypot(x - t.x, y - t.y) }); }
+    c.sort((p, q) => p.k - q.k || p.x - q.x || p.y - q.y);
+    for (const q of c.slice(0, 4)) if (walkTo(sim, a, q.x, q.y, "burnt")) return true;
+    return false;
+  }
+  function arriveFireside(sim, a) {
+    if (sim.tick - (a.sitFireAt == null ? -1e9 : a.sitFireAt) >= 120) G.Sim.log(sim, a.name + " sits down near the " + (a.act.fire === "ember" ? "embers" : "fire"), a);
+    a.sitFireAt = sim.tick;
+  }
   function wander(sim, a) {
-    if (waterIsFar(sim, a)) { G.Sim.log(sim, a.name + " set off early for water"); return seekWater(sim, a); }
-    if (foodIsFar(sim, a)) { G.Sim.log(sim, a.name + " set off early for a far bush"); return seekFood(sim, a, null, true); }
-    if (a.needs.warmth < Agent.warmthSeekBelow(a)) { if (seekWarmth(sim, a)) return; if (Agent.goodSpot(sim, a)) return startIdle(sim, a); }   // cold: stay huddled / under the trees
+    if (waterIsFar(sim, a)) { G.Sim.log(sim, a.name + " set off early for water", a); return seekWater(sim, a); }
+    if (foodIsFar(sim, a)) { G.Sim.log(sim, a.name + " set off early for a far bush", a); return seekFood(sim, a, null, true); }
+    if (a.needs.warmth < Agent.warmthSeekBelow(a)) { if (seekWarmth(sim, a)) return; if (Agent.goodSpot(sim, a) || a.fireStay === sim.tick) return startIdle(sim, a); }   // cold: stay huddled / under the trees
     if (G.Items.maybeTry(sim, a) || G.Items.maybePickUp(sim, a)) return;   // idle curiosity (step 9-10)
     const w = P().wander, r = w.radius, t = randomTarget(sim, a, 2, r);
     if (!t || !walkTo(sim, a, t.x, t.y, "wander")) startIdle(sim, a, 0.3);
@@ -248,8 +272,8 @@
     const g = a.act.goal;
     if (g === "food") {
       const b = sim.bushes.find(q => q.id === a.act.bush);
-      if (b && b.ripe) { a.act = { type: "eat", bush: b.id, t: 0, from: a.needs.fullness, over: !!a.act.over || a.needs.fullness >= Agent.fullnessThreshold(a) }; return; }
-      G.Sim.log(sim, a.name + " found the bush bare");
+      if (b && b.ripe) { a.act = { type: "eat", bush: b.id, t: 0, from: a.needs.fullness, over: !!a.act.over || a.needs.fullness >= Agent.fullnessThreshold(a), adds: r2(P().fullness.mealAdds * G.Sim.seasonal(sim.tick).yield) }; return; }
+      G.Sim.log(sim, a.name + " found the bush bare", a);
       if (b) a.knowledge.bushes[b.id].ripe = false;
       if (Agent.want(a) === "water") seekWater(sim, a); else seekFood(sim, a, b && b.id); return;
     }
@@ -259,7 +283,8 @@
     if (g === "pickup") { G.Items.arrivePickup(sim, a); if (!G.Items.maybeTry(sim, a)) startIdle(sim, a, 0.5); return; }   // a fresh find is often tried on something close by
     if (g === "try") { if (!G.Items.arriveTry(sim, a)) startIdle(sim, a, 0.5); return; }
     if (g === "shelter") { const back = a.act.coldWake; arriveShelter(sim, a); if (back && shouldSleep(sim, a)) startSleep(sim, a, true); else startIdle(sim, a); return; }
-    if (g === "fleeFire") { startIdle(sim, a, 0.3); return; }
+    if (g === "fleeFire" || g === "burnt") { startIdle(sim, a, 0.3); return; }
+    if (g === "fireside") { arriveFireside(sim, a); startIdle(sim, a); return; }
     if (g === "exploreWater" && Agent.want(a) === "water") { seekWater(sim, a); return; }
     if (g === "explore" && a.needs.fullness < Agent.fullnessThreshold(a) && Agent.want(a) !== "water") { seekFood(sim, a, null, true); return; } // looked nearby; now accept a far bush
     startIdle(sim, a);
@@ -280,15 +305,16 @@
 
   // One ripe bush = one meal, eaten in one sitting over mealMinutes, then the bush is empty. It adds mealAdds (40) fullness:
   // a normal (hungry) meal stops at mealFillTo (85, "full"); overeating (started at/above the threshold, or the bedtime meal) adds the full 40, capped at 100.
-  Agent.mealEnd = (from, over) => { const f = P().fullness; return Math.max(from, Math.min(over ? 100 : f.mealFillTo, from + f.mealAdds)); };
+  // step 15: adds = this season's meal (mealAdds x bushes.season.yield, set when the meal starts)
+  Agent.mealEnd = (from, over, adds) => { const f = P().fullness; return Math.max(from, Math.min(over ? 100 : f.mealFillTo, from + (adds == null ? f.mealAdds : adds))); };
   function eat(sim, a) {
     const act = a.act, p = P(), b = sim.bushes.find(q => q.id === act.bush), n = p.mealMinutes / G.data.config.time.tickGameMinutes;
     if (!b || !b.ripe) { if (Agent.want(a) === "water") seekWater(sim, a); else seekFood(sim, a, act.bush); return; }
-    act.t++; const end = Agent.mealEnd(act.from, act.over);
+    act.t++; const end = Agent.mealEnd(act.from, act.over, act.adds);
     a.needs.fullness = Math.round((act.from + (end - act.from) * Math.min(1, act.t / n)) * 1e9) / 1e9;
     if (act.t >= n) {
       a.needs.fullness = end; b.ripe = false; b.regrow = 0; a.knowledge.bushes[b.id].ripe = false; a.knowledge.bushes[b.id].emptySince = sim.tick;
-      a.stats.meals++; G.Sim.log(sim, a.name + " ate berries (" + Agent.fullnessWord(end) + ")");
+      a.stats.meals++; G.Sim.log(sim, a.name + " ate berries (" + Agent.fullnessWord(end) + ")", a);
       startIdle(sim, a);
     }
   }
@@ -313,19 +339,23 @@
     // test-only hold: once the held need has sat at 0 since last tick, a drink/meal in between is undone by the hold, so don't re-log it (logs once, like play)
     const hf = a.hold === "fullness" && z.fullness > 0, hw = a.hold === "water" && z.water > 0;
     z.water = n.water <= 0 ? z.water + tm : 0; z.fullness = n.fullness <= 0 ? z.fullness + tm : 0; z.warmth = n.warmth <= 0 ? (z.warmth || 0) + tm : 0;
-    if (w0 >= 30 && n.warmth < 30) G.Sim.log(sim, a.name + " is cold and shivering");
-    if (w0 > 0 && n.warmth <= 0) G.Sim.log(sim, a.name + " is freezing");
+    G.Learn.stepWarmth(sim, a, felt, w0);   // steps 13-14: what warmed her when cold raises that action's score (and may be copied)
+    if (w0 >= 30 && n.warmth < 30) G.Sim.log(sim, a.name + " is cold and shivering", a);
+    if (w0 > 0 && n.warmth <= 0) G.Sim.log(sim, a.name + " is freezing", a);
+    // step 13: stepping onto a burning / smouldering tile is a burn (fire score drops, she jumps back; no health damage)
+    const burn = G.Learn.checkBurn(sim, a);
+    if (burn) { if (a.act.type === "sleep") a.wokeEarly = true; if (a.carry != null) G.Items.drop(sim, a); if (fleeBurn(sim, a, burn)) { move(sim, a); return; } }
     // flames close by: get up and move away (no burn damage yet)
-    if (a.act.goal !== "fleeFire" && G.Fire.burning(sim) && G.Fire.nearestFlame(sim, a.pos.x, a.pos.y) < G.data.config.fire.fleeTiles) {
-      if (a.act.type === "sleep") G.Sim.log(sim, a.name + " wakes to flames");
+    if (a.act.goal !== "fleeFire" && a.act.goal !== "burnt" && G.Fire.burning(sim) && G.Fire.nearestFlame(sim, a.pos.x, a.pos.y) < G.data.config.fire.fleeTiles) {
+      if (a.act.type === "sleep") G.Sim.log(sim, a.name + " wakes to flames", a);
       if (a.act.type === "sleep" || a.act.type === "idle" || a.act.type === "try" || a.act.type === "eat" || a.act.type === "drink" || a.act.type === "walk") { if (a.act.type === "sleep") a.wokeEarly = true; if (fleeFire(sim, a)) { move(sim, a); return; } } }
     // the thing in hand is put down when a need takes over, at bedtime, or after a while
     if (a.carry != null && (Agent.want(a) || a.act.type === "sleep" || sim.tick >= a.carryUntil)) G.Items.drop(sim, a);
-    if (!hf && h0 >= thr && n.fullness < thr) G.Sim.log(sim, a.name + " is hungry");
-    if (!hf && (h0 > p.fullness.min || a.hold === "fullness") && n.fullness <= p.fullness.min) G.Sim.log(sim, a.name + " is starving");
-    if (!hw && t0 >= tthr && n.water < tthr) G.Sim.log(sim, a.name + " is thirsty");
-    if (!hw && (t0 > p.water.min || a.hold === "water") && n.water <= p.water.min) G.Sim.log(sim, a.name + " is parched");
-    if (e0 > 0 && n.energy <= 0) G.Sim.log(sim, a.name + " is exhausted");
+    if (!hf && h0 >= thr && n.fullness < thr) G.Sim.log(sim, a.name + " is hungry", a);
+    if (!hf && (h0 > p.fullness.min || a.hold === "fullness") && n.fullness <= p.fullness.min) G.Sim.log(sim, a.name + " is starving", a);
+    if (!hw && t0 >= tthr && n.water < tthr) G.Sim.log(sim, a.name + " is thirsty", a);
+    if (!hw && (t0 > p.water.min || a.hold === "water") && n.water <= p.water.min) G.Sim.log(sim, a.name + " is parched", a);
+    if (e0 > 0 && n.energy <= 0) G.Sim.log(sim, a.name + " is exhausted", a);
     if (asleep) return sleep(sim, a);
     if (a.act.type === "try") { if (!G.Items.stepTry(sim, a)) startIdle(sim, a); return; }
     if (a.wokeEarly && !Agent.isNight(sim.tick)) a.wokeEarly = false;
@@ -340,7 +370,7 @@
       if (!Agent.claimed(sim, a, x, y)) { act.path = act.path.slice(0, act.i + 1); act.goal = "collapse"; } }
     if (act.type === "eat") return eat(sim, a);
     if (act.type === "drink") return drink(sim, a);
-    if (act.goal === "food" && !a.knowledge.bushes[act.bush].ripe && a.knowledge.bushes[act.bush].seen === sim.tick) { G.Sim.log(sim, a.name + " saw the bush was bare"); if (want === "water") seekWater(sim, a); else seekFood(sim, a, act.bush); }
+    if (act.goal === "food" && !a.knowledge.bushes[act.bush].ripe && a.knowledge.bushes[act.bush].seen === sim.tick) { G.Sim.log(sim, a.name + " saw the bush was bare", a); if (want === "water") seekWater(sim, a); else seekFood(sim, a, act.bush); }
     else if (stay) { /* carry on */ }
     else if (want === "water" && act.goal !== "water" && (act.goal !== "exploreWater" || seen.waterNew)) seekWater(sim, a);
     else if (want === "food" && act.goal !== "food" && (act.goal !== "explore" || seen.ripeNew)) seekFood(sim, a);
@@ -352,7 +382,7 @@
       const cold = G.Climate.airC(sim.tick) < p.warmth.neutralC + a.traits.coldFear / 20;
       if (!go && cold && a.shelterNight !== night && n.energy > 0) { a.shelterNight = night; if (seekWarmth(sim, a)) { move(sim, a); return; } }
       if (!go) startSleep(sim, a);
-      else { a.topUp = b; G.Sim.log(sim, a.name + (b === "water" ? " goes for a drink before sleep" : " goes for a meal before sleep"));
+      else { a.topUp = b; G.Sim.log(sim, a.name + (b === "water" ? " goes for a drink before sleep" : " goes for a meal before sleep"), a);
         if (b === "food") a.act = { type: "walk", goal: "food", path: go.p, i: 0, bush: go.id, over: true };   // the bedtime meal counts as overeating
         else if (go.p.length) a.act = { type: "walk", goal: "water", path: go.p, i: 0, water: go.kind }; else startDrink(sim, a, go.kind); }
     }
