@@ -2,16 +2,23 @@
 (function (G) {
   G.data = G.data || {};
   G.data.config = {
-    saveVersion: 8,                 // v8: learning (experience scores, copying), seasonal food, per-person logs; v7: objects, physics + discoveries, temperature + warmth, fire (v6: aging, death, bodies, animals); older saves are rejected
+    saveVersion: 9,                 // v9: varied maps (spawn, hills, map info; no lake/source); v8: learning (experience scores, copying), seasonal food, per-person logs; v7: objects, physics + discoveries, temperature + warmth, fire (v6: aging, death, bodies, animals); older saves are rejected
     saveKey: "godsim.save",
     map: {
       w: 60, h: 40, tilePx: 16,      // map is 960x640 art px, scaled to fit the screen
       renderScale: 2,                 // canvas backing px per art px (1920x1280): integer, so pixels stay crisp and walking moves in half-pixel steps
       margin: 2,                      // water never comes within 2 tiles of the edge -> land ring keeps the map connected
-      woodsNoiseScale: 9, woodsFraction: 0.42,   // share of tiles that start as woods (noise quantile)
-      lake: { cx: [38, 47], cy: [24, 30], rx: [6, 9], ry: [4, 6], wobble: 0.5 },
-      river: { sourceX: [4, 22], sourceY: [3, 8], toward: 0.72, widenChance: 0.22, maxSteps: 500 },
-      maxTries: 30
+      // Step 15b map variety: every value comes from the seed (own stream per field). Same live tiles; only the layout changes.
+      noise: { heightScale: 16, moistScale: 13, woodsScale: 6, octaves: [[1, 0.6], [0.45, 0.28], [0.2, 0.12]] },   // 3 octaves of value noise
+      hills: { fraction: [0.10, 0.15], rockChance: 0.3 },   // top 10-15% of the height field; shown as clusters of the live rock things (there is no rock tile)
+      moisture: { bias: [-0.3, 0.3], dryGround: 0.2 },      // per-seed dry..lush bias added to the moisture noise; open ground drier than dryGround is bare sand
+      forest: { density: [0.1, 0.6], biasPull: 0.8, jitter: 0.1, patch: 0.35, hillPenalty: 0.25 },   // density 0.35 + bias x 0.8 +/- 0.1, clamped; woods = the moistest tiles
+      lakes: { count: [0, 4], target: [0.035, 0.09], minSize: 12, spacing: 12, wobble: 0.12 },   // share of the map the water aims at; lakes fill low basins
+      rivers: { count: [0, 2], sourceTop: 0.25, minLength: 8, pull: 0.03, jitter: 0.02, widenLast: 0.3, maxSteps: 400 },   // spring in the top 25% of height; score = height + pull x distance to the nearest lake/edge
+      waterPct: [3, 12],               // attempts outside this are redone (next attempt of the same seed)
+      spawnWaterTiles: 8,              // founders gather around a meadow tile with water this close (all of them stay within 12)
+      maxPocket: 8,                    // land cut off by water: pockets up to this many tiles become a pond, bigger means a new attempt
+      maxTries: 40
     },
     time: {
       tickGameMinutes: 1,             // 1 sim tick = 1 game minute
@@ -130,7 +137,7 @@
     objects: {
       rock: { count: 40, where: "any" },            // anywhere on land
       stick: { count: 40, where: "woodsEdge" },     // on or next to woods
-      flint: { count: 15, where: "river" },         // within 3 tiles of the river
+      flint: { count: 15, where: "water" },         // within 3 tiles of a river or lake (15b: some maps have no river)
       minSpacing: 1,                                 // never two on one tile at the start
       bonesPerBody: 4,                               // a skeleton gives 4 bones that can be picked up; the rest stays as the body's bones
       pickupChance: 0.6,                            // at the end of an idle spell, x curiosity/50 (0.5 at curiosity 100)
@@ -188,7 +195,7 @@
       copyTiles: 5, copyMargin: 10, copyChance: 0.35, copyShare: 0.5,
       actions: { fire: { label: "sitting by the fire", fear: "fireFear" }, huddle: { label: "huddling up", fear: null }, shelter: { label: "sheltering under the trees", fear: null } }
     },
-    bushes: { count: 60, regrowMinutes: 1440, startRipe: 0.85, minSpacing: 4,   // eaten bush is ripe again 1 game day later (Greening; see season)
+    bushes: { count: 60, minCount: 15, moistBase: 0.5, dry: { below: -0.1, at: -0.3, fewer: [0.3, 0.5] }, regrowMinutes: 1440, startRipe: 0.85, minSpacing: 4,   // eaten bush is ripe again 1 game day later (Greening; see season)
       // Step 15 seasons (Greening, High Sun, Leaffall, Deep Cold): a meal gives mealAdds x yield; an eaten bush ripens again after regrowMinutes
       // (people still expect it back after the base regrowMinutes, so in winter they find more bushes bare)
       season: { yield: [1, 1.25, 1.25, 0.8], regrowMinutes: [1440, 1080, 1080, 2160] },   // tuned (5 seeds x 1 year): 0.8 / 36 h -> 3% of winter minutes hungry, avg fullness 53; 0.6 / 72 h was 38% hungry and 17 deaths

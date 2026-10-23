@@ -21,10 +21,8 @@
     const world = G.World.generate(seed), rng = new G.RNG((seed ^ 0xA5A5A5A5) >>> 0);
     const sim = { version: CFG().saveVersion, seed, tick: 0, nextId: 1, world, rng, bushes: G.World.placeBushes(world, rng), agents: [], log: [], plog: {},
       nameBag: rng.shuffle(G.data.names.map((_, i) => i)), nameRound: 0, prev: {} };
-    // founders start around a walkable meadow tile near the middle
-    const cx = world.w >> 1, cy = world.h >> 1; let best = null;
-    for (let y = 0; y < world.h; y++) for (let x = 0; x < world.w; x++) if (G.World.tile(world, x, y) === G.data.T.MEADOW) {
-      const d = Math.hypot(x - cx, y - cy) + rng.float() * 6; if (!best || d < best.d) best = { x, y, d }; }
+    // founders start around the map's spawn: a meadow tile near the middle with water close by (World.generate picks it)
+    const best = world.spawn;
     // 5-8 founders (seeded), each on their own walkable tile, clustered around that spot
     const sp = CFG().pop.startPeople, n = Math.min(CFG().pop.maxPeople, Array.isArray(sp) ? rng.int(sp[0], sp[1]) : sp);
     let spots = [];
@@ -85,7 +83,7 @@
   const TILE_CH = "MWSRL";
   Sim.serialize = function (sim) {
     return { version: sim.version, seed: sim.seed, tick: sim.tick, nextId: sim.nextId, rng: sim.rng.s,
-      world: { w: sim.world.w, h: sim.world.h, attempt: sim.world.attempt, lake: sim.world.lake, source: sim.world.source, tiles: sim.world.tiles.map(t => TILE_CH[t]).join("") },
+      world: { w: sim.world.w, h: sim.world.h, attempt: sim.world.attempt, spawn: sim.world.spawn, hills: sim.world.hills, info: sim.world.info, tiles: sim.world.tiles.map(t => TILE_CH[t]).join("") },
       bushes: sim.bushes, agents: sim.agents, log: sim.log, plog: sim.plog || {}, nameBag: sim.nameBag, nameRound: sim.nameRound,
       arng: sim.arng.s, animals: sim.animals, herds: sim.herds, bodies: sim.bodies,
       orng: sim.orng.s, items: sim.items, discoveries: sim.discoveries, fire: sim.fire, fireStats: sim.fireStats, physStats: sim.physStats || null, fx: sim.fx,
@@ -94,7 +92,7 @@
   Sim.deserialize = function (o) {
     if (!o || o.version !== CFG().saveVersion) throw new Error("unsupported save version " + (o && o.version));
     const s = JSON.parse(JSON.stringify(o));
-    const world = { w: s.world.w, h: s.world.h, seed: s.seed, attempt: s.world.attempt, lake: s.world.lake, source: s.world.source, tiles: s.world.tiles.split("").map(c => TILE_CH.indexOf(c)) };
+    const world = { w: s.world.w, h: s.world.h, seed: s.seed, attempt: s.world.attempt, spawn: s.world.spawn, hills: s.world.hills, info: s.world.info, tiles: s.world.tiles.split("").map(c => TILE_CH.indexOf(c)) };
     const rng = new G.RNG(s.rng);
     return { version: s.version, seed: s.seed, tick: s.tick, nextId: s.nextId, world, rng, bushes: s.bushes, agents: s.agents, log: s.log, plog: s.plog || {}, nameBag: s.nameBag, nameRound: s.nameRound || 0, prev: {},
       arng: new G.RNG(s.arng), animals: s.animals, herds: s.herds, bodies: s.bodies,

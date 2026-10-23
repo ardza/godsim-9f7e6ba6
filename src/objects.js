@@ -27,12 +27,15 @@
   Items.populate = function (sim) {
     const w = sim.world, T = G.data.T, rng = sim.orng, O = OC(); sim.items = sim.items || [];
     const near = (x, y, r, t) => { for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (W.inb(w, x + dx, y + dy) && W.tile(w, x + dx, y + dy) === t) return true; return false; };
-    const ok = { any: () => true, woodsEdge: (x, y) => near(x, y, 1, T.WOODS), river: (x, y) => near(x, y, 3, T.RIVER) };
+    const ok = { any: () => true, woodsEdge: (x, y) => near(x, y, 1, T.WOODS), river: (x, y) => near(x, y, 3, T.RIVER), water: (x, y) => near(x, y, 3, T.RIVER) || near(x, y, 3, T.LAKE) };
     const used = new Set(sim.agents.map(a => a.pos.x + "," + a.pos.y));
     for (const mat of ["rock", "stick", "flint"]) { const c = O[mat], cand = [];
       for (let y = 0; y < w.h; y++) for (let x = 0; x < w.w; x++) if (W.walkable(w, x, y) && ok[c.where](x, y)) cand.push([x, y]);
       rng.shuffle(cand); let n = 0;
       for (const [x, y] of cand) { if (n >= c.count) break; if (used.has(x + "," + y)) continue; used.add(x + "," + y); sim.items.push(Items.create(sim, mat, x, y)); n++; } }
+    // step 15b hills: rock clusters on the high ground (the live rock thing; there is no rock tile)
+    const hc = G.data.config.map.hills.rockChance;
+    for (let y = 0; y < w.h; y++) for (let x = 0; x < w.w; x++) if (W.hillAt(w, x, y) && W.walkable(w, x, y) && !used.has(x + "," + y) && rng.chance(hc)) { used.add(x + "," + y); sim.items.push(Items.create(sim, "rock", x, y)); }
   };
 
   // ---------- carrying (one thing at a time) ----------

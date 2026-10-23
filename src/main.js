@@ -24,6 +24,7 @@
   G.debug = {
     drainWater: id => hold(id, "water"), drainFullness: id => hold(id, "fullness"),
     release: id => { const a = person(id); if (a) delete a.hold; return !!a; },
+    seedInfo: () => G.World.seedInfo(app.sim),   // step 15b: { seed, lakes, rivers, waterPct, forestDensity, moistureBias, ... }
     ageTo: (id, years) => { const a = person(id); if (a) a.age = years; return a ? a.lifespan : null; }   // e.g. ageTo(id, lifespan - 0.001) to see an old-age death
   };
   function person(id) { return app.sim.agents.find(a => a.id === (id == null ? app.selected : id)); }
