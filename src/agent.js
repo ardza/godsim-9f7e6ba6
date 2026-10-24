@@ -55,7 +55,7 @@
   Agent.sight = a => P().sightTiles;
   Agent.tilePos = a => ({ x: Math.round(a.pos.x), y: Math.round(a.pos.y) });
   Agent.doing = a => { const d = a.act.type === "pray" ? G.Faith.doing(a) : (a.act.type === "idle" || a.act.type === "sleep") && a.felt && a.felt.huddle && a.needs.warmth < 60 ? (a.act.type === "sleep" ? "asleep, huddled" : "huddling") :
-    a.hypoUnconscious ? "unconscious from cold" : a.hypo >= 4 && a.needs.warmth <= 0 && a.act.type === "sleep" ? "asleep from cold" : ({ idle: "resting", try: ({ strike: "striking", rub: "rubbing", cut: "cutting" })[a.act.action] || "trying", bind: "binding a tool", chop: "chopping at a tree", eat: "eating a meal", eatMeat: "eating meat", eatCorpse: "eating from a body", dig: "digging", cook: "holding meat to the fire", drink: "drinking", sleep: "asleep" })[a.act.type] || ({ wander: "wandering", food: "going to a bush", explore: "looking for food", water: "going to the water", exploreWater: "looking for water", collapse: "stumbling to a stop", pickup: "going to pick something up", try: "going to try something", shelter: "seeking warmth", fleeFire: "moving away from flames", fireside: "going to sit by the fire", burnt: "jumping back from the flames", hunt: "going after a deer", meat: "going to a carcass", corpse: "going to a body", drag: "dragging a body", follow: "keeping close to someone", mate: "going to sleep beside a partner", keep: "keeping close to family", prayspot: "going to a prayer spot", sacred: "walking toward a worn place", stash: "going to stash something", cache: "going to a cache", beside: "going to sleep beside family", avoid: "keeping away from someone", scared: "running from the flash", fleeWolf: "running from the Wolves" })[a.act.goal] || a.act.type;
+    a.hypoUnconscious ? "unconscious from cold" : a.hypo >= 4 && a.needs.warmth <= 0 && a.act.type === "sleep" ? "asleep from cold" : ({ idle: "resting", try: ({ strike: "striking", rub: "rubbing", cut: "cutting" })[a.act.action] || "trying", bind: "binding a tool", chop: "chopping at a tree", eat: "eating a meal", eatMeat: "eating meat", eatCorpse: "eating from a body", dig: "digging", cook: "holding meat to the fire", drink: "drinking", sleep: "asleep" })[a.act.type] || ({ wander: "wandering", food: "going to a bush", explore: "looking for food", water: "going to the water", exploreWater: "looking for water", collapse: "stumbling to a stop", pickup: "going to pick something up", try: "going to try something", shelter: "seeking warmth", fleeFire: "moving away from flames", fireside: "going to sit by the fire", burnt: "jumping back from the flames", hunt: "going after a deer", meat: "going to a carcass", corpse: "going to a body", drag: "dragging a body", follow: "keeping close to someone", mate: "going to sleep beside a partner", keep: "keeping close to family", prayspot: "going to a prayer spot", sacred: "walking toward a worn place", stash: "going to stash something", cache: "going to a cache", hut: "piling a shelter", beside: "going to sleep beside family", avoid: "keeping away from someone", scared: "running from the flash", fleeWolf: "running from the Wolves" })[a.act.goal] || a.act.type;
     return (G.Disease && G.Disease.isSick(a) && d.indexOf("sick") < 0) ? d + ", sick" : d; };
 
 
@@ -220,6 +220,7 @@
   function seekWarmth(sim, a) {
     const f = seekFire(sim, a); if (f === "go") return true; if (f === "stay") { a.fireStay = sim.tick; return false; }
     if (Agent.goodSpot(sim, a)) return false;
+    if (G.Hut && G.Hut.maybe(sim, a)) return true;   // §35: pile a crude hut when cold + materials + known ground
     if (G.Shelter && G.Shelter.seek(sim, a)) return true;   // step 21b: a shelter she knows (odds from her den score)
     const L = G.Learn, wW = 6 * (0.5 + L.score(a, "shelter") / 100), wH = 4 * (0.5 + L.score(a, "huddle") / 100);   // step 14: experience scales the pull of trees / company
     const t = Agent.tilePos(a), R = P().warmth.shelterTiles, cand = [];
@@ -235,7 +236,7 @@
     if (n) { const o = sim.agents.find(b => b !== a && Math.hypot(b.pos.x - t.x, b.pos.y - t.y) <= P().warmth.huddleTiles); G.Sim.log(sim, a.name + " huddles up with " + (o ? o.name : "the others") + (wood ? " under the trees" : ""), [a, o]); }
     else if (wood) G.Sim.log(sim, a.name + " shelters under the trees", a);
   }
-  const WARM_GOALS = { den: 1, fireside: 1, beside: 1, mate: 1, shelter: 1, fleeFire: 1, burnt: 1, collapse: 1, water: 1, exploreWater: 1, baby: 1 };
+  const WARM_GOALS = { den: 1, fireside: 1, beside: 1, mate: 1, shelter: 1, hut: 1, fleeFire: 1, burnt: 1, collapse: 1, water: 1, exploreWater: 1, baby: 1 };
   function urgentCold(sim, a, act, n) {
     const W = P().warmth; if (W.urgentBelow == null || n.warmth > W.urgentBelow || n.water < P().energy.wakeIfNeedBelow) return false;
     if (act.type !== "idle" && act.type !== "walk" || act.type === "walk" && WARM_GOALS[act.goal]) return false;
@@ -392,6 +393,7 @@
     if (g === "sacred") { startIdle(sim, a); return; }   // §33: arrived at known sacred marker
     if (g === "stash") { if (G.Cache) G.Cache.arriveStash(sim, a); else startIdle(sim, a); return; }   // v29
     if (g === "cache") { if (G.Cache) G.Cache.arriveRetrieve(sim, a); else startIdle(sim, a); return; }   // v29
+    if (g === "hut") { if (G.Hut) G.Hut.arrive(sim, a); else startIdle(sim, a); return; }   // §35
     if (g === "shelter") { const back = a.act.coldWake; arriveShelter(sim, a); if (back && shouldSleep(sim, a)) startSleep(sim, a, true); else startIdle(sim, a); return; }
     if (g === "mate") { if (shouldSleep(sim, a)) startSleep(sim, a); else startIdle(sim, a); return; }   // step 19
     if (g === "fleeFire" || g === "burnt") { startIdle(sim, a, 0.3); return; }

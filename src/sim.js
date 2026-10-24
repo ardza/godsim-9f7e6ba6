@@ -52,6 +52,7 @@
     G.Tools.init(sim);     // step 29: carried tools (flake / axe / long stick)
     G.Hides.init(sim);     // §31 / v28: grazer hides
     G.Cache.init(sim);     // §32 / v29: carrying & caching
+    if (G.Hut) G.Hut.init(sim);  // §35 / v32: built crude huts
     return sim;
   };
   // Seeded names with no repeats until the list is used up, then a fresh shuffle (reuse is fine past the list).
@@ -213,6 +214,12 @@
     if (G.Social && G.Social.refreshNames) G.Social.refreshNames(s);
     s.version = 31; return s;
   };
+  // v31 -> v32 (§35): built shelters (crude huts) — empty hutStats; existing saves keep natural shelters
+  Sim.migrate32 = function (o) {
+    if (!o || o.version !== 31) return o; const s = JSON.parse(JSON.stringify(o));
+    s.hutStats = s.hutStats || (G.Hut ? G.Hut.newStats() : { built: 0, tries: 0, walks: 0, firsts: 0 });
+    s.version = 32; return s;
+  };
   // One log line. who = the person(s) involved (person/body objects or ids): the line is tagged with their ids and also goes into each one's own
   // log (sim.plog[id], last log.personMax kept, saved). k = an optional kind for the personal log ("death", "birth", "disc").
   Sim.ids = who => (who == null ? [] : Array.isArray(who) ? who : [who]).map(w => w == null ? null : typeof w === "number" ? w : w.kind === "body" ? w.of : w.id).filter((v, i, a) => v != null && a.indexOf(v) === i);
@@ -288,7 +295,8 @@
       wrng: sim.wrng ? sim.wrng.s : null, speech: sim.speech || null,
       crng: sim.crng ? sim.crng.s : null, corpseStats: sim.corpseStats || null,
       drng: sim.drng ? sim.drng.s : null, diseaseStats: sim.diseaseStats || null,
-      toolStats: sim.toolStats || null, hideStats: sim.hideStats || null, cacheStats: sim.cacheStats || null };
+      toolStats: sim.toolStats || null, hideStats: sim.hideStats || null, cacheStats: sim.cacheStats || null,
+      hutStats: sim.hutStats || null, hrng: sim.hrng ? sim.hrng.s : null };
   };
   Sim.deserialize = function (o) {
     if (o && o.version === 13) o = Sim.migrate(o);
@@ -309,6 +317,7 @@
     if (o && o.version === 28) o = Sim.migrate29(o);
     if (o && o.version === 29) o = Sim.migrate30(o);
     if (o && o.version === 30) o = Sim.migrate31(o);
+    if (o && o.version === 31) o = Sim.migrate32(o);
     if (!o || o.version !== CFG().saveVersion) throw new Error("unsupported save version " + (o && o.version));
     const s = JSON.parse(JSON.stringify(o));
     const world = { w: s.world.w, h: s.world.h, seed: s.seed, attempt: s.world.attempt, spawn: s.world.spawn, hills: s.world.hills, mountain: s.world.mountain || "0".repeat(s.world.w * s.world.h), info: s.world.info, tiles: s.world.tiles.split("").map(c => TILE_CH.indexOf(c)) };
@@ -327,7 +336,9 @@
       crng: new G.RNG(s.crng != null ? s.crng : (s.seed ^ 0xC0B5E26F) >>> 0), corpseStats: s.corpseStats || G.Corpse.newStats(),
       drng: new G.RNG(s.drng != null ? s.drng : (s.seed ^ 0xD15EA5E) >>> 0), diseaseStats: s.diseaseStats || G.Disease.newStats(),
       toolStats: s.toolStats || G.Tools.newStats(), hideStats: s.hideStats || (G.Hides ? G.Hides.newStats() : null),
-      cacheStats: s.cacheStats || (G.Cache ? G.Cache.newStats() : null) };
+      cacheStats: s.cacheStats || (G.Cache ? G.Cache.newStats() : null),
+      hutStats: s.hutStats || (G.Hut ? G.Hut.newStats() : null),
+      hrng: s.hrng != null ? new G.RNG(s.hrng) : undefined };
   };
 
   G.Time = Time; G.Sim = Sim;

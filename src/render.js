@@ -397,8 +397,17 @@
   }
   // step 21b: natural shelters over the tile beneath (cave / overhang blend into the hill, thicket over the woods); code fallback = dark mouth / brush
   function drawShelters(sim) {
-    const S = G.data.art.shelter; R.sheltersDrawn = 0;
-    for (const q of sim.shelters || []) for (const [x, y] of q.tiles) { const px = x * tp, py = y * tp, c = S ? S.cols.indexOf(q.type) : -1; R.sheltersDrawn++;
+    const S = G.data.art.shelter, H = G.data.art.hut; R.sheltersDrawn = 0; R.hutsDrawn = 0;
+    for (const q of sim.shelters || []) for (const [x, y] of q.tiles) { const px = x * tp, py = y * tp; R.sheltersDrawn++;
+      // §35: crude hut / pile overlay (Artist hut_16: cols pile | hut)
+      if (q.type === "hut") {
+        R.hutsDrawn++;
+        const col = (q.stage === "pile") ? 0 : 1;
+        if (art.hut && H) { cx.drawImage(art.hut, col * H.frame, 0, H.frame, H.frame, px, py, tp, tp); continue; }
+        cx.fillStyle = "rgba(90,70,40,0.7)"; cx.fillRect(px + 2, py + 4, tp - 4, tp - 6);
+        cx.strokeStyle = "rgba(60,45,25,0.9)"; cx.strokeRect(px + 2, py + 4, tp - 4, tp - 6); continue;
+      }
+      const c = S ? S.cols.indexOf(q.type) : -1;
       if (art.shelter && c >= 0 && c !== 2) { cx.drawImage(art.shelter, c * S.frame, 0, S.frame, S.frame, px, py, tp, tp); continue; }
       if (q.type === "thicket") { cx.fillStyle = "rgba(20,50,20,0.55)"; cx.fillRect(px + 1, py + 2, tp - 2, tp - 3); continue; }
       cx.fillStyle = "#6e6558"; cx.fillRect(px + 1, py + 2, tp - 2, tp - 4); cx.fillStyle = "#1c1814"; cx.fillRect(px + 4, py + (q.type === "cave" ? 6 : 9), tp - 8, tp - (q.type === "cave" ? 8 : 11)); }

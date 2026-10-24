@@ -2,7 +2,7 @@
 (function (G) {
   G.data = G.data || {};
   G.data.config = {
-    saveVersion: 31,                // v31: group identity names; v30: sacred places; v29: caching; v28: hides; v27: Cure/Plague; v26: tools
+    saveVersion: 32,                // v32: built shelters (crude huts); v31: group identity; v30: sacred places; v29: caching; v28: hides
     saveKey: "godsim.save",
     map: {
       w: 60, h: 40, tilePx: 16,      // map is 960x640 art px, scaled to fit the screen
@@ -313,10 +313,10 @@
       thicket: { tiles: [2, 4], minDense: 22, moistW: 4, growSlack: 3, cap: 3, perTile: true, warmX: 0.4, rain: 0.5, walkX: 2 },
       capX: 1.5, crowdLike: -1, wokeWarm: 50, fearTrait: "fireFear", stepIn: { below: 50, tiles: 3, chance: 0.3, everyMinutes: 30 },
       seekTiles: 30, goChance: 0.9, scoreFloor: 40,
-      articles: { cave: "a cave", overhang: "an overhang", thicket: "a thicket" },
-      enterLines: { cave: "crawls into the cave mouth", overhang: "ducks in under the overhang", thicket: "pushes into the thicket" },
-      peerLines: { cave: "creeps toward a dark gap in the hillside", overhang: "edges toward the hanging rock", thicket: "parts the brush of a thicket" },
-      tripLines: { cave: "heads back to the cave", overhang: "heads back to the overhang", thicket: "heads back to the thicket" } },
+      articles: { cave: "a cave", overhang: "an overhang", thicket: "a thicket", hut: "a crude hut" },
+      enterLines: { cave: "crawls into the cave mouth", overhang: "ducks in under the overhang", thicket: "pushes into the thicket", hut: "ducks into the crude hut" },
+      peerLines: { cave: "creeps toward a dark gap in the hillside", overhang: "edges toward the hanging rock", thicket: "parts the brush of a thicket", hut: "edges toward the piled hut" },
+      tripLines: { cave: "heads back to the cave", overhang: "heads back to the overhang", thicket: "heads back to the thicket", hut: "heads back to the crude hut" } },
     family: { bond: { age: [16, 45], like: 65, fam: 60, breakBelow: 40, mixedOnly: true },   // step 22 Director: mixedOnly = pairs are man + woman only;   // 21b Director: 65 / 60 (was 75 / 70)
       conceive: { atMinute: 120, tiles: 1, fullness: 35, water: 35, warmth: 30, chance: 0.20 },   // 21b Director: 20% per night   // Director (call 1 on 19): 15%, gates 35 / 35 / 30
       pregnancy: { days: 7, drain: 1.25 }, drift: 0.05, mutation: { chance: 0.02, size: 0.2 }, lifespanClamp: [40, 120],
@@ -409,6 +409,20 @@
       walkTiles: 18,                 // max walk to prefer stash / retrieve over random drop
       copyChance: 0.55,              // watcher within sightTiles copies the spot
       includeHide: true              // hide counts as stashable (optional per spec)
+    },
+    // §35 / v32: crude hut from sticks/reeds/hides on known ground; warmX > cave; no villages
+    hut: {
+      salt: 0xB017532,
+      needPile: 3,                   // sticks + reeds (+ hide weight) to finish one footprint
+      hideWeight: 1,                 // optional hide counts toward needPile
+      gatherTiles: 2,                // ground materials within this many tiles
+      siteTiles: 12,                 // walk this far to a known-ground build site
+      warmX: 1.2,                    // better than cave 1.0 / thicket 0.4 (still under shelter.capX)
+      rain: 0.85,
+      cap: 3,
+      tryEveryMinutes: 60,
+      tryChance: 0.45,               // × curiosity/50 × den factor
+      scoreFloor: 40                 // den Learn score floor (same idea as shelter.goChance)
     },
     bushes: { count: 60, minCount: 15, moistBase: 0.5, dry: { below: -0.1, at: -0.3, fewer: [0.3, 0.5] }, regrowMinutes: 1440, startRipe: 0.85, minSpacing: 4,   // eaten bush is ripe again 1 game day later (Greening; see season)
       // Step 15 seasons (Greening, High Sun, Leaffall, Deep Cold): a meal gives mealAdds x yield; an eaten bush ripens again after regrowMinutes
