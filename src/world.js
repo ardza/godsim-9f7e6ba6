@@ -1,4 +1,4 @@
-// Map generation, queries and A* pathfinding. A world is {w, h, tiles: number[], seed, attempt, spawn, hills ('0'/'1' per tile), info}.
+// Map generation, queries and A* pathfinding. A world is {w, h, tiles: number[], seed, attempt, spawn, hills ('0'/'1' per tile), mountain ('0'..'3' peak/slope/foothill), info}.
 (function (G) {
   const C = () => G.data.config.map, T = G.data.T, TILES = G.data.tiles;
   const World = {};
@@ -121,10 +121,35 @@
       const d = Math.hypot(x - W / 2, y - H / 2) + pr.float() * 6; if (!spawn || d < spawn.d) spawn = { x, y, d }; }
     if (!spawn) return null;
     w.spawn = { x: spawn.x, y: spawn.y };
+    // Step 26b: one stronger mountain peak per seed — amplify height around the inland max, mark peak/slope/foothill, fold slopes into hills for rock deposits.
+    const mountain = new Uint8Array(N);
+    let peakI = -1, peakH = -Infinity;
+    for (let y = m + 2; y < H - m - 2; y++) for (let x = m + 2; x < W - m - 2; x++) {
+      const i = y * W + x; if (TILES[w.tiles[i]].water) continue;
+      if (height[i] > peakH) { peakH = height[i]; peakI = i; }
+    }
+    const MCfg = c.mountain || { peakBoost: 0.55, peakRadius: 5, slopeRadius: 9 };
+    const pX = peakI % W, pY = (peakI / W) | 0;
+    if (peakI >= 0) {
+      const pr = MCfg.peakRadius, sr = MCfg.slopeRadius, boost = MCfg.peakBoost;
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+        const i = y * W + x; if (TILES[w.tiles[i]].water) continue;
+        const d = Math.hypot(x - pX, y - pY);
+        if (d <= sr) {
+          height[i] += boost * Math.exp(-(d * d) / (2 * Math.max(0.5, pr * 0.55) * Math.max(0.5, pr * 0.55)));
+          if (d <= pr * 0.35) mountain[i] = 3;       // peak
+          else if (d <= pr) mountain[i] = 2;         // upper_slope
+          else mountain[i] = 1;                      // foothill
+          hill[i] = 1;                               // slopes count as hills for rock deposits
+        }
+      }
+    }
     Object.defineProperty(w, "moist", { value: moist, enumerable: false }); Object.defineProperty(w, "height", { value: height, enumerable: false });   // step 22: rain puddles in low tiles (not saved; a loaded world regenerates it)   // used once for bush placement, not saved
     w.hills = Array.from(hill).join("");
+    w.mountain = Array.from(mountain).join("");
     w.info = { lakes: lakes.length, lakeSizes: lakes.map(L => L.size), rivers: rivers.length, riverInfo: rivers, waterPct: +waterPct.toFixed(1), forestDensity: +forestDensity.toFixed(2),
-      moistureBias: +moistBias.toFixed(2), hillPct: +(100 * hillFrac).toFixed(1), woodsPct: +(100 * w.tiles.filter(t => t === T.WOODS).length / N).toFixed(1), attempt: n };
+      moistureBias: +moistBias.toFixed(2), hillPct: +(100 * hillFrac).toFixed(1), woodsPct: +(100 * w.tiles.filter(t => t === T.WOODS).length / N).toFixed(1), attempt: n,
+      mountain: peakI >= 0 ? { x: pX, y: pY } : null };
     return w;
   }
 
@@ -145,6 +170,7 @@
   };
   World.seedInfo = sim => Object.assign({ seed: sim.seed, bushes: sim.bushes.length }, sim.world.info);
   World.hillAt = (w, x, y) => !!w.hills && w.hills[y * w.w + x] === "1";
+  World.mountainAt = (w, x, y) => (w.mountain && +w.mountain[y * w.w + x]) || 0;   // 0 none, 1 foothill, 2 upper_slope, 3 peak
 
   // all walkable tiles in one component, using the same moves as A* (8-dir, no corner cutting)
   World.landConnected = function (w) {

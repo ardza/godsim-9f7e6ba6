@@ -10,7 +10,7 @@
   Powers.KINDS = ["rain", "warm", "cool", "lightning", "spawn"];
   // step 23 stats: strikes (fires lit, killed, scared), spawned animals by species, prayers answered by a strike / spawn
   Powers.newStats = () => ({ casts: { rain: 0, warm: 0, cool: 0, lightning: 0, spawn: 0 }, putOut: 0, sticksOut: 0, covers: 0, faces: 0, puddleDrinks: 0,
-    strikes: { fires: 0, scorched: 0, killed: 0, scared: 0, babies: 0 }, spawns: { grazer: 0, scavenger: 0, watched: 0, backedAway: 0 }, answered: 0 });
+    strikes: { fires: 0, scorched: 0, killed: 0, scared: 0, babies: 0 }, spawns: { grazer: 0, scavenger: 0, wolves: 0, watched: 0, backedAway: 0 }, answered: 0 });
   Powers.newState = () => ({ effects: [], cd: {}, rs: 0, next: 1, stats: Powers.newStats() });
   Powers.init = function (sim) { sim.powers = Powers.newState(); sim.powers.rs = (sim.seed ^ 0x5A1D0F22) >>> 0; };
   const st = sim => sim.powers || (sim.powers = Object.assign(Powers.newState(), { rs: (sim.seed ^ 0x5A1D0F22) >>> 0 }));
@@ -111,25 +111,45 @@
     return out; };
   Powers.puddleAt = (sim, x, y) => Powers.puddlesNear(sim, x, y, 0).length > 0;
 
-  // nearest rain cover (woods tile, or a cave / overhang tile) within coverTiles by path
-  function coverFor(sim, a) {
-    const R = PC().rain, w = sim.world, t = G.Agent.tilePos(a), SC = G.data.config.shelter, c = [];
-    for (let y = t.y - R.coverTiles; y <= t.y + R.coverTiles; y++) for (let x = t.x - R.coverTiles; x <= t.x + R.coverTiles; x++) {
-      if (!G.World.inb(w, x, y) || !G.World.walkable(w, x, y)) continue; const d = Math.hypot(x - t.x, y - t.y); if (d > R.coverTiles || d === 0) continue;
+  // nearest rain cover (woods tile, or a cave / overhang tile) within `tiles` by path (default coverTiles; long search uses coverTilesLong)
+  function coverFor(sim, a, tiles) {
+    const R = PC().rain, range = tiles != null ? tiles : R.coverTiles, w = sim.world, t = G.Agent.tilePos(a), SC = G.data.config.shelter, c = [];
+    for (let y = t.y - range; y <= t.y + range; y++) for (let x = t.x - range; x <= t.x + range; x++) {
+      if (!G.World.inb(w, x, y) || !G.World.walkable(w, x, y)) continue; const d = Math.hypot(x - t.x, y - t.y); if (d > range || d === 0) continue;
       const sh = G.Shelter && G.Shelter.at(sim, x, y), full = sh ? SC[sh.type] && SC[sh.type].rain >= 1 : G.World.tile(w, x, y) === G.data.T.WOODS;
       if (full && !G.Agent.claimed(sim, a, x, y)) c.push({ x, y, d, sh }); }
     c.sort((p, q) => p.d - q.d || p.y - q.y || p.x - q.x);
-    for (const q of c.slice(0, 6)) { const p = G.World.findPath(w, t.x, t.y, q.x, q.y); if (p) return { p, sh: q.sh }; }
+    for (const q of c.slice(0, 8)) { const p = G.World.findPath(w, t.x, t.y, q.x, q.y); if (p) return { p, sh: q.sh }; }
     return null;
   }
-  // called from Agent.step (after needs): an awake person out in the rain, idle or wandering, may head for cover. True = she is on her way.
+  // 26b: ≥ exposeUrgentAt minutes exposed → cover outranks snacks (Agent.step checks this before snack)
+  Powers.rainUrgent = function (sim, a) {
+    const R = PC().rain; return !!Powers.any(sim) && (a.rainExposedMinutes || 0) >= (R.exposeUrgentAt || 240);
+  };
+  // called from Agent.step (after needs): awake person out in the rain heads for cover. Progressive by rainExposedMinutes (26b).
   Powers.seekCover = function (sim, a, act) {
-    if (!Powers.any(sim) || (act.type !== "idle" && !(act.type === "walk" && act.goal === "wander"))) return false;
-    const R = PC().rain; if ((sim.tick * TM()) % R.checkMinutes !== 0 || Powers.exposure(sim, a) <= 0) return false;
-    if (Powers.roll(sim) >= R.coverChance * (0.5 + (a.traits.coldFear || 0) / 100)) return false;
-    const c = coverFor(sim, a); if (!c) return false;
+    if (!Powers.any(sim) || Powers.exposure(sim, a) <= 0) return false;
+    const R = PC().rain, exposed = a.rainExposedMinutes || 0;
+    const force = exposed >= (R.exposeForceAt || 120), raised = exposed >= (R.exposeRaiseAt || 30), urgent = exposed >= (R.exposeUrgentAt || 240);
+    const idleLike = act.type === "idle" || (act.type === "walk" && act.goal === "wander");
+    const snackLike = act.type === "walk" && (act.goal === "food" || act.goal === "explore");
+    if (!(idleLike || (urgent && snackLike))) return false;
+    const checkEvery = raised ? (R.exposeRaiseCheck || 10) : R.checkMinutes;
+    if (!force && (sim.tick * TM()) % checkEvery !== 0) return false;
+    if (!force) {
+      const chance = raised ? (R.exposeRaiseChance || 0.85) : R.coverChance;
+      if (Powers.roll(sim) >= chance * (0.5 + (a.traits.coldFear || 0) / 100)) return false;
+    }
+    let c = coverFor(sim, a, R.coverTiles);
+    if (!c && (force || raised)) c = coverFor(sim, a, R.coverTilesLong || 16);
+    if (!c) return false;
     a.act = { type: "walk", goal: "cover", path: c.p, i: 0 }; st(sim).stats.covers++;
-    G.Sim.log(sim, a.name + " hurries out of the rain " + (c.sh ? "toward the " + G.Shelter.word(c.sh) : "toward the trees"), a);
+    if ((force || raised) && !a.rainCoverLogged) {
+      a.rainCoverLogged = true;
+      G.Sim.log(sim, a.name + " has been in the rain too long and heads for cover", a);
+    } else {
+      G.Sim.log(sim, a.name + " hurries out of the rain " + (c.sh ? "toward the " + G.Shelter.word(c.sh) : "toward the trees"), a);
+    }
     return true;
   };
   // arrived at cover: waits there while it still rains nearby (up to waitMinutes)
@@ -234,7 +254,8 @@
       if (!best || d < best.d) best = { x: tx, y: ty, d }; }
     return best; };
   Powers.spawnRoom = function (sim, species) { const A = G.data.config.animals; if (sim.animals.length >= G.data.config.pop.maxAnimals) return false;
-    if (species === "grazer" && A.grazer.births && sim.animals.filter(o => o.species === "grazer").length >= A.grazer.births.cap) return false; return true; };
+    if (species === "grazer" && A.grazer.births && sim.animals.filter(o => o.species === "grazer").length >= A.grazer.births.cap) return false;
+    if (species === "wolves" && (sim.animals.filter(o => o.species === "wolves").length >= (A.wolves.packSize && A.wolves.packSize[1] || 5))) return false; return true; };
   Powers.spawn = function (sim, x, y, kind) {
     const C = PC(), SP = C.spawn, S = st(sim), species = SP.kinds[kind]; if (!species) return { ok: false, reason: "unknown animal" };
     if (!G.World.walkable(sim.world, x, y)) return { ok: false, reason: "needs land" };
@@ -247,13 +268,13 @@
     sim.animals.push(c); sim.prev[c.id] = { x: c.pos.x, y: c.pos.y }; S.stats.spawns[species] = (S.stats.spawns[species] || 0) + 1;
     const place = Powers.place(sim, q.x, q.y, 2), e = { id: S.next++, k: "spawn", x: q.x, y: q.y, r: 0, t: sim.tick, place, species, animal: c.id };
     sim.fx.push({ k: "shimmer", x: q.x, y: q.y, t: sim.tick, id: e.id });
-    G.Sim.log(sim, "A " + species + " appears near " + place, c);
+    const lab = (G.Animal.label && G.Animal.label(species)) || species; G.Sim.log(sim, "A " + lab + " appears near " + place, c);
     for (const a of sim.agents) { if (a.act.type === "sleep" || Math.hypot(a.pos.x - q.x, a.pos.y - q.y) > SP.watchTiles) continue;
       const add = Math.max(0, Math.min(100, (a.traits.curiosity || 0) + SP.curiosityAdd) - (a.traits.curiosity || 0)); a.traits.curiosity += add; S.stats.spawns.watched++;
       Powers.curioBoost(sim, a, add);
       const P = SP.predator, scared = kind === "predator" && P && Powers.roll(sim) < Math.max(0, Math.min(1, P.fearChance * (1.5 - a.traits.curiosity / 100)));
-      if (scared) { frighten(sim, a, P.fearAdd, P.fearMinutes); Powers.run(sim, a, q.x, q.y, P.runTiles, P.runMinutes); S.stats.spawns.backedAway++; G.Sim.log(sim, a.name + " stares at the new " + species + " and backs away", [a, c]); }
-      else G.Sim.log(sim, a.name + " stares at the new " + species, [a, c]); }
+      if (scared) { frighten(sim, a, P.fearAdd, P.fearMinutes); Powers.run(sim, a, q.x, q.y, P.runTiles, P.runMinutes); S.stats.spawns.backedAway++; G.Sim.log(sim, a.name + " stares at the new " + ((G.Animal.label && G.Animal.label(species)) || species) + " and backs away", [a, c]); }
+      else G.Sim.log(sim, a.name + " stares at the new " + lab, [a, c]); }
     Powers.answer(sim, q.x, q.y);
     return { ok: true, effect: e, animal: c };
   };

@@ -179,8 +179,15 @@
   // step 24 (v19): a baby dies at once (a carried baby whose carrier was struck, or one lying on the struck tile); same log line and body as a person
   Family.babyDie = function (sim, b, cause) {
     const i = sim.babies.indexOf(b); if (i < 0) return null; sim.babies.splice(i, 1); sim.famStats.babyDeaths++;
-    const vb = (G.data.config.body.causeVerb || {})[cause];
-    G.Sim.log(sim, b.name + " lies still. " + b.name + (vb ? " " + vb + " " : " has died of ") + cause + ".", b, "death");
+    const BC = G.data.config.body || {}, lines = (BC.storyDeathLines || {})[cause];
+    let mid;
+    if (lines && lines.length) mid = " " + lines[((b.id || 0) + (sim.tick || 0)) % lines.length];
+    else {
+      const vb = (BC.causeVerb || {})[cause];
+      mid = typeof vb === "string" && vb.charAt(0) === "=" ? " " + vb.slice(1)
+          : vb ? " " + vb + " " + cause : " has died of " + cause;
+    }
+    G.Sim.log(sim, b.name + " lies still. " + b.name + mid + ".", b, "death");
     const body = G.Body.create(sim, b, cause); body.baby = true; sim.bodies.push(body); return body;
   };
   Family.step = function (sim) {

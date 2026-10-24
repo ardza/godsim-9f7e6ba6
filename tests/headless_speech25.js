@@ -12,7 +12,7 @@ module.exports = function (G, C, ok, h) {
   // config + words + art
   const SC = C.speech, wj = require("fs").readFileSync(require("path").join(__dirname, "../data/words.json"), "utf8");
   const words = JSON.parse(wj);
-  ok(C.saveVersion === 22 && SC && SC.inventDiv === 100 && SC.groupMin === 3 && SC.scoreAt === 40 && SC.meanings.join() === "food,water,warm,danger,follow,stop" &&
+  ok(C.saveVersion === 23 && SC && SC.inventDiv === 100 && SC.groupMin === 3 && SC.scoreAt === 40 && SC.meanings.join() === "food,water,warm,danger,follow,stop" &&
     SC.tokens.length === 5 && SC.tokens.every(t => t.token && t.col && t.action) &&
     G.data.words && G.data.words.meanings && SC.meanings.every(m => (G.data.words.meanings[m] || []).length >= 4) &&
     JSON.stringify(G.data.words.meanings) === JSON.stringify(words.meanings) &&
@@ -139,9 +139,9 @@ module.exports = function (G, C, ok, h) {
     // v20 shape → migrate21 keeps locks
     const o20 = JSON.parse(j); o20.version = 20;
     const m20 = G.Sim.deserialize(o20);
-    ok(JSON.parse(j).version === 22 && locksOk && sig(s) === sig(r) && m.version === 22 && m.speech && m.speech.stats && Object.keys(m.speech.locks).length === 0 &&
+    ok(JSON.parse(j).version === 23 && locksOk && sig(s) === sig(r) && m.version === 23 && m.speech && m.speech.stats && Object.keys(m.speech.locks).length === 0 &&
       m.agents.every(a => !a.words && !a.gesture) && m.wrng && typeof m.wrng.s === "number" && sig(back) === sig(m) &&
-      m20.version === 22 && Object.keys(m20.speech.locks).length === Object.keys(s.speech.locks).length,
+      m20.version === 23 && Object.keys(m20.speech.locks).length === Object.keys(s.speech.locks).length,
       "25 save: v22 keeps speech locks + wrng; v19→v22 empty speech; v20→v22 keeps locks",
       "locks " + Object.keys(s.speech.locks).length + " → after v19 " + Object.keys(m.speech.locks).length + " after v20 " + Object.keys(m20.speech.locks).length);
   });

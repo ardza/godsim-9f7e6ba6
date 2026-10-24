@@ -142,10 +142,10 @@ Starts as soon as 13-15 and the new UI are frozen to godsim-rc, without waiting 
 ## 27. Moods (save v24)
 - Happiness, sadness, anger — push invent, ritual, hunt, banding. Spec: specs/15b-17.md. After 26b.
 
-## 26b. Materials world + predators (save v23)
+## 26b. Materials + predators + mild climate + person-card tabs + People tabs + zero-point + prayer feed (save v23)
 - Per-piece prop jitter + flex, terrain deposits, a mountain mass, reeds on river banks.
 - Spec: bottom of specs/15b-17.md. Starts after 26 freezes; not part of v22.
-- Disease draft moves to save v24; tools draft to v25.
+- Disease draft moves to save v25; tools draft to v26. Person-card tabs fold into 26b/v23 (Commissioner override).
 
 
 ## After step 28 (not ordered yet)

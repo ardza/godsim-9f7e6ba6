@@ -44,8 +44,25 @@
     const v = VERB[k]; return typeof v === "function" ? v(a) : v || k; };
   Faith.formWords = form => form.split("+").map(s => { const [k, x] = s.split(":"); return k === "offer" ? "offer " + x : k === "face" ? "face " + x : k === "raise" ? "raise arms" : k === "still" ? "lie still" : k; }).join(" + ");
   const join = l => l.length < 2 ? l.join("") : l.slice(0, -1).join(", ") + " and " + l[l.length - 1];
-  const STATE = { warmth: "shivering", fullness: "hungry", water: "thirsty", energy: "worn out" };
+  // 26b.8: Story banks for every need why-tag (Commissioner); skip ", why" when same person+need in last 2 game hours. Death lines unchanged.
+  const STATE = {
+    energy: ["tired", "worn out", "weary", "spent"],
+    warmth: ["shivering", "cold", "chilled"],
+    fullness: ["hungry", "empty", "starved"],
+    water: ["thirsty", "parched", "dry"]
+  };
+  const WHY_COOL_H = 2;   // game hours before the same person+need why-tag may repeat
   Faith.line = function (a, acts, why) { return a.name + " " + join(acts.map(s => Faith.verb(a, s))) + (why ? ", " + why : ""); };
+  Faith.whyTag = function (sim, a, need) {
+    if (!need || need === "death") return "";
+    const win = Math.round(WHY_COOL_H * 60 / TM()), L = sim.prayers || [];
+    for (let i = L.length - 1; i >= 0; i--) {
+      const e = L[i]; if (sim.tick - e.t > win) break;
+      if (e.need === need && e.ids && e.ids[0] === a.id) return "";
+    }
+    const w = STATE[need]; if (!w) return "";
+    return Array.isArray(w) ? w[sim.prng.int(0, w.length - 1)] : w;
+  };
   Faith.doing = a => "praying, " + (ING[((a.act.done || a.act.acts) && (a.act.done || a.act.acts)[Math.min((a.act.done || a.act.acts).length - 1, Math.floor(a.act.t / Math.max(1, a.act.per)))] || "").split(":")[0]] || "still");
 
   // ---- the person's choices ----
@@ -136,8 +153,8 @@
     const held = offerable(sim, a), done = acts.filter(s => { const [k, x] = s.split(":"); if (k === "offer") return held === x; if (s === "face:sun") return !G.Agent.isNight(sim.tick); if (s === "face:fire") return fireNear(sim, a); return true; });
     const shown = done.length ? done : ["still"];
     a.act.done = shown;
-    const whyWord = pay.why === "death" ? (a.sawDeath && a.sawDeath.name ? "near where " + a.sawDeath.name + " died" : "") : STATE[pay.why];
-    Faith.feed(sim, a, Faith.line(a, shown, whyWord));
+    const whyWord = pay.why === "death" ? (a.sawDeath && a.sawDeath.name ? "near where " + a.sawDeath.name + " died" : "") : Faith.whyTag(sim, a, pay.why);
+    Faith.feed(sim, a, Faith.line(a, shown, whyWord), pay.why === "death" ? null : pay.why);
     Faith.place(sim, Math.round(a.pos.x), Math.round(a.pos.y));
     Faith.watch(sim, a, pay.form);
     return true;
@@ -169,8 +186,8 @@
     const near = F.places.filter(p => Math.hypot(p.x - x, p.y - y) <= C.spotTiles);
     if (near.length >= C.spotMin) { F.spots.push({ x, y, n: near.length, since: sim.tick, last: sim.tick }); F.places = F.places.filter(p => near.indexOf(p) < 0); }
   };
-  Faith.feed = function (sim, a, text) {
-    const L = sim.prayers || (sim.prayers = []); L.push({ t: sim.tick, text, ids: [a.id], g: a.group == null ? null : a.group });
+  Faith.feed = function (sim, a, text, need) {
+    const L = sim.prayers || (sim.prayers = []); L.push({ t: sim.tick, text, ids: [a.id], g: a.group == null ? null : a.group, need: need || null });
     const m = FC().feedMax; if (L.length > m) L.splice(0, L.length - m);
   };
   // anyone within deathSeenTiles sees it (a sleeper finds the body on waking; the window is a day)

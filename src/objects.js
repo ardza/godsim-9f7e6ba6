@@ -1,5 +1,5 @@
 // Steps 9-10: things on the ground (rock, stick, flint, bone), carrying, the physics of striking/rubbing/cutting, and the Discoveries record.
-// Items are plain objects {id, kind:"item", material, form:"whole"|"shard", x, y, heldBy, props:{hardness, sharpness, dryness, durability}}.
+// Items are plain objects {id, kind:"item", material, form:"whole"|"shard", x, y, heldBy, props:{hardness, sharpness, dryness, durability, flex}}.
 // Placement and every object roll use their own seeded stream sim.orng. Outcomes come only from the property numbers through config.physics.
 (function (G) {
   const CF = () => G.data.config, OC = () => CF().objects, PH = () => CF().physics, M = () => G.data.materials, W = G.World, TM = () => CF().time.tickGameMinutes;
@@ -7,10 +7,17 @@
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v)), r1 = v => Math.round(v * 10) / 10;
 
   // ---------- items ----------
+  // Step 26b: per-piece jitter ±10–20% of type base (hardness/sharpness/dryness/durability) + flex (wider per material).
+  Items.jitterProps = function (material, rng) {
+    const m = M()[material], O = OC(), jp = O.jitterPct || [0.10, 0.20], fj = (O.flexJitter || {})[material] || 5;
+    const j1 = base => { const p = rng.range(jp[0], jp[1]) * (rng.chance(0.5) ? 1 : -1); return clamp(Math.round(base * (1 + p)), 0, 100); };
+    return { hardness: j1(m.hardness), sharpness: j1(m.sharpness), dryness: j1(m.dryness), durability: j1(m.durability),
+      flex: clamp(Math.round((m.flex == null ? 20 : m.flex) + rng.range(-fj, fj)), 0, 100) };
+  };
   Items.create = function (sim, material, x, y, form, props) {
     const m = M()[material];
     return { id: sim.nextId++, kind: "item", material, form: form || "whole", x, y, heldBy: null,
-      props: props || { hardness: m.hardness, sharpness: m.sharpness, dryness: m.dryness, durability: m.durability } };
+      props: props || Items.jitterProps(material, sim.orng || { range: (a, b) => (a + b) / 2, chance: () => false }) };
   };
   Items.props = it => Object.assign({ burns: !!M()[it.material].burns }, it.props);
   Items.sharp = it => !!it && it.props.sharpness >= PH().sharpAt;   // Director (step 17): one shared threshold for every rule
@@ -23,19 +30,58 @@
   Items.held = (sim, a) => a.carry != null ? Items.byId(sim, a.carry) : null;
   Items.at = (sim, x, y) => sim.items.filter(i => !i.heldBy && i.x === x && i.y === y);
 
-  // seeded placement: rocks anywhere on land, sticks on/next to woods, flint within 3 tiles of the river; one per tile
+  // Step 26b deposits by terrain: rocks on hill/mountain slopes (clusters); sticks on woods edges; flint in 1–3 river-bank clusters; reeds on river banks only (never mid-stream).
   Items.populate = function (sim) {
     const w = sim.world, T = G.data.T, rng = sim.orng, O = OC(); sim.items = sim.items || [];
     const near = (x, y, r, t) => { for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (W.inb(w, x + dx, y + dy) && W.tile(w, x + dx, y + dy) === t) return true; return false; };
-    const ok = { any: () => true, woodsEdge: (x, y) => near(x, y, 1, T.WOODS), river: (x, y) => near(x, y, 3, T.RIVER), water: (x, y) => near(x, y, 3, T.RIVER) || near(x, y, 3, T.LAKE) };
+    const isWater = (x, y) => { const t = W.tile(w, x, y); return t === T.RIVER || t === T.LAKE; };
+    // Prefer true river banks (1–2 tile land band); if a map has no river, flint/reed fall back to lake shore. Never mid-stream.
+    const hasRiver = (() => { for (let i = 0; i < w.tiles.length; i++) if (w.tiles[i] === T.RIVER) return true; return false; })();
+    const ok = {
+      slope: (x, y) => W.walkable(w, x, y) && (W.hillAt(w, x, y) || (W.mountainAt && W.mountainAt(w, x, y) > 0)),
+      woodsEdge: (x, y) => W.walkable(w, x, y) && near(x, y, 1, T.WOODS),
+      riverBank: (x, y) => {
+        if (!W.walkable(w, x, y) || isWater(x, y)) return false;
+        if (hasRiver) return near(x, y, 1, T.RIVER) || near(x, y, 2, T.RIVER);
+        return near(x, y, 1, T.LAKE) || near(x, y, 2, T.LAKE);
+      }
+    };
     const used = new Set(sim.agents.map(a => a.pos.x + "," + a.pos.y));
-    for (const mat of ["rock", "stick", "flint"]) { const c = O[mat], cand = [];
-      for (let y = 0; y < w.h; y++) for (let x = 0; x < w.w; x++) if (W.walkable(w, x, y) && ok[c.where](x, y)) cand.push([x, y]);
-      rng.shuffle(cand); let n = 0;
-      for (const [x, y] of cand) { if (n >= c.count) break; if (used.has(x + "," + y)) continue; used.add(x + "," + y); sim.items.push(Items.create(sim, mat, x, y)); n++; } }
-    // step 15b hills: rock clusters on the high ground (the live rock thing; there is no rock tile)
-    const hc = G.data.config.map.hills.rockChance;
-    for (let y = 0; y < w.h; y++) for (let x = 0; x < w.w; x++) if (W.hillAt(w, x, y) && W.walkable(w, x, y) && !used.has(x + "," + y) && rng.chance(hc)) { used.add(x + "," + y); sim.items.push(Items.create(sim, "rock", x, y)); }
+    function placeDeposits(mat) {
+      const c = O[mat]; if (!c || !c.deposits) return;
+      const where = ok[c.where] || (() => false), cand = [];
+      for (let y = 0; y < w.h; y++) for (let x = 0; x < w.w; x++) if (where(x, y)) cand.push([x, y]);
+      if (!cand.length) return;
+      rng.shuffle(cand);
+      const nDep = rng.int(c.deposits[0], c.deposits[1]);
+      const seeds = [];
+      for (const [x, y] of cand) {
+        if (seeds.length >= nDep) break;
+        if (seeds.every(([sx, sy]) => Math.hypot(sx - x, sy - y) >= 5)) seeds.push([x, y]);
+      }
+      if (!seeds.length) seeds.push(cand[0]);
+      for (const [sx, sy] of seeds) {
+        const n = rng.int(c.size[0], c.size[1]);
+        const local = cand.filter(([x, y]) => Math.hypot(x - sx, y - sy) <= 3);
+        rng.shuffle(local);
+        let placed = 0;
+        for (const [x, y] of local) {
+          if (placed >= n) break;
+          const k = x + "," + y; if (used.has(k)) continue;
+          used.add(k); sim.items.push(Items.create(sim, mat, x, y)); placed++;
+        }
+        // if cluster was thin, fill from any remaining candidates near seed
+        if (placed < Math.max(1, Math.floor(c.size[0] / 2))) {
+          for (const [x, y] of cand) {
+            if (placed >= n) break;
+            if (Math.hypot(x - sx, y - sy) > 4) continue;
+            const k = x + "," + y; if (used.has(k)) continue;
+            used.add(k); sim.items.push(Items.create(sim, mat, x, y)); placed++;
+          }
+        }
+      }
+    }
+    for (const mat of ["rock", "stick", "flint", "reed"]) placeDeposits(mat);
   };
 
   // ---------- carrying (one thing at a time) ----------
@@ -63,7 +109,9 @@
       it = Items.create(sim, "bone", b.x, b.y); sim.items.push(it); b.bonesLeft--;
       if (b.bonesLeft <= 0) b.gone = true;   // all its bones are carried off: the skeleton is no longer there as a body
       G.Sim.log(sim, a.name + " picks up a bone from " + b.name + "'s bones", [a, b]);
-    } else { if (it.heldBy || Math.round(a.pos.x) !== it.x || Math.round(a.pos.y) !== it.y) return false; G.Sim.log(sim, a.name + " picks up " + Items.label(it), a); }
+    } else { if (it.heldBy || Math.round(a.pos.x) !== it.x || Math.round(a.pos.y) !== it.y) return false; G.Sim.log(sim, a.name + " picks up " + Items.label(it), a);
+      if (it.material === "reed") { const d = Discoveries.note(sim, a, "pickup", ["reed"], "reed in hand"); if (d) d.title = "First reed"; }
+    }
     it.heldBy = a.id; a.carry = it.id; a.carryUntil = sim.tick + sim.orng.int(OC().carry[0], OC().carry[1]); if (it.lit) { a.carryUntil = it.lit + 1; it.lastBy = a.id; it.lastByName = a.name; if (sim.fireStats) { sim.fireStats.brandPickups = (sim.fireStats.brandPickups || 0) + 1; if (it.bolt) sim.fireStats.boltPickups = (sim.fireStats.boltPickups || 0) + 1; }
       const d = Discoveries.note(sim, a, "carried", ["burning stick"], "fire in hand"); if (d) d.title = "First lit stick carried"; }   /* step 23: the first carry of a lit stick, from the data */   /* step 19: a burning stick is kept until it burns out */ a.stats.pickups = (a.stats.pickups || 0) + 1;
     return true;
@@ -129,7 +177,7 @@
     const hl = Items.matLabel(it), tl = Items.matLabel(t), o = Physics.outcome(act.action, hp, tp, sim.orng);
     const st = sim.physStats || (sim.physStats = { tries: 0, byAction: {}, sparks: 0, shards: 0, breaks: 0, results: {} });
     st.tries++; st.byAction[act.action] = (st.byAction[act.action] || 0) + 1;
-    const apply = (item, np) => { item.props = { hardness: np.hardness, sharpness: np.sharpness, dryness: np.dryness, durability: np.durability }; if (np.whole === false) item.form = "shard"; };
+    const apply = (item, np) => { item.props = { hardness: np.hardness, sharpness: np.sharpness, dryness: np.dryness, durability: np.durability, flex: item.props.flex != null ? item.props.flex : (M()[item.material].flex || 0) }; if (np.whole === false) item.form = "shard"; };
     apply(it, o.held); apply(t, o.target);
     const verb = { strike: "strikes", rub: "rubs", cut: "cuts at" }[act.action], combo = act.action === "cut" ? verb + " " + tl + " with " + hl : verb + " " + hl + " on " + tl;
     if (o.results.length) {

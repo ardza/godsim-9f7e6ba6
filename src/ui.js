@@ -7,6 +7,7 @@
   const LC = () => G.data.config.log, ZC = () => G.data.config.render.zoom;
   const kindOf = text => { for (const k of LC().kinds || []) if (new RegExp(k.match, "i").test(text)) return k.kind; return "info"; };
   UI.tab = "all";
+  UI.personTab = "needs";   // 26b: person card tab (Needs / Mind / Kin / Knows); session only
   const waterKnown = a => { const k = [...new Set(Object.values(a.knowledge.water || {}))].sort(); return k.length ? "the " + k.join(" and the ") : "no water yet"; };
   const inTab = text => { const T = LC().tabs || [], t = T.find(x => x.key === UI.tab); if (!t) return true;
     if (t.rest) return (t.also && new RegExp(t.also, "i").test(text)) || !T.some(x => x.match && new RegExp(x.match, "i").test(text)); // "rest" tab: lines no other tab claims
@@ -197,6 +198,10 @@
     // v19: Find on the card; a person's name in the Log opens their card (same delegation: the log is rebuilt as lines arrive)
     const findLink = e => { const b = e.target.closest && e.target.closest("[data-find]"); if (!b) return; e.preventDefault(); UI.find(app, +b.dataset.find); };
     $("info-body").addEventListener("pointerup", findLink); $("info-body").addEventListener("click", e => { if (e.detail === 0) findLink(e); });
+    // 26b: person-card tabs (Needs / Mind / Kin / Knows)
+    const personTabLink = e => { const b = e.target.closest && e.target.closest("[data-ptab]"); if (!b) return; e.preventDefault();
+      const k = b.getAttribute("data-ptab"); if (!k || k === UI.personTab) return; UI.personTab = k; UI._personCardKey = null; UI.update(app); };
+    $("info-body").addEventListener("pointerup", personTabLink); $("info-body").addEventListener("click", e => { if (e.detail === 0) personTabLink(e); });
     $("log").addEventListener("pointerup", selLink); $("log").addEventListener("click", e => { if (e.detail === 0) selLink(e); });
     $("seed").addEventListener("keydown", e => { if (e.key === "Enter") app.newWorld($("seed").value); e.stopPropagation(); });
     $("info-close").onclick = () => app.select(null);
@@ -309,14 +314,16 @@
       const prop = (k, tip) => '<div class="row" title="' + tip + '"><span>' + k + '</span>' + bar(P[k], 100, "trait") + '<b>' + Math.round(P[k]) + '/100</b></div>';
       $("info-body").innerHTML = '<h3>' + esc(G.Items.matLabel(it).replace(/^./, ch => ch.toUpperCase())) + '</h3><div class="sub">' + (it.form === "shard" ? "a broken piece" : "whole") + ' · ' + (holder ? 'carried by ' + esc(holder.name) : 'on the ground') + (P.burns ? ' · burns' : '') + '</div>' +
         '<div class="sec">Properties (0-100)</div>' + prop("hardness", "harder things break softer ones; hard on hard can spark") + prop("sharpness", "a keen edge can cut") +
-        prop("dryness", "dry things catch a spark") + prop("durability", "how much wear and striking it takes") +
+        prop("dryness", "dry things catch a spark") + prop("durability", "how much wear and striking it takes") + prop("flex", "how much it bends (sticks and reeds high, rocks near 0)") +
         (it.material === "meat" ? '<div class="sec">Food</div><div class="sub">' + G.Cook.of(it) + ' · ' + (sim.tick < it.spoilAt ? 'fresh for ' + Math.max(1, Math.round((it.spoilAt - sim.tick) * G.data.config.time.tickGameMinutes / 60)) + ' h more · +' + G.Cook.fullness(it) + ' fullness' : 'spoiled') + '</div><div class="sub">heat: ' + Math.round(it.heat || 0) + ' min by a fire (cooked at ' + G.data.config.cook.cookedAt + ', charred after ' + G.data.config.cook.charredAt + ')</div>' : '');
     } else if (an) {
       const S = G.data.config.animals[an.species], f = an.needs.fullness, low = an.species === "grazer" ? S.fullness.grazeBelow : S.fullness.feedBelow, np = G.Animal.nearestPerson(sim, an.pos.x, an.pos.y);
-      $("info-body").innerHTML = '<h3>' + esc(G.Animal.name(an)) + '</h3><div class="sub">' + (an.species === "grazer" ? "grazes on meadow" : "eats the flesh of bodies") + ' · ' + G.Animal.doing(an) + '</div>' +
+      const sub = an.species === "grazer" ? "grazes on meadow" : an.species === "wolves" ? "pack hunter · den territory" : "scavenges bodies · hunts deer when hungry";
+      const beh = an.species === "wolves" ? "Threatens people only inside pack territory (" + S.territory + " tiles of den)" : ("Flees any person within " + S.fleeWithin + " tiles" + (an.species === "scavenger" ? "; prefers a body within " + (S.corpsePreferTiles || S.noticeTiles) + " tiles; hunts deer when fullness under " + ((S.huntDeer && S.huntDeer.fullnessBelow) || 40) : ""));
+      $("info-body").innerHTML = '<h3>' + esc(G.Animal.name(an)) + '</h3><div class="sub">' + sub + ' · ' + G.Animal.doing(an) + '</div>' +
         '<div class="sec">Needs (0-100, full = good)</div>' +
         need("Fullness", f, f < low ? "hot" : "", f <= 0 ? "starving" : f < low ? "hungry" : "fed", (an.species === "grazer" ? "grazes" : "feeds") + " below " + low) +
-        '<div class="sec">Behaviour</div><div class="sub">Flees any person within ' + S.fleeWithin + ' tiles' + (an.species === "scavenger" ? '; notices a body within ' + S.noticeTiles + ' tiles' : '') + '</div>' +
+        '<div class="sec">Behaviour</div><div class="sub">' + beh + '</div>' +
         '<div class="sub">nearest person ' + (np.p ? np.d.toFixed(1) + ' tiles' : 'none') + ' · fled ' + an.stats.flees + ' time' + (an.stats.flees === 1 ? "" : "s") + ' · ' + an.stats.meals + ' meal' + (an.stats.meals === 1 ? "" : "s") + '</div>';
     } else if (bd) {
       const BC = G.data.config.body, ago = sim.tick - bd.diedAt, days = Math.floor(ago / 1440), hrs = Math.floor(ago % 1440 / 60);
@@ -328,8 +335,8 @@
         '<div class="sub">' + G.Time.stamp(bd.diedAt) + ' · ' + (days ? days + ' d ' : '') + hrs + ' h ago</div>' +
         (bd.stage === "bones"
           ? '<div class="sec">Object</div><div class="sub">material: ' + esc(bd.material) + '</div>' + need("Condition", bd.condition, "trait", "weathering", "100 = new bones; weathers to 0 over " + BC.bonesWeatherYears + " years")
-          : '<div class="sec">Decay</div>' + need("Flesh", bd.flesh, bd.stage === "rotting" ? "hot" : "", bd.stage, "fresh for " + BC.freshMinutes / 60 + " h, then rots away over " + BC.rotMinutes / 1440 + " days (sooner when scavengers feed)") +
-            '<div class="sub">' + (bd.scavenged ? 'scavengers have fed here' : 'untouched by scavengers') + '</div>');
+          : '<div class="sec">Decay</div>' + need("Flesh", bd.flesh, bd.stage === "rotting" ? "hot" : "", bd.stage, "fresh for " + BC.freshMinutes / 60 + " h, then rots away over " + BC.rotMinutes / 1440 + " days (sooner when wild dogs feed)") +
+            '<div class="sub">' + (bd.scavenged ? 'wild dogs have fed here' : 'untouched by scavengers') + '</div>');
     }
     if (bb) {
       const c = bb.orphanAt == null && sim.agents.find(q => q.id === bb.carrier), days = Math.floor((sim.tick - bb.bornAt) * G.data.config.time.tickGameMinutes / 1440), n = bb.needs;
@@ -346,21 +353,35 @@
     }
     if (a) {
       const A = G.Agent, PC = G.data.config.person, known = Object.keys(a.knowledge.bushes).length, n = a.needs;
-      $("info-body").innerHTML = findBtn(a) + '<h3 class="hasfind">' + esc(a.name) + '</h3><div class="sub">' + Math.floor(a.age) + ' years · <span class="stage">' + G.Family.stageWord(a) + '</span> · ' + A.doing(a) + '</div>' +
+      const tabs = (UC().personTabs || [
+        { key: "needs", label: "Needs" }, { key: "mind", label: "Mind" }, { key: "kin", label: "Kin" }, { key: "knows", label: "Knows" }
+      ]);
+      if (!tabs.some(x => x.key === UI.personTab)) UI.personTab = "needs";
+      const tabBar = '<div class="pcard-tabs" role="tablist" aria-label="person sections">' +
+        tabs.map(x => '<button type="button" role="tab" class="pcard-tab' + (UI.personTab === x.key ? " on" : "") +
+          '" data-ptab="' + x.key + '" aria-selected="' + (UI.personTab === x.key) + '" id="pcard-tab-' + x.key + '">' + esc(x.label) + '</button>').join("") + '</div>';
+      const needsPane =
         '<div class="sec">Needs (0-100, full = good)</div>' +
-        need("Fullness", n.fullness, n.fullness < A.fullnessThreshold(a) ? "hot" : "", A.fullnessWord(n.fullness), "100 = stuffed, " + PC.fullness.mealFillTo + " = full after a meal; eats below " + A.fullnessThreshold(a) + "; 0 = starving") +
-        need("Water", n.water, n.water < A.waterThreshold(a) ? "hot" : "water", A.waterWord(n.water), "100 = just drank; drinks below " + A.waterThreshold(a) + "; 0 = parched") +
-        need("Energy", n.energy, n.energy < 25 ? "hot" : "energy", A.energyWord(n.energy), "100 = rested (" + PC.energy.restedAt + "+ reads rested); sleeps after dusk under " + PC.energy.sleepBelow) +
-        need("Warmth", n.warmth, n.warmth < 30 ? "hot" : "warm", A.warmthWord(n.warmth), "100 = warm; seeks shelter or company below " + Math.round(A.warmthSeekBelow(a)) + "; a full day at 0 is fatal" + (a.felt ?  " · feels like " + G.Time.tempF(a.felt.c) + (a.felt.sheltered ? ", under trees" : "") + (a.felt.huddle ? ", huddled with " + a.felt.huddle : "") + (a.felt.bond ? ", close to " + esc(a.felt.bond) : "") + (a.felt.heat ? ", fire nearby" : "") : "")) +
-        (a.zero && (a.zero.water > 0 || a.zero.fullness > 0 || a.zero.warmth > 0) ? '<div class="sub hot">' + [a.zero.water > 0 ? 'no water for ' + (a.zero.water / 60).toFixed(1) + ' h' : '', a.zero.fullness > 0 ? 'no food for ' + (a.zero.fullness / 60).toFixed(1) + ' h' : '', a.zero.warmth > 0 ? 'freezing for ' + (a.zero.warmth / 60).toFixed(1) + ' h' : ''].filter(Boolean).join(' · ') + '</div>' : '') +
+        need("Fullness", n.fullness, n.fullness < A.fullnessThreshold(a) ? "hot" : "", A.fullnessWord(n.fullness), "100 = stuffed, " + PC.fullness.mealFillTo + " = full after a meal; eats below " + A.fullnessThreshold(a) + "; 0 = starving (food fills Fullness only)") +
+        need("Water", n.water, n.water < A.waterThreshold(a) ? "hot" : "water", A.waterWord(n.water), "100 = just drank; drinks below " + A.waterThreshold(a) + "; 0 = dehydrated") +
+        need("Energy", n.energy, n.energy < 25 ? "hot" : "energy", A.energyWord(n.energy), "100 = rested (" + PC.energy.restedAt + "+); sleeps after dusk under " + PC.energy.sleepBelow + "; 0 = sleep-deprived (collapse → forced sleep; confusion → hallucinations; dies after 5 days at 0); refill from sleep only, food never fills Energy") +
+        need("Warmth", n.warmth, n.warmth < 30 ? "hot" : "warm", A.warmthWord(n.warmth), "100 = warm; seeks shelter below " + Math.round(A.warmthSeekBelow(a)) + "; 0 = hypothermia (shivering→stumbling→moving slow→nodding off→collapsed; dies after 3 days at 0)" + (a.felt ?  " · feels like " + G.Time.tempF(a.felt.c) + (a.felt.sheltered ? ", under trees" : "") + (a.felt.huddle ? ", huddled with " + a.felt.huddle : "") + (a.felt.bond ? ", close to " + esc(a.felt.bond) : "") + (a.felt.heat ? ", fire nearby" : "") : "")) +
+        (a.zero && (a.zero.water > 0 || a.zero.fullness > 0 || a.zero.warmth > 0 || a.zero.energy > 0) ? '<div class="sub hot">' + [a.zero.water > 0 ? 'no water for ' + (a.zero.water / 60).toFixed(1) + ' h' : '', a.zero.fullness > 0 ? 'no food for ' + (a.zero.fullness / 60).toFixed(1) + ' h' : '', a.zero.energy > 0 ? 'no sleep for ' + (a.zero.energy / 60).toFixed(1) + ' h' : '', a.zero.warmth > 0 ? 'hypothermia for ' + (a.zero.warmth / 60).toFixed(1) + ' h' + (a.hypo ? ' (stage ' + a.hypo + ')' : '') : ''].filter(Boolean).join(' · ') + '</div>' : '') +
         (a.act.type === "sleep" ? '<div class="sub">asleep since ' + G.Time.hhmm(G.Time.at(a.act.since)) + '</div>' : '') +
+        '<div class="sub">' + a.stats.meals + ' meal' + (a.stats.meals === 1 ? "" : "s") + ' · ' + (a.stats.drinks || 0) + ' drink' + (a.stats.drinks === 1 ? "" : "s") + ' · ' + (a.stats.sleeps || 0) + ' sleep' + (a.stats.sleeps === 1 ? "" : "s") + '</div>';
+      const mindPane =
         '<div class="sec">Experience (0-100, ' + G.data.config.learn.start + ' = untried)</div>' + expRows(sim, a) + learnedRow(sim, a) +
         '<div class="sec">Traits (0-100, 50 = avg' + (a.inh ? '; ▲▼ vs parents' : '') + ')</div>' + traitRows(a) +
-        prayRows(a) + speechRows(sim, a) + familyRows(sim, a) + relRows(sim, a) +
+        speechRows(sim, a) + prayRows(a);
+      const kinPane = familyRows(sim, a) + relRows(sim, a);
+      const knowsPane =
         '<div class="sec">Knows</div><div class="chips">' + chip(known + ' berry bush' + (known === 1 ? "" : "es")) + chip(waterKnown(a)) + chip('Known shelters: ' + (a.shelters || []).length) +
           chip('carrying ' + (G.Items.held(sim, a) ? esc(G.Items.label(G.Items.held(sim, a))) : 'nothing')) +
-          (sim.discoveries || []).filter(d => d.who === a.name).map(d => chip(esc(d.action + " " + d.materials.slice(0, 2).join(" / ") + " → " + d.result), "disc")).join("") + '</div>' +
-        '<div class="sub">' + a.stats.meals + ' meal' + (a.stats.meals === 1 ? "" : "s") + ' · ' + (a.stats.drinks || 0) + ' drink' + (a.stats.drinks === 1 ? "" : "s") + ' · ' + (a.stats.sleeps || 0) + ' sleep' + (a.stats.sleeps === 1 ? "" : "s") + '</div>';
+          (sim.discoveries || []).filter(d => d.who === a.name).map(d => chip(esc(d.action + " " + d.materials.slice(0, 2).join(" / ") + " → " + d.result), "disc")).join("") + '</div>';
+      const pane = UI.personTab === "mind" ? mindPane : UI.personTab === "kin" ? kinPane : UI.personTab === "knows" ? knowsPane : needsPane;
+      // header + Find always outside tabs; personal log stays under #info-body (plog siblings)
+      $("info-body").innerHTML = findBtn(a) + '<h3 class="hasfind">' + esc(a.name) + '</h3><div class="sub">' + Math.floor(a.age) + ' years · <span class="stage">' + G.Family.stageWord(a) + '</span> · ' + A.doing(a) + '</div>' +
+        tabBar + '<div class="pcard-pane" role="tabpanel" aria-labelledby="pcard-tab-' + UI.personTab + '">' + pane + '</div>';
     }
     plogRender(sim, a ? a.id : bd ? bd.of : bb ? bb.id : null, a ? a.name : bd ? bd.name : bb ? bb.name : null);
     const last = sim.log[sim.log.length - 1], key = UI.tab + "|" + sim.log.length + "|" + (last && last.t) + "|" + (last && last.text);
@@ -414,25 +435,29 @@
       D.slice().reverse().map(d => '<tr><td>' + d.n + '</td><td>' + G.Time.stamp(d.tick) + '</td><td>' + esc(d.who || "-") + '</td><td>' + esc((d.title ? d.title + ": " : "") + d.action + " " + d.materials[0] + (d.materials[1] ? " on " + d.materials[1] : "") + (d.materials[2] ? ", over " + d.materials[2] : "")) + '</td><td>' + esc(d.result) + '</td><td>' + (esc(d.group) || '<span class="blank">-</span>') + '</td></tr>').join("") +
       '</tbody></table>' : '<div class="empty">Nothing discovered yet.</div>');
   };
-  // ---- People tab (step 21b): everyone alive, one row each (tap = their card + the map centred on them); the dead in a collapsed list ----
-  UI.peopleSort = { k: "name", dir: 1 };
+  // ---- People tab (26b/v23): All + one tab per formed group; auto-sort oldest → youngest; no name/age sort picker; dead collapsed ----
+  UI.peopleFilter = "all";   // "all" or a group id
   UI.panelRender.people = function (app, el, force) {
     const sim = app.sim, now = Date.now();
-    if (!force && el._t && now - el._t < 1000 && el._seed === sim.seed) return;   // live, at most once per real second
-    el._t = now; el._seed = sim.seed;
-    const S = UI.peopleSort, A = G.Agent, rows = sim.agents.slice();
-    rows.sort((p, q) => (S.k === "age" ? p.age - q.age : p.name.localeCompare(q.name)) * S.dir || p.id - q.id);
+    if (!force && el._t && now - el._t < 1000 && el._seed === sim.seed && el._pf === UI.peopleFilter) return;   // live, at most once per real second
+    el._t = now; el._seed = sim.seed; el._pf = UI.peopleFilter;
+    const A = G.Agent, S = G.Social, groups = (sim.groups || []).slice().sort((p, q) => p.id - q.id);
+    if (UI.peopleFilter !== "all" && !groups.some(g => g.id === UI.peopleFilter)) UI.peopleFilter = "all";
+    let rows = sim.agents.slice();
+    if (UI.peopleFilter !== "all") rows = rows.filter(a => a.group === UI.peopleFilter);
+    rows.sort((p, q) => q.age - p.age || p.id - q.id);   // oldest → youngest (youngest at bottom)
     const meter = (cls, v, ic) => { const lo = v < 50; return '<span class="pm' + (lo ? ' low' : '') + '">' + ic + bar(v, 100, lo ? "hot" : cls) + '<b>' + Math.round(v) + '</b></span>'; };
-    const arrow = k => S.k === k ? (S.dir > 0 ? " \u25B2" : " \u25BC") : "";
     const dead = (sim.bodies || []).filter(b => !b.species).slice().sort((p, q) => q.diedAt - p.diedAt);
     const sx = a => a.sex === "f" ? "F" : a.sex === "m" ? "M" : "-";
-    el.innerHTML = '<div class="sec">People <span class="sub">' + rows.length + ' alive</span></div>' +
-      '<div class="psort" role="group" aria-label="sort"><button data-ps="name" class="' + (S.k === "name" ? "on" : "") + '">Name' + arrow("name") + '</button><button data-ps="age" class="' + (S.k === "age" ? "on" : "") + '">Age' + arrow("age") + '</button></div>' +
-      '<div class="plist">' + rows.map(a => '<button class="prow" data-pid="' + a.id + '"><span class="pn">' + esc(a.name) + '</span><span class="pa">' + Math.floor(a.age) + ' y · ' + sx(a) + ' · ' + G.Family.stageWord(a) + '</span>' +
-        '<span class="pms">' + meter("", a.needs.fullness, '<span class="pl">Fullness</span>') + meter("water", a.needs.water, '<span class="pl">Water</span>') + meter("warm", a.needs.warmth, '<span class="pl">Warmth</span>') + '</span></button>').join("") + '</div>' +
+    const tab = (key, label) => '<button type="button" role="tab" class="peop-tab' + (UI.peopleFilter === key ? " on" : "") + '" data-pf="' + key + '" aria-selected="' + (UI.peopleFilter === key) + '">' + esc(label) + '</button>';
+    const tabs = '<div class="peop-tabs" role="tablist" aria-label="people groups">' + tab("all", "All") +
+      groups.map(g => tab(g.id, (S && S.groupName ? S.groupName(sim, g) : ("Group " + g.id)))).join("") + '</div>';
+    el.innerHTML = '<div class="sec">People <span class="sub">' + rows.length + (UI.peopleFilter === "all" ? " alive" : " in group") + '</span></div>' + tabs +
+      '<div class="plist">' + (rows.length ? rows.map(a => '<button class="prow" data-pid="' + a.id + '"><span class="pn">' + esc(a.name) + '</span><span class="pa">' + Math.floor(a.age) + ' y · ' + sx(a) + ' · ' + G.Family.stageWord(a) + '</span>' +
+        '<span class="pms">' + meter("", a.needs.fullness, '<span class="pl">Fullness</span>') + meter("water", a.needs.water, '<span class="pl">Water</span>') + meter("energy", a.needs.energy, '<span class="pl">Energy</span>') + meter("warm", a.needs.warmth, '<span class="pl">Warmth</span>') + '</span></button>').join("") : '<div class="empty">No one here.</div>') + '</div>' +
       '<details class="pdead"' + (UI.peopleDeadOpen ? " open" : "") + '><summary>Dead (' + dead.length + ')</summary>' +
         (dead.length ? dead.map(b => '<div class="drow"><span class="pn">' + esc(b.name) + '</span><span>' + (b.age != null ? b.age + ' y' : '') + '</span><span>' + esc(b.cause || "") + '</span></div>').join("") : '<div class="empty">No one has died.</div>') + '</details>';
-    el.querySelectorAll("button[data-ps]").forEach(b => b.onclick = () => { const k = b.getAttribute("data-ps"); if (S.k === k) S.dir = -S.dir; else { S.k = k; S.dir = 1; } UI.panelRender.people(app, el, true); });
+    el.querySelectorAll("button[data-pf]").forEach(b => b.onclick = () => { const v = b.getAttribute("data-pf"); UI.peopleFilter = v === "all" ? "all" : +v; UI.panelRender.people(app, el, true); });
     el.querySelectorAll("button[data-pid]").forEach(b => b.onclick = () => { const id = +b.getAttribute("data-pid"), a = sim.agents.find(q => q.id === id); if (!a) return;
       G.Render.centerOn(Math.round(a.pos.x), Math.round(a.pos.y), UC().peopleZoom || 2); app.select(id); });
     const d = el.querySelector("details.pdead"); if (d) d.ontoggle = () => { UI.peopleDeadOpen = d.open; };

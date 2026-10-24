@@ -32,7 +32,7 @@ module.exports = function (G, C, ok, h) {
 
   // ---- config / art / modules ----
   const Cc = C.corpse, art = G.data.art, L = C.powers.lightning;
-  ok(C.saveVersion === 22 && Co && typeof Co.maybe === "function" && typeof Cl.warmthEq === "function" &&
+  ok(C.saveVersion === 23 && Co && typeof Co.maybe === "function" && typeof Cl.warmthEq === "function" &&
     Cc && Cc.dragMaxTiles === 8 && Cc.foundersFear.join() === "40,70" && Cc.ritualFaithMin === 50 &&
     L.modes.barrage.scatterTiles === 4 && L.modes.barrage.count.join() === "2,3" &&
     art.burial && art.burial.cols.join() === "mound_fresh,mound_settled,cairn,dug" &&
@@ -233,7 +233,7 @@ module.exports = function (G, C, ok, h) {
     for (const a of o.agents) if (a.traits) delete a.traits.corpseFear;
     const m = G.Sim.deserialize(o);
     const fears = m.agents.map(a => a.traits.corpseFear);
-    ok(JSON.parse(j).version === 22 && sig(s) === sig(r) && m.version === 22 && m.crng && m.corpseStats &&
+    ok(JSON.parse(j).version === 23 && sig(s) === sig(r) && m.version === 23 && m.crng && m.corpseStats &&
       fears.every(f => Number.isInteger(f) && f >= 40 && f <= 70) &&
       r.agents.every(a => a.traits.corpseFear != null),
       "26 save: v22 round-trip; v21→v22 seeds corpseFear + crng + corpseStats",

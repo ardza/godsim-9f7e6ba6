@@ -15,7 +15,8 @@
       needs: { fullness: r2(rng.range(p.fullness.start[0], p.fullness.start[1])), water: r2(rng.range(p.water.start[0], p.water.start[1])), energy: r2(rng.range(p.energy.start[0], p.energy.start[1])), warmth: r2(rng.range(p.warmth.start[0], p.warmth.start[1])) },
       traits, knowledge: { bushes: {}, water: {} }, relations: {}, exp: {},   // exp: step 13-14 experience scores per action (see learn.js)
       act: { type: "idle", until: 0 }, stats: { meals: 0, drinks: 0, sleeps: 0 }, carry: null,   // carry = id of the one thing in hand
-      zero: { water: 0, fullness: 0, warmth: 0 }   // game minutes in a row at water / fullness / warmth 0 (death after a day / a week / a day)
+      zero: { water: 0, fullness: 0, warmth: 0, energy: 0 },   // minutes in a row at 0 (water/fullness/warmth/energy clocks; warmth & energy kill only after full stage ladders)
+      hypo: 0, rainExposedMinutes: 0
     };
   };
 
@@ -28,11 +29,11 @@
   Agent.waterThreshold = a => P().water.threshold;
   // state words for the panel
   Agent.fullnessWord = v => { const f = P().fullness; return v <= 0 ? "starving" : v < f.threshold ? "hungry" : v < f.mealFillTo ? "fed" : v <= f.mealFillTo + 1e-9 ? "full" : "overfull"; };
-  Agent.energyWord = v => { const E = P().energy; return v <= 0 ? "exhausted" : v < E.sleepBelow ? "tired" : v < E.restedAt ? "fine" : "rested"; };
-  Agent.warmthWord = v => v <= 0 ? "freezing" : v < 30 ? "cold" : v < 60 ? "chilly" : "warm";
+  Agent.energyWord = v => { const E = P().energy; return v <= 0 ? "sleep-deprived" : v < E.sleepBelow ? "tired" : v < E.restedAt ? "fine" : "rested"; };
+  Agent.warmthWord = v => v <= 0 ? "hypothermic" : v < 30 ? "cold" : v < 60 ? "chilly" : "warm";
   // seeks shelter / company below this warmth (cold-fear trait)
   Agent.warmthSeekBelow = a => P().warmth.seekBelow + a.traits.coldFear * P().warmth.seekPerFear;
-  Agent.waterWord = v => v <= 0 ? "parched" : v < P().water.threshold ? "thirsty" : "watered";
+  Agent.waterWord = v => v <= 0 ? "dehydrated" : v < P().water.threshold ? "thirsty" : "watered";
   Agent.energyDrainPerTick = a => 100 / P().energy.drainMinutes * G.data.config.time.tickGameMinutes;
   Agent.energyRefillPerTick = a => 100 / P().energy.refillMinutes * G.data.config.time.tickGameMinutes;
   // after dusk = nightFrom .. dawnAt (minute of day)
@@ -43,11 +44,15 @@
   Agent.coldNight = (sim, a) => { const W = P().warmth; if (W.nightFirstBelow == null || !Agent.isNight(sim.tick) || G.Climate.seasonIndex(sim.tick) !== W.gatherSeason) return false;
     const night = G.Time.at(sim.tick + 720).day; if (a.coldNightOf === night) return true;
     if (a.needs.warmth < W.nightFirstBelow) { a.coldNightOf = night; return true; } return false; };
-  Agent.minutesPerTile = a => P().walkMinutesPerTile / (0.5 + a.traits.speed / 100);
+  Agent.minutesPerTile = a => {
+    let m = P().walkMinutesPerTile / (0.5 + a.traits.speed / 100);
+    const H = P().hypothermia; if (H && a.hypo >= 3) m /= H.moveX;   // clumsiness+: move speed × moveX
+    return m;
+  };
   Agent.sight = a => P().sightTiles;
   Agent.tilePos = a => ({ x: Math.round(a.pos.x), y: Math.round(a.pos.y) });
   Agent.doing = a => a.act.type === "pray" ? G.Faith.doing(a) : (a.act.type === "idle" || a.act.type === "sleep") && a.felt && a.felt.huddle && a.needs.warmth < 60 ? (a.act.type === "sleep" ? "asleep, huddled" : "huddling") :
-    ({ idle: "resting", try: ({ strike: "striking", rub: "rubbing", cut: "cutting" })[a.act.action] || "trying", eat: "eating a meal", eatMeat: "eating meat", eatCorpse: "eating from a body", dig: "digging", cook: "holding meat to the fire", drink: "drinking", sleep: "asleep" })[a.act.type] || ({ wander: "wandering", food: "going to a bush", explore: "looking for food", water: "going to the water", exploreWater: "looking for water", collapse: "stumbling to a stop", pickup: "going to pick something up", try: "going to try something", shelter: "seeking warmth", fleeFire: "moving away from flames", fireside: "going to sit by the fire", burnt: "jumping back from the flames", hunt: "going after a grazer", meat: "going to a carcass", corpse: "going to a body", drag: "dragging a body", follow: "keeping close to someone", mate: "going to sleep beside a partner", keep: "keeping close to family", prayspot: "going to a prayer spot", beside: "going to sleep beside family", avoid: "keeping away from someone", scared: "running from the flash" })[a.act.goal] || a.act.type;
+    a.hypoUnconscious ? "unconscious from cold" : a.hypo >= 4 && a.needs.warmth <= 0 && a.act.type === "sleep" ? "asleep from cold" : ({ idle: "resting", try: ({ strike: "striking", rub: "rubbing", cut: "cutting" })[a.act.action] || "trying", eat: "eating a meal", eatMeat: "eating meat", eatCorpse: "eating from a body", dig: "digging", cook: "holding meat to the fire", drink: "drinking", sleep: "asleep" })[a.act.type] || ({ wander: "wandering", food: "going to a bush", explore: "looking for food", water: "going to the water", exploreWater: "looking for water", collapse: "stumbling to a stop", pickup: "going to pick something up", try: "going to try something", shelter: "seeking warmth", fleeFire: "moving away from flames", fireside: "going to sit by the fire", burnt: "jumping back from the flames", hunt: "going after a deer", meat: "going to a carcass", corpse: "going to a body", drag: "dragging a body", follow: "keeping close to someone", mate: "going to sleep beside a partner", keep: "keeping close to family", prayspot: "going to a prayer spot", beside: "going to sleep beside family", avoid: "keeping away from someone", scared: "running from the flash" })[a.act.goal] || a.act.type;
 
   // Two people never end a move on the same tile: each person claims one tile (where they stand, or the end of their path),
   // and nobody picks a destination someone else has claimed. Passing through is fine.
@@ -398,9 +403,33 @@
     }
   }
 
-  // Why this person dies now (null = alive): a full day at water 0, a full day at warmth 0, a week at fullness 0, or reaching their lifespan. Energy never kills.
+  // Why this person dies now (null = alive): day at water 0, week at fullness 0,
+  // warmth after full hypo ladder at warmthZeroMinutes (3d) → cause "cold",
+  // energy after sleep-dep ladder at energyZeroMinutes (5d) → cause "exhaustion", or lifespan.
+  // Story death log lines (via body.causeVerb "="): cold → froze / didn't wake from the cold; exhaustion → never woke / worn down to nothing.
   Agent.deathCause = a => { const D = P().death, z = a.zero || {};
-    if (z.water >= D.waterZeroMinutes) return "thirst"; if (z.warmth >= D.warmthZeroMinutes) return "cold"; if (z.fullness >= D.fullnessZeroMinutes) return "hunger"; if (a.age >= a.lifespan) return "old age"; return null; };
+    if (z.water >= D.waterZeroMinutes) return "thirst";
+    if (z.fullness >= D.fullnessZeroMinutes) return "hunger";
+    // warmth: only after full hypo ladder (past unconsciousAt) AND warmthZeroMinutes
+    if (D.warmthZeroMinutes != null && (z.warmth || 0) >= D.warmthZeroMinutes) {
+      const H = P().hypothermia;
+      if (!H || (z.warmth || 0) >= (H.unconsciousAt || 0)) return "cold";
+    }
+    if (D.energyZeroMinutes != null && (z.energy || 0) >= D.energyZeroMinutes) return "exhaustion";
+    if (a.age >= a.lifespan) return "old age"; return null; };
+
+  // 26b hypothermia stage 0–5 from warmth + minutes at 0 (Director locked)
+  Agent.hypoStage = a => {
+    const H = P().hypothermia; if (!H) return 0;
+    const w = a.needs.warmth, z = (a.zero && a.zero.warmth) || 0;
+    if (w > H.clearAbove) return 0;
+    if (w > 0) return w < H.shiverBelow ? 1 : 0;
+    if (z >= H.unconsciousAt) return 5;
+    if (z >= H.drowsinessAt) return 4;
+    if (z >= H.clumsinessAt) return 3;
+    if (z >= H.confusionAt) return 2;
+    return 1;
+  };
 
   function childLeft(sim, a) {
     // (no season or tiredness switch: a child keeps close all year; a need that is due is seen to first, above)
@@ -421,13 +450,44 @@
           wr = felt.wet && wr0 < 0 ? wr0 * (1 + (lossX - 1) * felt.wet) : wr0;   // step 22 / 24: out in the rain she loses warmth lossX (per strength) as fast
     n.warmth = Math.round(clamp(w0 + wr * G.data.config.time.tickGameMinutes, p.warmth.min, 100) * 1e9) / 1e9;
     if (a.hold) n[a.hold] = 0;   // test-only (GS.debug.drainWater / drainFullness / drainWarmth): hold that need at 0
-    const tm = G.data.config.time.tickGameMinutes, z = a.zero || (a.zero = { water: 0, fullness: 0, warmth: 0 });
+    const tm = G.data.config.time.tickGameMinutes, z = a.zero || (a.zero = { water: 0, fullness: 0, warmth: 0, energy: 0 });
+    if (z.energy == null) z.energy = 0;
     // test-only hold: once the held need has sat at 0 since last tick, a drink/meal in between is undone by the hold, so don't re-log it (logs once, like play)
     const hf = a.hold === "fullness" && z.fullness > 0, hw = a.hold === "water" && z.water > 0;
     z.water = n.water <= 0 ? z.water + tm : 0; z.fullness = n.fullness <= 0 ? z.fullness + tm : 0; z.warmth = n.warmth <= 0 ? (z.warmth || 0) + tm : 0;
+    z.energy = n.energy <= 0 ? z.energy + tm : 0;
+    if (n.energy > 0) { a.energyConfused = false; a.energyHallucAt = null; }
+    // 26b rain exposure clock (awake + exposed); reset under cover / when rain ends
+    if (G.Powers) {
+      if (!asleep && G.Powers.exposure(sim, a) > 0) a.rainExposedMinutes = (a.rainExposedMinutes || 0) + tm;
+      else { a.rainExposedMinutes = 0; a.rainCoverLogged = false; }
+    }
     G.Learn.stepWarmth(sim, a, felt, w0);   // steps 13-14: what warmed her when cold raises that action's score (and may be copied)
-    if (w0 >= 30 && n.warmth < 30) G.Sim.log(sim, a.name + " is cold and shivering", a);
-    if (w0 > 0 && n.warmth <= 0) G.Sim.log(sim, a.name + " is freezing", a);
+    // 26b hypothermia stages (Story Writer action-only): shivering → stumbling/looking lost → moving slow/dropping things → nodding off → collapsed; death only after warmthZeroMinutes
+    const H = P().hypothermia; const prevHypo = a.hypo || 0; a.hypo = Agent.hypoStage(a);
+    if (H) {
+      if ((w0 >= H.shiverBelow && n.warmth < H.shiverBelow) || (w0 > 0 && n.warmth <= 0) || (a.hypo >= 1 && prevHypo < 1))
+        G.Sim.log(sim, a.name + " is shivering", a);
+      if (a.hypo >= 2 && n.warmth <= 0) {
+        if (!a.hypoOddAt || sim.tick - a.hypoOddAt >= (H.confuseLogEvery || 60)) {
+          if (sim.rng.next() < (H.confuseChance || 0.2)) {
+            a.hypoOddAt = sim.tick;
+            G.Sim.log(sim, a.name + (sim.rng.next() < 0.5 ? " is stumbling" : " looks lost"), a);
+          }
+        }
+        if (a.hypo >= 3 && prevHypo < 3) G.Sim.log(sim, a.name + " is moving slow", a);
+        if (a.hypo >= 3 && a.carry != null && sim.rng.next() < (H.dropChance || 0)) {
+          G.Items.drop(sim, a); G.Sim.log(sim, a.name + " drops what they were carrying", a);
+        }
+      }
+    }
+    // 26b energy sleep-dep: collapse→forced sleep; confusion @1d; hallucination @2d every ~6h; death at energyZeroMinutes
+    if (n.energy <= 0 && z.energy >= 1440 && !a.energyConfused) {
+      a.energyConfused = true; G.Sim.log(sim, a.name + " is confused from lack of sleep", a);
+    }
+    if (n.energy <= 0 && z.energy >= 2880 && (!a.energyHallucAt || sim.tick - a.energyHallucAt >= 360)) {
+      a.energyHallucAt = sim.tick; G.Sim.log(sim, a.name + " sees things that are not there", a);
+    }
     // step 13: stepping onto a burning / smouldering tile is a burn (fire score drops, she jumps back; no health damage)
     const burn = G.Learn.checkBurn(sim, a);
     if (burn) { if (a.act.type === "sleep") a.wokeEarly = true; if (a.carry != null) G.Items.drop(sim, a); if (fleeBurn(sim, a, burn)) { move(sim, a); return; } }
@@ -441,9 +501,23 @@
     if (!hf && h0 >= thr && n.fullness < thr) G.Sim.log(sim, a.name + " is hungry", a);
     if (!hf && (h0 > p.fullness.min || a.hold === "fullness") && n.fullness <= p.fullness.min) G.Sim.log(sim, a.name + " is starving", a);
     if (!hw && t0 >= tthr && n.water < tthr) G.Sim.log(sim, a.name + " is thirsty", a);
-    if (!hw && (t0 > p.water.min || a.hold === "water") && n.water <= p.water.min) G.Sim.log(sim, a.name + " is parched", a);
-    if (e0 > 0 && n.energy <= 0) G.Sim.log(sim, a.name + " is exhausted", a);
+    if (!hw && (t0 > p.water.min || a.hold === "water") && n.water <= p.water.min) G.Sim.log(sim, a.name + " is dehydrated", a);
+    if (e0 > 0 && n.energy <= 0) G.Sim.log(sim, a.name + " is delirious", a);
+    // 26b unconscious hypothermia: collapse in place; no self-rescue until warmth > rescueAbove
+    if (H && a.hypo >= 5 && n.warmth <= (H.rescueAbove || 10)) {
+      const eqCold = G.Climate.warmthRate(felt.c, n.warmth) < 0 || a.hypoUnconscious;
+      if (eqCold) {
+        a.hypoUnconscious = true;
+        if (a.act.type !== "sleep") { G.Sim.log(sim, a.name + (sim.rng.next() < 0.5 ? " has collapsed" : " is not getting up"), a); return startSleep(sim, a); }
+        return sleep(sim, a);
+      }
+    } else if (!H || n.warmth > (H.rescueAbove || 10)) a.hypoUnconscious = false;
     if (asleep) return sleep(sim, a);
+    // drowsy (≥4 h at warmth 0): may lie down by day (cold sleep)
+    if (H && a.hypo >= 4 && n.warmth <= 0 && a.act.type !== "eat" && a.act.type !== "drink" &&
+        (sim.tick % (H.drowsyCheckMinutes || 10) === 0) && sim.rng.next() < (H.drowsyChance || 0.03)) {
+      G.Sim.log(sim, a.name + (sim.rng.next() < 0.5 ? " is nodding off" : " is slowing further"), a); return startSleep(sim, a);
+    }
     if (a.act.type === "try") { if (!G.Items.stepTry(sim, a)) startIdle(sim, a); return; }
     if (a.act.type === "pray") { if (!G.Faith.stepPray(sim, a)) startIdle(sim, a); return; }   // step 21: a prayer bout (10-40 min); step 26 ritual at a body also uses pray
     if (a.act.type === "dig") { G.Corpse.stepDig(sim, a); return; }   // step 26 bury
@@ -461,7 +535,7 @@
     // on the way to water she keeps going even if fullness dips lower (no flip-flopping), unless fullness falls below wakeIfNeedBelow.
     // On the way to food she never carries on once water is the lower need under actAt: water wins (Director call, 6:26 PM).
     const stay = goalNeed === "water" && want === "food" && n.water < p.actAt && n.fullness >= E.wakeIfNeedBelow;
-    // exhausted (energy 0): lies down where she is, day or night, unless a need is below wakeIfNeedBelow
+    // delirious (energy 0, 26b zero-point): lies down where she is, day or night, unless a need is below wakeIfNeedBelow
     if (n.energy <= 0 && act.type !== "eat" && act.type !== "drink" && act.goal !== "collapse" && n.fullness >= E.wakeIfNeedBelow && n.water >= E.wakeIfNeedBelow) {
       if (act.type !== "walk" || act.i >= act.path.length) return startSleep(sim, a);
       const [x, y] = act.path[act.i];   // mid-step: finish the step onto the next tile (if nobody has claimed it) and lie down there
@@ -474,8 +548,15 @@
     else if (stay) { /* carry on */ }
     else if (want === "water" && act.goal !== "water" && (act.goal !== "exploreWater" || seen.waterNew)) seekWater(sim, a);
     else if (want === "food" && act.goal !== "food" && act.goal !== "hunt" && act.goal !== "meat" && act.goal !== "cook" && (act.goal !== "explore" || seen.ripeNew)) seekFood(sim, a);
+    else if (G.Powers && G.Powers.rainUrgent && G.Powers.rainUrgent(sim, a) && G.Powers.seekCover(sim, a, act)) { /* 26b ≥4h rain: cover outranks snacks */ }
     else if (!want && p.fullness.snackAbove != null && n.fullness > p.fullness.snackAbove && act.goal !== "food" && seen.ripe) seekNear(sim, a);
-    else if (G.Powers.seekCover(sim, a, act)) { /* step 22: out of the rain, toward the trees or a cave / overhang */ }
+    else if (G.Powers.seekCover(sim, a, act)) { /* step 22 / 26b: out of the rain */ }
+    else if (H && a.hypo >= 2 && n.warmth <= 0 && act.type === "idle" && sim.rng.next() < (H.confuseChance || 0.2) * 0.25) {
+      const t0 = Agent.tilePos(a), ox = t0.x + (sim.rng.next() < 0.5 ? -1 : 1) * (1 + Math.floor(sim.rng.next() * 3)), oy = t0.y + (sim.rng.next() < 0.5 ? -1 : 1) * (1 + Math.floor(sim.rng.next() * 3));
+      if (G.World.inb(sim.world, ox, oy) && G.World.walkable(sim.world, ox, oy) && !Agent.claimed(sim, a, ox, oy)) {
+        const pth = G.World.findPath(sim.world, t0.x, t0.y, ox, oy); if (pth) { a.act = { type: "walk", goal: "wander", path: pth, i: 0 }; }
+      }
+    }
     else if (act.type === "idle" && shouldSleep(sim, a)) {
       // before lying down: if fullness or water would drop below bedtimeMin by morning, see to it first - only a short trip, once a night
       const bn = n.energy > 0 && bedtimeNeed(sim, a), b = coldNight && bn === "food" ? null : bn, go = b && a.topUp !== b && topUpTrip(sim, a, b), night = G.Time.at(sim.tick + 720).day;
@@ -502,7 +583,11 @@
         if (dg > 1 && G.Family.goBeside(sim, a, gd, "beside")) { move(sim, a); return; }
         if (gd.act.type !== "sleep" && n.energy > K.waitEnergy) { if (Math.hypot(gd.pos.x - a.pos.x, gd.pos.y - a.pos.y) > K.keepTiles && keepNear(sim, a)) move(sim, a); return; } }
       if (!go && gd && Math.max(Math.abs(Math.round(gd.pos.x) - Math.round(a.pos.x)), Math.abs(Math.round(gd.pos.y) - Math.round(a.pos.y))) <= 1) a.shelterNight = night;
-      if (!go && cold && a.shelterNight !== night && n.energy > 0) { a.shelterNight = night; if (seekWarmth(sim, a)) { move(sim, a); return; } }
+      if (!go && cold && a.shelterNight !== night && n.energy > 0) {
+        a.shelterNight = night;
+        const skipSeek = H && a.hypo >= 4 && sim.rng.next() >= (H.seekChanceAtDrowsy || 0.12);
+        if (!skipSeek && seekWarmth(sim, a)) { move(sim, a); return; }
+      }
       if (!go) startSleep(sim, a);
       else { a.topUp = b; G.Sim.log(sim, a.name + (b === "water" ? " goes for a drink before sleep" : " goes for a meal before sleep"), a);
         if (b === "food") a.act = { type: "walk", goal: "food", path: go.p, i: 0, bush: go.id, over: true };   // the bedtime meal counts as overeating

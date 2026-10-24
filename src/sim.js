@@ -34,7 +34,7 @@
     spots = spots.map(q => ({ x: q.x, y: q.y, d: Math.hypot(q.x - best.x, q.y - best.y) + rng.float() * 2 })).sort((p, q) => p.d - q.d);
     for (let i = 0; i < n; i++) { const a = G.Agent.createPerson(sim, spots[i].x, spots[i].y, i % 8); sim.agents.push(a); Sim.log(sim, a.name + " woke in the meadow", a); }
     // animals draw from their own seeded stream (arng), so adding them leaves the people's random sequence as it was
-    sim.arng = new G.RNG((seed ^ 0x5EED0A11) >>> 0); sim.animals = []; sim.herds = []; sim.bodies = [];
+    sim.arng = new G.RNG((seed ^ 0x5EED0A11) >>> 0); sim.animals = []; sim.herds = []; sim.packs = []; sim.nextPackId = 1; sim.bodies = [];
     G.Animal.populate(sim);
     // objects, physics rolls and fire use a third stream (orng), so the map, bushes, founders and animals are as before
     sim.orng = new G.RNG((seed ^ 0x0B1EC7ED) >>> 0); sim.items = []; sim.discoveries = []; sim.fire = {};
@@ -128,6 +128,23 @@
     }
     s.version = 22; return s;
   };
+  // v22 -> v23 (step 26b): mountain bitmask on world (zeros if unknown), packs array, animal.pack null, flex already on items via create.
+  Sim.migrate23 = function (o) {
+    if (!o || o.version !== 22) return o; const s = JSON.parse(JSON.stringify(o));
+    if (s.world && !s.world.mountain) s.world.mountain = "0".repeat((s.world.w || 0) * (s.world.h || 0));
+    s.packs = s.packs || []; s.nextPackId = s.nextPackId || 1;
+    for (const a of s.animals || []) if (a.pack == null) a.pack = null;
+    for (const it of s.items || []) if (it.props && it.props.flex == null) {
+      const m = G.data.materials[it.material]; it.props.flex = m && m.flex != null ? m.flex : 0;
+    }
+    for (const a of s.agents || []) {
+      if (!a.zero) a.zero = { water: 0, fullness: 0, warmth: 0, energy: 0 };
+      if (a.zero.energy == null) a.zero.energy = 0;
+      if (a.hypo == null) a.hypo = 0;
+      if (a.rainExposedMinutes == null) a.rainExposedMinutes = 0;
+    }
+    s.version = 23; return s;
+  };
   // One log line. who = the person(s) involved (person/body objects or ids): the line is tagged with their ids and also goes into each one's own
   // log (sim.plog[id], last log.personMax kept, saved). k = an optional kind for the personal log ("death", "birth", "disc").
   Sim.ids = who => (who == null ? [] : Array.isArray(who) ? who : [who]).map(w => w == null ? null : typeof w === "number" ? w : w.kind === "body" ? w.of : w.id).filter((v, i, a) => v != null && a.indexOf(v) === i);
@@ -166,8 +183,15 @@
   Sim.seasonal = tick => { const S = CFG().bushes.season, i = G.Climate.seasonIndex(tick); return { yield: S ? S.yield[i] : 1, regrowMinutes: S ? S.regrowMinutes[i] : CFG().bushes.regrowMinutes }; };
   // A death: one action line, the person leaves the living and a body stays where they were (step 26: others may leave/drag/bury/burn/eat/ritual).
   Sim.die = function (sim, a, cause) {
-    const vb = (G.data.config.body.causeVerb || {})[cause];   // step 23: "was struck by lightning" rather than "has died of struck by lightning"
-    Sim.log(sim, a.name + " lies still. " + a.name + (vb ? " " + vb + " " : " has died of ") + cause + ".", a, "death");
+    const BC = G.data.config.body || {}, lines = (BC.storyDeathLines || {})[cause];
+    let mid;
+    if (lines && lines.length) mid = " " + lines[((a.id || 0) + (sim.tick || 0)) % lines.length];
+    else {
+      const vb = (BC.causeVerb || {})[cause];
+      mid = typeof vb === "string" && vb.charAt(0) === "=" ? " " + vb.slice(1)
+          : vb ? " " + vb + " " + cause : " has died of " + cause;
+    }
+    Sim.log(sim, a.name + " lies still. " + a.name + mid + ".", a, "death");
     if (a.carry != null) G.Items.drop(sim, a);
     G.Family.onDeath(sim, a);
     G.Faith.onDeath(sim, a);   // step 21: those awake close by saw it
@@ -178,9 +202,9 @@
   const TILE_CH = "MWSRL";
   Sim.serialize = function (sim) {
     return { version: sim.version, seed: sim.seed, tick: sim.tick, nextId: sim.nextId, rng: sim.rng.s,
-      world: { w: sim.world.w, h: sim.world.h, attempt: sim.world.attempt, spawn: sim.world.spawn, hills: sim.world.hills, info: sim.world.info, tiles: sim.world.tiles.map(t => TILE_CH[t]).join("") },
+      world: { w: sim.world.w, h: sim.world.h, attempt: sim.world.attempt, spawn: sim.world.spawn, hills: sim.world.hills, mountain: sim.world.mountain || "", info: sim.world.info, tiles: sim.world.tiles.map(t => TILE_CH[t]).join("") },
       bushes: sim.bushes, agents: sim.agents, log: sim.log, plog: sim.plog || {}, nameBag: sim.nameBag, nameRound: sim.nameRound, nameCount: sim.nameCount || {},
-      arng: sim.arng.s, animals: sim.animals, herds: sim.herds, bodies: sim.bodies,
+      arng: sim.arng.s, animals: sim.animals, herds: sim.herds, packs: sim.packs || [], nextPackId: sim.nextPackId || 1, bodies: sim.bodies,
       orng: sim.orng.s, items: sim.items, discoveries: sim.discoveries, fire: sim.fire, fireStats: sim.fireStats, physStats: sim.physStats || null, fx: sim.fx,
       lrng: sim.lrng.s, learnStats: sim.learnStats, huntStats: sim.huntStats || null,
       brng: sim.brng ? sim.brng.s : null, grazerBirths: sim.grazerBirths || 0, cookStats: sim.cookStats || null,
@@ -202,12 +226,13 @@
     if (o && o.version === 19) o = Sim.migrate20(o);
     if (o && o.version === 20) o = Sim.migrate21(o);
     if (o && o.version === 21) o = Sim.migrate22(o);
+    if (o && o.version === 22) o = Sim.migrate23(o);
     if (!o || o.version !== CFG().saveVersion) throw new Error("unsupported save version " + (o && o.version));
     const s = JSON.parse(JSON.stringify(o));
-    const world = { w: s.world.w, h: s.world.h, seed: s.seed, attempt: s.world.attempt, spawn: s.world.spawn, hills: s.world.hills, info: s.world.info, tiles: s.world.tiles.split("").map(c => TILE_CH.indexOf(c)) };
+    const world = { w: s.world.w, h: s.world.h, seed: s.seed, attempt: s.world.attempt, spawn: s.world.spawn, hills: s.world.hills, mountain: s.world.mountain || "0".repeat(s.world.w * s.world.h), info: s.world.info, tiles: s.world.tiles.split("").map(c => TILE_CH.indexOf(c)) };
     const rng = new G.RNG(s.rng);
     return { version: s.version, seed: s.seed, tick: s.tick, nextId: s.nextId, world, rng, bushes: s.bushes, agents: s.agents, log: s.log, plog: s.plog || {}, nameBag: s.nameBag, nameRound: s.nameRound || 0, nameCount: s.nameCount || {}, prev: {},
-      arng: new G.RNG(s.arng), animals: s.animals, herds: s.herds, bodies: s.bodies,
+      arng: new G.RNG(s.arng), animals: s.animals, herds: s.herds, packs: s.packs || [], nextPackId: s.nextPackId || 1, bodies: s.bodies,
       orng: new G.RNG(s.orng), items: s.items, discoveries: s.discoveries, fire: s.fire, fireStats: s.fireStats, physStats: s.physStats || undefined, fx: s.fx || [],
       lrng: new G.RNG(s.lrng), learnStats: s.learnStats, huntStats: s.huntStats || undefined,
       brng: s.brng != null ? new G.RNG(s.brng) : undefined, grazerBirths: s.grazerBirths || 0, cookStats: s.cookStats || undefined,

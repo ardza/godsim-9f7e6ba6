@@ -1,4 +1,4 @@
-// Step 16: hunting, carcasses and raw meat. Nothing is scripted: a hungry person who happens to hold a hard thing and sees a grazer may go after it
+// Step 16: hunting, carcasses and raw meat. Nothing is scripted: a hungry person who happens to hold a hard thing and sees a deer may go after it
 // (odds from her hunt score); whether the strike kills comes from the held thing's sharpness and her experience (config.hunt). A kill leaves a carcass
 // (a body: fresh -> rotting -> bones); meat taken from it while fresh is an item that is edible until the carcass would have begun to rot.
 // Eating raw meat fills her (config.meat) and may make her sick. Firsts (first kill, first meat eaten, first sickness) are detected from what happened.
@@ -82,7 +82,7 @@
       const b = G.Body.createAnimal(sim, g, a); sim.bodies.push(b);
       G.Sim.log(sim, a.name + " strikes " + b.name + " with the " + hl + ": it falls", a);
       const e = G.Learn.add(a, "hunt", H().gain); e.n++; a.stats.kills = (a.stats.kills || 0) + 1;
-      G.Discoveries.note(sim, a, "strike", [base, "grazer"], "grazer falls");
+      G.Discoveries.note(sim, a, "strike", [base, "grazer"], "deer falls");
       G.Learn.success(sim, a, "hunt");
       if (!goMeat(sim, a, b)) G.Agent.startIdle(sim, a, 0.3);
     } else {

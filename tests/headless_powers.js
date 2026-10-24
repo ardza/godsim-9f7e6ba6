@@ -70,7 +70,8 @@ module.exports = function (G, C, ok, h) {
     const a = s.agents[0], c = meadowSpot(s, Math.round(a.pos.x), Math.round(a.pos.y)); for (const p of s.agents) { p.pos = { x: c.x, y: c.y }; p.act = { type: "idle", until: s.tick + 300 }; Object.assign(p.needs, { warmth: 80, fullness: 90, water: 90, energy: 90 }); }
     P.cast(s, "rain", c.x, c.y); const exp0 = s.agents.map(p => P.exposure(s, p)); let moved = 0;
     for (let i = 0; i < 240; i++) G.Sim.step(s);
-    const covered = s.agents.filter(p => P.exposure(s, p) === 0).length, hurry = s.log.filter(e => / hurries out of the rain toward /.test(e.text)).length, faces = s.powers.stats.faces;
+    const covered = s.agents.filter(p => P.exposure(s, p) === 0).length,
+      hurry = s.log.filter(e => / hurries out of the rain toward |has been in the rain too long/.test(e.text)).length, faces = s.powers.stats.faces;
     ok(exp0.every(v => v === 1) && hurry >= 1 && covered >= Math.ceil(s.agents.length / 2) && s.powers.stats.covers === hurry,
       "22 rain: people out in the open hurry for tree cover (or a cave) and wait there while it rains", hurry + " of " + s.agents.length + " went for cover, " + covered + " dry after 4 h, " + faces + " turned their face up");
     // puddles: the lowest tiles; a thirsty person nearby drinks there; gone after a day

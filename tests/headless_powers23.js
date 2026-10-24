@@ -15,10 +15,10 @@ module.exports = function (G, C, ok, h) {
   // config + art + icons
   { const png = fs.readFileSync(path.join(root, "data/art/lightning_16.png")), wd = png.readUInt32BE(16), ht = png.readUInt32BE(20), icons = fs.readFileSync(path.join(root, "src/icons.js"), "utf8");
     const idx = JSON.parse(fs.readFileSync(path.join(root, "data/art/index.json"), "utf8")), rsrc = fs.readFileSync(path.join(root, "src/render.js"), "utf8"), A = G.data.art.lightning;
-    ok(PC.order.join() === "rain,warm,cool,lightning,spawn" && !("cooldownMinutes" in L) && !("cooldownMinutes" in SP) && L.modes.single.count.join() === "1,1" && L.modes.barrage.count.join() === "2,3" && L.modes.barrage.scatterTiles === 8 && L.modeOrder.join() === "single,barrage" && L.fire.dry === 0.6 && L.fire.rain === 0.4 && L.fire.deepCold === 0.2 && L.scareTiles === 6 && L.fearAdd === 20 && L.fearMinutes === MD && L.runMinutes === 60 &&
+    ok(PC.order.join() === "rain,warm,cool,lightning,spawn" && !("cooldownMinutes" in L) && !("cooldownMinutes" in SP) && L.modes.single.count.join() === "1,1" && L.modes.barrage.count.join() === "2,3" && L.modes.barrage.scatterTiles === 4 && L.modeOrder.join() === "single,barrage" && L.fire.dry === 0.6 && L.fire.rain === 0.4 && L.fire.deepCold === 0.2 && L.scareTiles === 6 && L.fearAdd === 20 && L.fearMinutes === MD && L.runMinutes === 60 &&
       SP.watchTiles === 6 && SP.curiosityAdd === 5 && C.animals.grazer.births.cap === 40 && A && A.src === "data/art/lightning_16.png" && A.frame === 16 && A.frameH === 48 && A.cols.join() === "strike,strike_fade,ground_flash" && wd === 48 && ht === 48 && png[25] === 6 &&
-      L.frameMs.join() === "80,80,150" && JSON.stringify(idx).indexOf("lightning_16.png") >= 0 && /"rain".*"lightning"\]/.test(rsrc) && /lightning/.test(icons) && /spawn/.test(icons) && C.saveVersion === 22,
-      "23/24 config: no cooldowns; Lightning Single/Barrage (2-3 in r8); fire 60% dry / 40% rain / 20% Deep Cold, scare 6 tiles +20 fear 1 day, run 1 h; Spawn watchers 6 tiles +5 curiosity, grazer cap 40; art 48x48; save v20"); }
+      L.frameMs.join() === "80,80,150" && JSON.stringify(idx).indexOf("lightning_16.png") >= 0 && /"rain".*"lightning"\]/.test(rsrc) && /lightning/.test(icons) && /spawn/.test(icons) && C.saveVersion === 23,
+      "23/24 config: no cooldowns; Lightning Single/Barrage (2-3 in r8); fire 60% dry / 40% rain / 20% Deep Cold, scare 6 tiles +20 fear 1 day, run 1 h; Spawn watchers 6 tiles +5 curiosity, grazer cap 40; art 48x48; save v23; barrage scatterTiles 4"); }
 
   // fire chance by ground: ~60% on dry grass / forest; 0 (and no draw) on bare ground, rock, water; 40% with rain; 20% in Deep Cold
   withCfg(NO_LIGHTNING, () => { const s = G.Sim.create(5); s.agents.length = 0; s.animals = [];
@@ -61,9 +61,9 @@ module.exports = function (G, C, ok, h) {
     const g1 = s.animals.filter(o => o.species === "grazer").length, fx = s.fx.some(f => f.k === "shimmer" && f.x === an.pos.x && f.y === an.pos.y);
     const near = s.herds.reduce((b, h) => Math.hypot(h.x - an.pos.x, h.y - an.pos.y) < Math.hypot(b.x - an.pos.x, b.y - an.pos.y) ? h : b, s.herds[0]);
     const ok1 = r.ok && g1 === g0 + 1 && an.spawned === s.tick && an.herd === near.id && fx && Math.hypot(an.pos.x - c.x, an.pos.y - c.y) <= SP.freeTiles && w1.traits.curiosity === 45 && w2.traits.curiosity === 45 &&
-      s.log.some(e => /^A grazer appears near /.test(e.text)) && s.log.some(e => e.text === w1.name + " stares at the new grazer");
+      s.log.some(e => /^A deer appears near /.test(e.text)) && s.log.some(e => e.text === w1.name + " stares at the new deer");
     clear(s); const pr = withCfg({ "powers.spawn.predator.fearChance": 10 }, () => P.cast(s, "spawn", c.x, c.y, "predator"));
-    const ok2 = pr.ok && pr.animal.species === "scavenger" && [w1, w2].every(a => P.fright(s, a) === SP.predator.fearAdd && a.act.goal === "scared") && s.log.some(e => e.text === w1.name + " stares at the new scavenger and backs away");
+    const ok2 = pr.ok && pr.animal.species === "scavenger" && [w1, w2].every(a => P.fright(s, a) === SP.predator.fearAdd && a.act.goal === "scared") && s.log.some(e => e.text === w1.name + " stares at the new wild dog and backs away");
     // caps: grazers stay at 40 (refused, no cooldown), water refused
     clear(s); const wa = find(s, 30, 20, isG(s, "water")), rw = P.cast(s, "spawn", wa.x, wa.y, "grazer");
     const cap = C.animals.grazer.births.cap; while (s.animals.filter(o => o.species === "grazer").length < cap) { const o = G.Animal.create(s, "grazer", 3, 3, 0, new G.RNG(1)); s.animals.push(o); }
@@ -100,7 +100,7 @@ module.exports = function (G, C, ok, h) {
       "23 lit stick: the walk to a lightning-lit stick is not turned back by the flee rule (it passes within 2.5 tiles of live flames) and goes round the burning tiles", "carried at +" + got + " min, closest " + close.toFixed(1) + " tiles from the flames"); });
 
   // the curiosity-minus-fear roll: a fearful adult or one still frightened by a strike never goes
-  withCfg(Object.assign({}, NO_LIGHTNING, NO_THIRST_SLEEP, { "powers.lightning.fire.dry": 1 }), () => { const s = G.Sim.create(7); s.animals = [];
+  withCfg(Object.assign({}, NO_LIGHTNING, NO_THIRST_SLEEP, { "powers.lightning.fire.dry": 1, "powers.boltStick.chance": 1 }), () => { const s = G.Sim.create(7); s.animals = [];
     const c = find(s, 30, 22, (x, y) => P.ground(s, x, y) === "grass" && !G.Shelter.at(s, x, y) && [1, 5].every(dx => W.walkable(s.world, x + dx, y)));
     const st = s.items.find(it => G.Items.props(it).burns && !it.heldBy); st.x = c.x + 1; st.y = c.y; const a = s.agents[0]; s.agents.length = 1; a.traits.curiosity = 10; a.traits.fireFear = 80;
     a.pos.x = c.x + 5; a.pos.y = c.y; s.prev[a.id] = { x: a.pos.x, y: a.pos.y }; a.act = { type: "idle", until: s.tick + 10 }; P.cast(s, "lightning", c.x, c.y); a.runUntil = null; a.act = { type: "idle", until: s.tick + 10 };
@@ -122,7 +122,7 @@ module.exports = function (G, C, ok, h) {
     const j = sig(s), r = G.Sim.deserialize(JSON.parse(j)); for (let i = 0; i < 1500; i++) { G.Sim.step(s); G.Sim.step(r); }
     const o = JSON.parse(j); o.version = 17; delete o.powers.stats.strikes; delete o.powers.stats.spawns; delete o.powers.stats.answered; o.powers.cd = { rain: 999999 };
     const m = G.Sim.deserialize(o), back = G.Sim.deserialize(JSON.parse(sig(m)));
-    ok(JSON.parse(j).version === 22 && sig(s) === sig(r) && m.version === C.saveVersion && m.powers.stats.strikes && m.powers.stats.strikes.fires === 0 && m.powers.stats.spawns.grazer === 0 && m.powers.stats.answered === 0 && m.powers.cd.rain === 999999 &&
+    ok(JSON.parse(j).version === 23 && sig(s) === sig(r) && m.version === C.saveVersion && m.powers.stats.strikes && m.powers.stats.strikes.fires === 0 && m.powers.stats.spawns.grazer === 0 && m.powers.stats.answered === 0 && m.powers.cd.rain === 999999 &&
       sig(back) === sig(m), "23 save: v22 round-trips a strike, its fire and fright, and a spawned animal (a resumed run matches); a v17 save loads as v18..v22 (new strike / spawn stats, cooldowns kept)"); }
 
   // no power used: the powers stream is never drawn (lightning / spawn add nothing to a quiet run)

@@ -2,7 +2,7 @@
 (function (G) {
   G.data = G.data || {};
   G.data.config = {
-    saveVersion: 22,                // v22: corpse choices (leave/drag/bury/burn/eat/ritual, corpseFear, burial/pyre/ash_bones art) + lightning aim (Barrage primary on tap, scatterTiles 4) + warmth equilibrium (eq = clamp(50+(feltC-neutralC)*eqPerC,0,100), move toward eq) + rain chillC per strength (L3/M6/H10 on feltC×exposure); v21: speech polish (People card + group line Speech label, Discoveries first spoken syllable, child copy x2, inventDiv tune, growth recheck); v20: local language (sim.speech, per-person a.words token→meaning scores, group speech locks, own stream wrng; gesture overlays until lock); v19: power rewrite (no cooldowns; Rain Light/Medium/Heavy; Lightning Single/Barrage), spawn-watch curiosity fades over 7 days (a.curioFade), a baby carried by someone struck dies too (strikes.babies), phone Powers row, Find button; v18: Lightning and Spawn powers (per-power cooldowns, strike / spawn stats, a.fright, bolt sticks); v17: god powers (sim.powers: active Rain / Warm / Cool effects, cooldowns, own stream), pairs man + woman only; v16: natural shelters (sim.shelters, per-person known shelters, den score); v15: faith trait, prayer forms, prayer spots, Prayers feed (own stream prng); v14: children / youths as people (stage by age, guardian, learned-from), name numbering; v13: sex, pairs, pregnancy, babies (own stream frng), burning sticks; v12: relations (familiarity, liking) and groups; v11: cooked meat (heat), grazer births (own stream), cook score; v10: hunting, carcasses, meat, lightning; v9: varied maps (spawn, hills, map info; no lake/source); v8: learning (experience scores, copying), seasonal food, per-person logs; v7: objects, physics + discoveries, temperature + warmth, fire (v6: aging, death, bodies, animals); older saves are rejected
+    saveVersion: 23,                // v23: animal labels (deer/wild dog/Wolves), per-piece material jitter + flex, terrain deposits (rocks slopes, sticks woods edges, flint river-bank clusters, reeds banks-only), one mountain peak + mountain_16 art, wild dogs hunt live deer, Wolves pack+den+territory (people threatened only inside), watch→hunt_score; v22: corpse choices (leave/drag/bury/burn/eat/ritual, corpseFear, burial/pyre/ash_bones art) + lightning aim (Barrage primary on tap, scatterTiles 4) + warmth equilibrium (eq = clamp(50+(feltC-neutralC)*eqPerC,0,100), move toward eq) + rain chillC per strength (L3/M6/H10 on feltC×exposure); v21: speech polish (People card + group line Speech label, Discoveries first spoken syllable, child copy x2, inventDiv tune, growth recheck); v20: local language (sim.speech, per-person a.words token→meaning scores, group speech locks, own stream wrng; gesture overlays until lock); v19: power rewrite (no cooldowns; Rain Light/Medium/Heavy; Lightning Single/Barrage), spawn-watch curiosity fades over 7 days (a.curioFade), a baby carried by someone struck dies too (strikes.babies), phone Powers row, Find button; v18: Lightning and Spawn powers (per-power cooldowns, strike / spawn stats, a.fright, bolt sticks); v17: god powers (sim.powers: active Rain / Warm / Cool effects, cooldowns, own stream), pairs man + woman only; v16: natural shelters (sim.shelters, per-person known shelters, den score); v15: faith trait, prayer forms, prayer spots, Prayers feed (own stream prng); v14: children / youths as people (stage by age, guardian, learned-from), name numbering; v13: sex, pairs, pregnancy, babies (own stream frng), burning sticks; v12: relations (familiarity, liking) and groups; v11: cooked meat (heat), grazer births (own stream), cook score; v10: hunting, carcasses, meat, lightning; v9: varied maps (spawn, hills, map info; no lake/source); v8: learning (experience scores, copying), seasonal food, per-person logs; v7: objects, physics + discoveries, temperature + warmth, fire (v6: aging, death, bodies, animals); older saves are rejected
     saveKey: "godsim.save",
     map: {
       w: 60, h: 40, tilePx: 16,      // map is 960x640 art px, scaled to fit the screen
@@ -18,7 +18,9 @@
       waterPct: [3, 12],               // attempts outside this are redone (next attempt of the same seed)
       spawnWaterTiles: 8,              // founders gather around a meadow tile with water this close (all of them stay within 12)
       maxPocket: 8,                    // land cut off by water: pockets up to this many tiles become a pond, bigger means a new attempt
-      maxTries: 40
+      maxTries: 40,
+      // Step 26b: one stronger mountain peak per seed (amplify existing height field around the inland max)
+      mountain: { peakBoost: 0.55, peakRadius: 5, slopeRadius: 9, minHeightRank: 0.85 }
     },
     time: {
       tickGameMinutes: 1,             // 1 sim tick = 1 game minute
@@ -49,7 +51,7 @@
       // Decision rule: act on the LOWEST of fullness/water once it is below actAt (50); a tie goes to water.
       actAt: 50,
       fullness: {
-        // fullness: 0 = starving, 50 = hungry, 85 = full, above 85 = overfull (only by overeating).
+        // 26b zero-point: fullness 0 = starving (extreme); food fills Fullness only (never Energy). 50 = hungry, 85 = full, above 85 = overfull.
         threshold: 50,                // goes to eat below this (= actAt)
         minutesFullToHungry: 360,     // mealFillTo (85) -> 50 in 6 game h at appetite 50 => drain 35/360 = 0.097 per min (0 after ~14.6 h)
         planFrom: 70,                 // below this, before wandering, she leaves early if the nearest known food is so far she'd arrive below the threshold
@@ -60,23 +62,24 @@
         start: [65, 90], min: 0       // holds at 0; logs "is starving" once on reaching 0; dies after 7 game days at 0 (person.death)
       },
       water: {
-        // water: 0 = parched, 50 = thirsty, 100 = just drank. Not scaled by a trait (there is no thirst trait).
+        // 26b zero-point: water 0 = dehydration (panel/log: "dehydrated"), 50 = thirsty, 100 = just drank. Not trait-scaled.
         threshold: 50,                // goes to drink below this (= actAt)
         minutesFullToThirsty: 240,    // 100 -> 50 in 4 game h => drain 50/240 = 0.208 per min (0 after 8 h)
         planFrom: 75,                 // like fullness.planFrom: leaves early if the nearest known shore is far
-        start: [70, 95], min: 0       // holds at 0; logs "is parched" once; dies after 1 full game day at 0 (person.death)
+        start: [70, 95], min: 0       // holds at 0; logs "is dehydrated" once; dies after 1 full game day at 0 (person.death)
       },
       drinkMinutes: 10,               // drink from any land tile next to water (4-neighbour); water rises linearly to 100
       energy: {
-        // energy is 0-100. 100 = rested. Drains while awake, refills while asleep.
-        drainMinutes: 960,            // 100 -> 0 over 16 waking hours
+        // 26b zero-point: energy is 0-100. 100 = rested. Drains while awake only; refills from sleep only (food never fills energy).
+        // 0 = serious multi-day sleep deprivation (panel: "delirious" — confusion / hallucinations), not mere grogginess.
+        drainMinutes: 960,            // 100 -> 0 over 16 waking hours (Director/specs: zero feels extreme; night-1 bedtime still fires)
         refillMinutes: 480,           // 0 -> 100 over 8 hours of sleep
         sleepBelow: 50,               // lies down (anywhere, when idle) after dusk if energy is under this
-        restedAt: 80,                 // panel word: "rested" at 80+, "fine" from sleepBelow, "tired" below that, "exhausted" at 0
+        restedAt: 80,                 // panel: "rested" 80+, "fine" sleepBelow..restedAt, "tired" below sleepBelow, "delirious" at 0
         nightFrom: 1080, dawnAt: 360, // 18:00 .. 06:00 is "after dusk"; a sleeper with full energy gets up at dawn
         wakeIfNeedBelow: 10,          // a sleeper wakes early if fullness or water drops below this (also: a food/water goal is dropped for the other need below this)
         asleepNeedRate: 0.25,         // fullness and water drain at a quarter of the waking rate while asleep
-        start: [90, 100]              // energy 0 logs "is exhausted" once and they lie down where they are, day or night
+        start: [90, 100]              // energy 0: delirious → collapse/forced sleep; confusion @1d; hallucinations @2d; dies after energyZeroMinutes (5 days) at 0
       },
       // Warmth (step 11 / v22): 0-100. Felt = air + shelter + huddle + fire + activity (± rain chill). Equilibrium from felt:
       //   eq = clamp(eqAtNeutral + (feltC - neutralC) * eqPerC, 0, 100)  → open air ~61°F (~16°C) ≈ 65; ~32°F (0°C) ≈ 25.
@@ -102,10 +105,28 @@
         shelterTiles: 15,             // looks this far for a woods tile / company when seeking warmth
         wakeBelow: 10,                // a sleeper this cold, not under trees with company, wakes once a night to find a better spot
         seekBelow: 35, seekPerFear: 0.5,   // seeks warmth (shelter, others) below 35 + coldFear x 0.5
-        start: [80, 100], min: 0      // logs "is cold" below 30 and "is freezing" at 0; dies after 1 full game day at 0 (person.death)
+        start: [80, 100], min: 0      // hypothermia stage logs (Story Writer): shivering → stumbling/looking lost → moving slow/dropping things → nodding off → collapsed; then death at warmthZeroMinutes (3 days)
       },
-      // Dying of need: a full game day at water 0, a full game day at warmth 0, or 7 game days at fullness 0 (the clock restarts once the need is above 0). Energy 0 never kills.
-      death: { waterZeroMinutes: 1440, warmthZeroMinutes: 1440, fullnessZeroMinutes: 10080 },
+      // 26b hypothermia (warmth 0): stages by minutes at 0; death only after warmthZeroMinutes (3 days, full ladder first). Unconscious can be rescued when warmth > rescueAbove.
+      hypothermia: {
+        shiverBelow: 30,            // crossing below → "is shivering"
+        confusionAt: 30,            // ~30 min at 0: "is stumbling" / "looks lost"
+        clumsinessAt: 120,          // ~2 h at 0: "is moving slow"; may drop carry ("drops what they were carrying")
+        drowsinessAt: 240,          // ~4 h at 0: "is nodding off" / "is slowing further"
+        unconsciousAt: 480,         // ~8 h at 0 + eq colder: "has collapsed" / "is not getting up"; rescue when warmth > rescueAbove; death only after warmthZeroMinutes (full ladder first)
+        clearAbove: 20,             // warmth rising above this clears hypo stage effects
+        rescueAbove: 10,            // unconscious ends when warmth exceeds this (fire / huddle / weather)
+        moveX: 0.6,                 // clumsiness speed multiplier
+        dropChance: 0.015,          // per tick while clumsy+ and carrying
+        drowsyChance: 0.03,         // per checkMinutes while drowsy: collapse by day
+        confuseChance: 0.2,         // when idle/wander pick: odd goal
+        confuseLogEvery: 60,        // minutes between stumble/lost logs
+        drowsyCheckMinutes: 10,
+        seekChanceAtDrowsy: 0.12    // drowsy+: chance to start shelter-seek on their own (else may fail to)
+      },
+      // Dying of need (26b zero-point): 1 game day dehydrated (water 0), 7 days starving (fullness 0).
+      // Warmth: full hypo ladder first, then death at warmthZeroMinutes (3 days at 0). Energy: forced sleep/delirium ladder, then death at energyZeroMinutes (5 days). Clocks restart when need > 0.
+      death: { waterZeroMinutes: 1440, fullnessZeroMinutes: 10080, warmthZeroMinutes: 4320, energyZeroMinutes: 7200 },
       bedtimeMin: 25,                 // before lying down she drinks/eats first if that need would drop below this by the time she wakes
       bedtimeTripTiles: 6,            // ...but only if the water / a known ripe bush is within this many tiles of path (else she sleeps)
       mealMinutes: 15,                // one ripe bush = one meal, eaten in one sitting; fullness rises linearly by mealAdds
@@ -121,12 +142,19 @@
       rotMinutes: 10080,              // rotting: the flesh (0-100) decays 100 -> 0 in 7 game days on its own; scavengers feeding make it go sooner (~2 days)
       bonesWeatherYears: 20,          // bones' condition falls 100 -> 0 over 20 game years, then they are gone
       material: "bone",               // primitive material the bones are (data only for now)
-      causeVerb: { "struck by lightning": "was" }   // step 23: death line / card wording for causes that are not "died of ..."
+      // step 23: "was struck by lightning". 26b Story: storyDeathLines[cause] = full predicates (picked by id); "=" in causeVerb also works.
+      causeVerb: { "struck by lightning": "was" },
+      storyDeathLines: {
+        cold: ["froze", "didn't wake from the cold"],
+        exhaustion: ["never woke", "worn down to nothing"]
+      }
     },
     // Animals (no names; grazers die only when hunted and are born in Greening, step 17). All count toward pop.maxAnimals (40). They flee people: when a person is within fleeWithin tiles
     // they run (at fleeMinutesPerTile) to a tile at least fleeTo tiles from every person.
     animals: {
+      // Step 26b: species ids stay grazer/scavenger/wolves; UI/logs/Discoveries/spawn labels are deer / wild dog / Wolves.
       grazer: {
+        label: "deer", labelPlural: "deer",
         start: 15, herds: 3, herdRadius: 3,   // ~15 in 3 herds placed on meadow, away from the founders (>= startAway tiles)
         startAway: 12,
         walkMinutesPerTile: 10, fleeMinutesPerTile: 3, fleeWithin: 4, fleeTo: 6,
@@ -141,27 +169,50 @@
         births: { season: 0, perSeason: 0.35, mateTiles: 6, cap: 40 }   // Director (step 17 call 3): 0.35 per grazer a spring
       },
       scavenger: {
-        start: 4, startAway: 10,
-        walkMinutesPerTile: 6, fleeMinutesPerTile: 3, fleeWithin: 4, fleeTo: 6,
+        label: "wild dog", labelPlural: "wild dogs",
+        start: 4, startAway: 10,   // cap = today's scavenger start/pop (unchanged)
+        walkMinutesPerTile: 6, fleeMinutesPerTile: 3, fleeWithin: 4, fleeTo: 6,   // flees people within fleeWithin
         noticeTiles: 15,              // notices a body with flesh within this many tiles (and goes to eat it unless a person is within fleeWithin of it)
+        corpsePreferTiles: 8,         // 26b: prefers corpses within 8 over hunting live deer
+        huntDeer: { fullnessBelow: 40, stalkTiles: 12, strikeTiles: 1.5, killChance: 0.35 },  // hunts living deer when hungry and no nearby corpse; never hunts people
+        watchTiles: 8,                // people within this of a kill get hunt_score bump
         fullness: { minutesFullToEmpty: 1440, feedBelow: 70, fillPerMinute: 1, fleshPerFullness: 0.15, start: [20, 60] }, // fullness 0-100; feeds on flesh at +1/min until 100, each point taking 0.15 of the body's flesh (0-100); holds at 0, no death.
                                       // Tuned so a body the scavengers find is bones ~2 days into rotting (10-seed mean ~1.7 d, range 0.3-3.6 d) instead of 7
         wanderRadius: 8, idleMin: 30, idleMax: 120, nightIdleScale: 1
+      },
+      // 26b Wolves: one pack per seed, den + territory; hunt deer; threaten people only inside territory.
+      wolves: {
+        label: "Wolves", labelPlural: "Wolves",
+        packSize: [3, 5], packRadius: 6,   // members stay ~6 tiles of pack center
+        territory: 10,                     // den radius; threaten people only inside
+        denMinFromSpawn: 15,               // den >= 15 tiles from founder spawn
+        denPrefer: ["hill", "woodsEdge"],  // hill or woods edge
+        walkMinutesPerTile: 5, fleeMinutesPerTile: 3, fleeWithin: 0, fleeTo: 0,  // do not flee people (they threaten instead, in territory)
+        huntDeer: { stalkTiles: 14, strikeTiles: 1.5, killChance: 0.55 },
+        threaten: { chaseTiles: 10, strikeTiles: 1.5, damageEnergy: 40, killChance: 0.25 },
+        watchTiles: 8,
+        fullness: { minutesFullToEmpty: 2880, feedBelow: 60, fillPerMinute: 1.2, fleshPerFullness: 0.12, start: [40, 80] },
+        wanderRadius: 5, idleMin: 20, idleMax: 80, nightIdleScale: 1.2
       }
     },
     // Step 9 objects: seeded on the ground at world creation (their own stream, so the map, bushes and founders are unchanged).
     // People carry one thing at a time: an idle person may walk over and pick up a thing in sight (curiosity), and drops it when a need takes over,
     // before sleep, or after carry minutes. Bones from a body count: picking one up takes one of the body's bones (bonesPerBody).
     objects: {
-      rock: { count: 40, where: "any" },            // anywhere on land
-      stick: { count: 40, where: "woodsEdge" },     // on or next to woods
-      flint: { count: 15, where: "water" },         // within 3 tiles of a river or lake (15b: some maps have no river)
+      // Step 26b deposits by terrain (clusters, not a blanket). Counts are totals across deposits.
+      rock:  { deposits: [4, 8], size: [3, 12], where: "slope" },       // hill/mountain slopes; clusters
+      stick: { deposits: [5, 9], size: [3, 8],  where: "woodsEdge" },   // woods edges
+      flint: { deposits: [1, 3], size: [3, 7],  where: "riverBank" },   // 1–3 river-bank clusters (not blanket)
+      reed:  { deposits: [4, 8], size: [4, 10], where: "riverBank" },   // river banks only (1–2 tile land band; never mid-stream)
       minSpacing: 1,                                 // never two on one tile at the start
       bonesPerBody: 4,                               // a skeleton gives 4 bones that can be picked up; the rest stays as the body's bones
       pickupChance: 0.6,                            // at the end of an idle spell, x curiosity/50 (0.5 at curiosity 100)
       carry: [60, 300],                              // minutes she holds it before putting it down (seeded per pick-up)
       tryChance: 0.8, tryMinutes: 5, tryReach: 10,   // a holder may try an action on a thing on the ground within tryReach tiles, right after picking up or when idle (~1 try / person / day)
-      tryCooldown: 360                               // ...at most once per 6 game h each
+      tryCooldown: 360,                              // ...at most once per 6 game h each
+      // Per-piece property jitter (±jitterPct of type base for hardness/sharpness/dryness/durability; flex uses flexJitter)
+      jitterPct: [0.10, 0.20],
+      flexJitter: { stick: 25, rock: 3, flint: 3, bone: 8, reed: 20, berry: 5, meat: 8 }
     },
     // Step 10 physics: outcome rules over the material properties (data/materials.js). Actions: strike, rub, cut. "Held" = the thing in hand, "target" = the thing on the ground.
     physics: {
@@ -178,7 +229,8 @@
     },
     // Step 11 air temperature (C) by season and time of day: each season has a mean, blended smoothly into the next; the day swings +-dayAmp,
     // coldest at 05:00 and warmest at 15:00.
-    climate: { seasonMeanC: [13, 23, 12, -2], dayAmpC: 5, coldestHour: 5,
+    climate: { // 26b/v23 Director: San Diego–like coastal (Commissioner Oct 24) — mild year-round, Deep Cold never frost; no snow. Was [13,23,12,-2]/dayAmp 5.
+      seasonMeanC: [18, 23, 19, 15], dayAmpC: 4, coldestHour: 5,
       // ground dryness 0-100 by season (Greening, High Sun, Leaffall, Deep Cold), plus a fixed per-tile patchiness +-patch, minus wetC near water
       dryness: { meadow: [35, 70, 55, 25], woods: [30, 50, 50, 20], sand: [0, 0, 0, 0], patch: 25, nearWaterTiles: 2, nearWater: -30 } },
     // Step 12 fire. A spark lands on the target's tile: it catches if the fuel there (ground grass/litter, or a stick lying there) is dry enough:
@@ -300,7 +352,7 @@
       copyTiles: 5, copyMargin: 10, copyChance: 0.35, copyShare: 0.5,
       actions: { fire: { label: "sitting by the fire", short: "fire", fear: "fireFear" }, huddle: { label: "huddling up", short: "huddling", fear: null }, shelter: { label: "sheltering under the trees", short: "shelter", fear: null },
         den: { label: "sleeping in a cave, overhang or thicket", short: "shelters", fear: null },
-        hunt: { label: "going after grazers", short: "hunting", fear: null },
+        hunt: { label: "going after deer", short: "hunting", fear: null },
         cook: { label: "holding meat to the fire", short: "cooking", fear: "fireFear" },
         leave: { label: "leaving a body where it lies", short: "leaving bodies", fear: "corpseFear" },
         drag: { label: "dragging a body", short: "dragging bodies", fear: "corpseFear" },
@@ -318,7 +370,7 @@
     hunt: { coldBelow: 30,   // Director (call 1 on 18): only warmth under 30 stops a hunt (step 17 used her warmth-seeking level)
       minHardness: 20, sightTiles: 12, strikeTiles: 4, approachChance: 0.5, cooldownMinutes: 120, giveUpMinutes: 90,
       odds: { base: 0.10, sharp: 0.30, learned: 0.20 }, learnedAt: 60,
-      gain: 20, missDrop: 2, sickDrop: 5,
+      gain: 20, missDrop: 2, sickDrop: 5, watchGain: 8,   // 26b: watch animal kill within watchTiles → +watchGain hunt score
       scavengeChance: 0.5 },   // a fresh carcass with meat in sight (sightTiles): p(go and take meat) = scavengeChance x hunt score / 50
     // Step 16 meat. A killed grazer is a body (fresh -> rotting -> bones, same timings as config.body). While it is fresh, meat can be taken from it:
     // pieces per carcass, each taking fleshPerPiece of its flesh. A piece stays edible until the carcass would have begun to rot (diedAt + body.freshMinutes),
@@ -337,14 +389,14 @@
       // Step 15 seasons (Greening, High Sun, Leaffall, Deep Cold): a meal gives mealAdds x yield; an eaten bush ripens again after regrowMinutes
       // (people still expect it back after the base regrowMinutes, so in winter they find more bushes bare)
       season: { yield: [1, 1.25, 1.25, 0.8], regrowMinutes: [1440, 1080, 1080, 2160] },   // tuned (5 seeds x 1 year): 0.8 / 36 h -> 3% of winter minutes hungry, avg fullness 53; 0.6 / 72 h was 38% hungry and 17 deaths
-      weights: { edge: 6, meadow: 1, woods: 0.4 } }, // edge = meadow/woods border
+      weights: { edge: 8, meadow: 0.6, woods: 1.2 } }, // 26b: denser near woods (edge + woods up, open meadow down)
     log: { max: 200, personMax: 200,   // personMax: each person's own log keeps their last 200 events (saved)
       // log line colours: first matching rule wins, else "info". Tabs filter the log; a tab with no match shows everything.
-      kinds: [{ kind: "birth", match: "gives birth|stay close by night|carries the baby" }, { kind: "warn", match: "has died|is freezing|is cold|catches fire|burns|burned|is sick|is starving|is hungry|bush bare|bush was bare|bush taken|is thirsty|is parched|is exhausted|woke up (hungry|thirsty)" }],
+      kinds: [{ kind: "birth", match: "gives birth|stay close by night|carries the baby" }, { kind: "warn", match: "has died|froze|didn't wake from the cold|never woke|worn down to nothing|is shivering|is stumbling|looks lost|is moving slow|drops what they were carrying|is nodding off|is slowing further|has collapsed|is not getting up|is confused from lack of sleep|sees things that are not there|has been in the rain too long|catches fire|burns|burned|is sick|is starving|is hungry|bush bare|bush was bare|bush taken|is thirsty|is parched|is dehydrated|is exhausted|is delirious|woke up (hungry|thirsty)" }],
       tabs: [{ key: "all", label: "All" },
-             { key: "food", label: "Food", match: "bush|berr|meal|hungry|starving|meat|grazer" },
-             { key: "water", label: "Water", match: "water|drink|thirst|parched|lake|river" },
-             { key: "sleep", label: "Sleep", match: "sleep|woke|exhausted" },
+             { key: "food", label: "Food", match: "bush|berr|meal|hungry|starving|meat|deer|wild dog|Wolves|grazer" },
+             { key: "water", label: "Water", match: "water|drink|thirst|parched|dehydrated|lake|river" },
+             { key: "sleep", label: "Sleep", match: "sleep|woke|exhausted|delirious" },
              { key: "events", label: "Events", rest: true, also: "^Rain falls|^The rain stops|^The air grows|^The air near .* settles|into the rain|from the rain" },   // rest = every line no other tab matches; also = lines it shows even if another tab claims them (step 22: power use)
              { key: "death", label: "Death", match: "died|lies still|body|bones" }]
     },
@@ -400,14 +452,17 @@
       // v19: the +curiosityAdd fades back over curiosityFadeMinutes (7 days) after the latest watch, 1 point at a time.
       // kinds: picker key -> species ("predator" = the scavenger, the only meat-eater there is). Watchers awake within watchTiles: +curiosityAdd (trait, max 100);
       // for a predator each watcher rolls fearChance x (1.5 - curiosity/100) to back away (fright fearAdd for fearMinutes, runs runMinutes).
-      spawn: { kinds: { grazer: "grazer", predator: "scavenger" }, kindLabels: { grazer: "Grazer", predator: "Scavenger" }, freeTiles: 2,
+      spawn: { kinds: { grazer: "grazer", predator: "scavenger", wolves: "wolves" }, kindLabels: { grazer: "deer", predator: "wild dog", wolves: "Wolves" }, freeTiles: 2,
                watchTiles: 6, curiosityAdd: 5, curiosityFadeMinutes: 10080, predator: { fearChance: 0.5, fearAdd: 10, fearMinutes: 720, runMinutes: 20, runTiles: [4, 6] }, shimmerMs: 700 },
       faithTiles: 12, faithMinutes: 1440,
       // lit sticks (step 23): a stick within fire.brand.catchTiles of a lightning fire (a struck tree, a strike, or a Lightning power) is a bolt stick, lit
       // fire.brand.litMinutes past the flames. Every everyMinutes each free adult (idle / wandering, empty-handed) who can see one within seeTiles rolls
       // chance x clamp(0.5 + (curiosity - fireFear - fright) / 100, 0, 1) to walk over and pick it up (the walk does not turn back at the flee rule).
       boltStick: { everyMinutes: 30, seeTiles: 12, chance: 0.5 },
-      rain: { checkMinutes: 30, coverChance: 0.5, coverTiles: 10, waitMinutes: 180, faceChance: 0.3,
+      // 26b rain shelter: short OK; ≥exposeRaiseAt raise seek; ≥exposeForceAt force cover walk; ≥exposeUrgentAt cover outranks snacks.
+      rain: { checkMinutes: 30, coverChance: 0.5, coverTiles: 10, coverTilesLong: 16, waitMinutes: 180, faceChance: 0.3,
+              exposeRaiseAt: 30, exposeRaiseCheck: 10, exposeRaiseChance: 0.85,
+              exposeForceAt: 120, exposeUrgentAt: 240,
               strengthOrder: ["light", "medium", "heavy"],
               strengths: {
                 light:  { label: "Light",  minutes: 180, bushX: 1.5, bushMinutes: 1440, chillC: 3,  lossX: 1.25, wetMinutes: 720,  holdOutMinutes: null, douse: "small", puddles: { count: 2,   minutes: 720 } },
@@ -434,6 +489,9 @@
     ui: { prefsKey: "godsim.ui",
       powersTab: { label: "Powers", icon: "powers" },   // v19: portrait phones (< 700px): the bottom-bar tab that slides up the power row (CSS in index.html)
       find: { label: "Find", icon: "locate", pulseMs: 3000, zoom: 2, ringScale: 1.7 },   // v19 (step 24): the Find button on a person's card: centre the map on them (zoom at least 2), pulse their group ring brighter and bigger for pulseMs, follow until a pan or a tap elsewhere
+      personTabs: [   // 26b: person-card sections (header + Find + personal log stay outside)
+        { key: "needs", label: "Needs" }, { key: "mind", label: "Mind" }, { key: "kin", label: "Kin" }, { key: "knows", label: "Knows" }
+      ],
       panels: [{ key: "log", label: "Log", icon: "log", el: "logwrap", open: true },
                { key: "discoveries", label: "Discoveries", icon: "discoveries" },
                { key: "prayers", label: "Prayers", icon: "prayers" },

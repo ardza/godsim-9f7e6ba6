@@ -92,8 +92,10 @@
   .prl { font-size: 16px; padding: 6px 0; border-bottom: 1px solid var(--line); } .prl time { color: var(--dim); margin-right: 8px; }
   table.disc td { padding: 4px; border-bottom: 1px solid var(--line); vertical-align: top; } table.disc .blank { color: var(--dim); }
   .panel { min-height: 0; overflow-y: auto; }
-  /* step 21b People tab: one 44px+ row per person (tap = card + centre), sort buttons, collapsed Dead list */
-  .psort { display: flex; gap: 6px; margin: 0 0 8px; } .psort button { min-height: 44px; min-width: 44px; padding: 0 14px; font-size: 16px; } .psort button.on { outline: 2px solid var(--wheat); }
+  /* 26b People tab: All + group tabs (pill, ≥16px / ≥44px); oldest→youngest; collapsed Dead list */
+  .peop-tabs { display: flex; gap: 4px; overflow-x: auto; padding: 4px 0 8px; margin: 0 0 4px; border-bottom: 1px solid rgba(241,230,207,.10); }
+  .peop-tab { flex: 0 0 auto; min-height: 44px; min-width: 44px; padding: 0 14px; font-size: 16px; border-radius: 999px; border: 0; background: transparent; color: var(--dim); cursor: pointer; }
+  .peop-tab.on { background: var(--on); color: var(--on-text); font-weight: 600; }
   .plist { display: flex; flex-direction: column; gap: 4px; }
   .prow { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: center; width: 100%; min-height: 44px; padding: 6px 10px; font-size: 16px; text-align: left; }
   .prow .pn { font-weight: 700; } .prow .pa { color: var(--dim); text-align: right; white-space: nowrap; }
@@ -114,6 +116,12 @@
   #info .findbtn { position: absolute; right: 64px; top: 12px; z-index: 1; min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; font-size: 16px; }
   #info .findbtn svg { width: 24px; height: 24px; flex: 0 0 auto; }
   #info h3.hasfind { margin-right: 172px; }
+  /* 26b: person-card tabs — match godsim-previews/card_tabs/mock.html; labels ≥16px, taps ≥44px; header+Find+plog outside */
+  #info .pcard-tabs { display: flex; gap: 4px; overflow-x: auto; padding: 4px 0 8px; margin: 8px 0 0; border-bottom: 1px solid rgba(241,230,207,.10); flex: 0 0 auto; }
+  #info .pcard-tab { flex: 1; min-height: 44px; min-width: 44px; padding: 0 10px; font-size: 16px; border-radius: 999px; border: 0; background: transparent; color: var(--dim); cursor: pointer; }
+  #info .pcard-tab.on { background: var(--on); color: var(--on-text); font-weight: 600; }
+  #info .pcard-pane { flex: 1 1 auto; min-height: 0; padding-top: 8px; }
+  #info .pcard-pane > .sec:first-child { margin-top: 0; border-top: 0; padding-top: 0; }
   button.logn { display: inline-block; font: inherit; color: inherit; background: none; border: 0; border-radius: 6px; padding: 12px 10px; margin: -12px -10px; min-height: 44px; min-width: 44px; text-align: center; text-decoration: underline; text-decoration-color: var(--dim); text-underline-offset: 3px; cursor: pointer; }
   button.logn:hover, button.logn:focus-visible { text-decoration-color: currentColor; }
   .empty { color: var(--dim); padding: 6px 2px; }
@@ -179,7 +187,7 @@
     #info > * { flex-shrink: 0; }   /* the short card scrolls as a whole; her log follows the details */
   }
 </style>
-<link rel="stylesheet" href="data/ui/theme.css?v=22">
+<link rel="stylesheet" href="data/ui/theme.css?v=23">
 </head><body>
 <div id="top">
   <span class="grp"><button id="btn-menu" aria-expanded="false" aria-controls="files" title="World: save, load, new world"><span class="ico" data-icon="menu"></span><span class="wide">World</span></button></span>
@@ -200,33 +208,33 @@
 </div>
 <div id="panelbar" role="tablist" aria-label="panels"></div>
 <div id="toast"></div>
-<script src="data/config.js?v=22"></script>
-<script src="data/tiles.js?v=22"></script>
-<script src="data/names.js?v=22"></script>
-<script src="data/words.js?v=22"></script>
-<script src="data/art.js?v=22"></script>
-<script src="data/materials.js?v=22"></script>
-<script src="src/rng.js?v=22"></script>
-<script src="src/world.js?v=22"></script>
-<script src="src/climate.js?v=22"></script>
-<script src="src/agent.js?v=22"></script>
-<script src="src/animal.js?v=22"></script>
-<script src="src/objects.js?v=22"></script>
-<script src="src/fire.js?v=22"></script>
-<script src="src/learn.js?v=22"></script>
-<script src="src/hunt.js?v=22"></script>
-<script src="src/cook.js?v=22"></script>
-<script src="src/social.js?v=22"></script>
-<script src="src/family.js?v=22"></script>
-<script src="src/faith.js?v=22"></script>
-<script src="src/shelter.js?v=22"></script>
-<script src="src/powers.js?v=22"></script>
-<script src="src/speech.js?v=22"></script>
-<script src="src/corpse.js?v=22"></script>
-<script src="src/sim.js?v=22"></script>
-<script src="src/save.js?v=22"></script>
-<script src="src/icons.js?v=22"></script>
-<script src="src/render.js?v=22"></script>
-<script src="src/ui.js?v=22"></script>
-<script src="src/main.js?v=22"></script>
+<script src="data/config.js?v=23"></script>
+<script src="data/tiles.js?v=23"></script>
+<script src="data/names.js?v=23"></script>
+<script src="data/words.js?v=23"></script>
+<script src="data/art.js?v=23"></script>
+<script src="data/materials.js?v=23"></script>
+<script src="src/rng.js?v=23"></script>
+<script src="src/world.js?v=23"></script>
+<script src="src/climate.js?v=23"></script>
+<script src="src/agent.js?v=23"></script>
+<script src="src/animal.js?v=23"></script>
+<script src="src/objects.js?v=23"></script>
+<script src="src/fire.js?v=23"></script>
+<script src="src/learn.js?v=23"></script>
+<script src="src/hunt.js?v=23"></script>
+<script src="src/cook.js?v=23"></script>
+<script src="src/social.js?v=23"></script>
+<script src="src/family.js?v=23"></script>
+<script src="src/faith.js?v=23"></script>
+<script src="src/shelter.js?v=23"></script>
+<script src="src/powers.js?v=23"></script>
+<script src="src/speech.js?v=23"></script>
+<script src="src/corpse.js?v=23"></script>
+<script src="src/sim.js?v=23"></script>
+<script src="src/save.js?v=23"></script>
+<script src="src/icons.js?v=23"></script>
+<script src="src/render.js?v=23"></script>
+<script src="src/ui.js?v=23"></script>
+<script src="src/main.js?v=23"></script>
 </body></html>

@@ -11,7 +11,7 @@
     if (A.person && A.person.src) loadImg(A.person.src, im => art.person = im);
     if (A.founders && A.founders.src) loadImg(A.founders.src, im => art.founders = im);
     loadImg(A.bush, im => art.bush = im); loadImg(A.bushEmpty, im => art.bushEmpty = im);
-    for (const k of ["body", "grazer", "scavenger", "items", "fx", "food", "carcass", "smoke", "baby", "child", "pray", "childPray", "gesture", "childGesture", "spot", "shelter", "rain", "rainLight", "rainHeavy", "lightning", "burial", "pyre", "ashBones"]) if (A[k] && A[k].src) loadImg(A[k].src, im => art[k] = im);
+    for (const k of ["body", "grazer", "scavenger", "wolves", "items", "fx", "food", "carcass", "smoke", "baby", "child", "pray", "childPray", "gesture", "childGesture", "spot", "shelter", "rain", "rainLight", "rainHeavy", "lightning", "burial", "pyre", "ashBones", "reed", "reedBank", "mountain"]) if (A[k] && A[k].src) loadImg(A[k].src, im => art[k] = im);
   };
   R.art = () => art;
 
@@ -80,6 +80,26 @@
         g.fillStyle = "rgba(0,20,60,0.18)";
         for (const [a, b, rx, ry, rw, rh] of [[0, -1, 0, 0, tp, 2], [0, 1, 0, tp - 2, tp, 2], [-1, 0, 0, 0, 2, tp], [1, 0, tp - 2, 0, 2, tp]])
           if (G.World.walkable(w, x + a, y + b)) g.fillRect(px + rx, py + ry, rw, rh);
+      }
+    }
+    // Step 26b: mountain rock-mass overlays (peak / upper_slope / foothill) + reed bank fringe on land beside river
+    const MA = G.data.art.mountain, RA = G.data.art.reedBank;
+    if (art.mountain && MA && w.mountain) {
+      for (let y = 0; y < w.h; y++) for (let x = 0; x < w.w; x++) {
+        const lv = +w.mountain[y * w.w + x]; if (!lv) continue;
+        const col = lv === 3 ? "peak" : lv === 2 ? "upper_slope" : "foothill", ci = MA.cols.indexOf(col);
+        if (ci >= 0) g.drawImage(art.mountain, ci * MA.frame, 0, MA.frame, MA.frame, x * tp, y * tp, tp, tp);
+      }
+    }
+    if (art.reedBank && RA) {
+      const T = G.data.T, nearR = (x, y) => {
+        for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if ((dx || dy) && G.World.inb(w, x + dx, y + dy) && G.World.tile(w, x + dx, y + dy) === T.RIVER) return true;
+        return false;
+      };
+      for (let y = 0; y < w.h; y++) for (let x = 0; x < w.w; x++) {
+        if (!G.World.walkable(w, x, y) || !nearR(x, y)) continue;
+        const ci = Math.abs(H(x, y, 77) * 3 | 0) % RA.cols.length;
+        g.globalAlpha = 0.85; g.drawImage(art.reedBank, ci * RA.frame, 0, RA.frame, RA.frame, x * tp, y * tp, tp, tp); g.globalAlpha = 1;
       }
     }
     R.terrainFor = w; R.dirty = false;
@@ -235,11 +255,11 @@
   }
   // Animals: sheet rows by facing, 2 walk frames; code fallback = a small body shape.
   function drawAnimal(a, x, y, frame, facing) {
-    const px = x * tp, py = y * tp, A = G.data.art[a.species], im = art[a.species], gz = a.species === "grazer";
+    const px = x * tp, py = y * tp, A = G.data.art[a.species], im = art[a.species], gz = a.species === "grazer", wk = a.species === "wolves";
     cx.fillStyle = "rgba(0,0,0,0.3)"; cx.beginPath(); cx.ellipse(px + 8, py + 14, gz ? 5.5 : 4, 1.8, 0, 0, 7); cx.fill();
     if (im && A) { cx.drawImage(im, (frame % A.frames) * A.frame, Math.max(0, A.rows.indexOf(facing)) * A.frame, A.frame, A.frame, px, py - 1, tp, tp); return; }
     const bob = frame % 2 ? 1 : 0, side = facing === "left" || facing === "right", dir = facing === "left" ? -1 : 1;
-    cx.fillStyle = gz ? "#8a6a44" : "#5a5550";
+    cx.fillStyle = gz ? "#8a6a44" : wk ? "#4a4a55" : "#5a5550";
     if (side) { cx.fillRect(px + 3, py + (gz ? 7 : 9), 10, gz ? 5 : 4); cx.fillRect(px + (dir > 0 ? 12 : 1), py + (gz ? 5 : 8), 3, 3);
       cx.fillRect(px + 4, py + 12 + bob, 1, 2); cx.fillRect(px + 11, py + 12 - bob, 1, 2); }
     else { cx.fillRect(px + 5, py + (gz ? 4 : 7), 6, gz ? 9 : 6); cx.fillRect(px + 5, py + 13 + bob, 1, 1); cx.fillRect(px + 10, py + 13 - bob, 1, 1); }
@@ -260,10 +280,13 @@
     if (it.material === "meat") { const c2 = sheetCol("food", ({ raw: "raw", cooked: "cooked", charred: "burnt" })[G.Cook.of(it)]);   // step 17: raw / cooked / charred (the "burnt" frame)
       if (c2 >= 0) { cx.drawImage(art.food, c2 * 16, 0, 16, 16, px, py, size, size); return; }
       const f2 = size / 16; cx.fillStyle = "#a8383a"; cx.fillRect(px + 4 * f2, py + 7 * f2, 8 * f2, 5 * f2); return; }
+    if (it.material === "reed") { const c2 = sheetCol("reed", it.form === "shard" ? "reed" : "reed");
+      if (c2 >= 0) { cx.drawImage(art.reed, c2 * 16, 0, 16, 16, px, py, size, size); return; }
+      const f2 = size / 16; cx.fillStyle = "#5a7a3a"; cx.fillRect(px + 7 * f2, py + 3 * f2, 2 * f2, 11 * f2); cx.fillRect(px + 5 * f2, py + 5 * f2, 2 * f2, 2 * f2); return; }
     const c = sheetCol("items", G.Items.frame(it)), f = size / 16;
     if (c >= 0) { cx.drawImage(art.items, c * 16, 0, 16, 16, px, py, size, size); return; }
     const m = it.material, sh = it.form === "shard";   // code fallback: small shapes in earthy colours
-    cx.fillStyle = { rock: "#7d766b", stick: "#7a5230", flint: "#3f4652", bone: "#e8e0c8" }[m] || "#999";
+    cx.fillStyle = { rock: "#7d766b", stick: "#7a5230", flint: "#3f4652", bone: "#e8e0c8", reed: "#5a7a3a" }[m] || "#999";
     const R2 = (x, y, w, h) => cx.fillRect(px + x * f, py + y * f, Math.max(1, w * f), Math.max(1, h * f));
     if (m === "stick") { if (sh) R2(5, 9, 6, 2); else { R2(2, 10, 12, 2); R2(9, 8, 2, 2); } }
     else if (m === "bone") { if (sh) { R2(6, 7, 2, 6); R2(7, 5, 1, 2); } else { R2(3, 9, 10, 2); R2(2, 8, 2, 4); R2(12, 8, 2, 4); } }
