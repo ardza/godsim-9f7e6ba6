@@ -68,7 +68,10 @@
     tools: { src: "data/art/tools_16.png", frame: 16, cols: ["flake", "axe", "spear"], rows: ["down", "left", "right", "up"] },   // 48x64 convenience sheet
     // §31 / v28 (Artist): grazer hide item + worn cloak overlay
     hide: { src: "data/art/hide_16.png", frame: 16, cols: ["hide"] },   // 16x16 ground/carried
-    hideWorn: { src: "data/art/hide_worn_16.png", frame: 16, rows: ["down", "left", "right", "up"] }   // 16x64 worn drape
+    hideWorn: { src: "data/art/hide_worn_16.png", frame: 16, rows: ["down", "left", "right", "up"] },   // 16x64 worn drape
+    // §32 / v29 optional cache tile tint; §33 / v30 sacred spot marker (prayer_spot_16 still used for stone piles)
+    cache: { src: "data/art/cache_16.png", frame: 16, cols: ["cache"] },
+    sacred: { src: "data/art/sacred_16.png", frame: 16, cols: ["sacred"] }
   };
   G.data.artItems = G.data.art.items.cols;   // which item frames exist (a sharp bone uses bone_shard; other shards use their material)
 })(this.GS = this.GS || {});

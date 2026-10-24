@@ -122,6 +122,7 @@
   Items.drop = function (sim, a, why) {
     const it = Items.held(sim, a); a.carry = null; a.carryUntil = null; if (!it) return;
     it.heldBy = null; it.x = Math.round(a.pos.x); it.y = Math.round(a.pos.y);
+    if (why === "stash") return;   // v29: Cache.doStash logs its own action line
     G.Sim.log(sim, a.name + " puts down the " + Items.matLabel(it), a);
   };
   Items.dropAll = (sim, a) => { if (a.carry != null) Items.drop(sim, a); };

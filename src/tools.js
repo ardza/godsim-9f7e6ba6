@@ -342,6 +342,7 @@
   };
 
   Tools.maybe = function (sim, a) {
+    if (a.carry == null && G.Cache && G.Cache.seekRetrieve(sim, a, "tool")) return true;   // v29: remembered tool cache
     if (Tools.maybeBind(sim, a)) return true;
     if (Tools.maybeChop(sim, a)) return true;
     if (Tools.maybePoke(sim, a)) return true;

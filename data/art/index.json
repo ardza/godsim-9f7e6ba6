@@ -314,5 +314,19 @@
    "up"
   ],
   "note": "\u00a731 / v28 \u2014 worn hide cloak/drape overlay at person origin"
+ },
+ "cache_16.png": {
+  "frame": 16,
+  "cols": [
+   "cache"
+  ],
+  "note": "\u00a732 / v29 optional stash pile tint on a known cache tile"
+ },
+ "sacred_16.png": {
+  "frame": 16,
+  "cols": [
+   "sacred"
+  ],
+  "note": "\u00a733 / v30 light sacred-spot marker (\u22653 prayers); soft worn ground, not a shrine"
  }
 }

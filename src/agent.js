@@ -15,6 +15,7 @@
       needs: { fullness: r2(rng.range(p.fullness.start[0], p.fullness.start[1])), water: r2(rng.range(p.water.start[0], p.water.start[1])), energy: r2(rng.range(p.energy.start[0], p.energy.start[1])), warmth: r2(rng.range(p.warmth.start[0], p.warmth.start[1])) },
       traits, knowledge: { bushes: {}, water: {} }, relations: {}, exp: {},   // exp: step 13-14 experience scores per action (see learn.js)
       act: { type: "idle", until: 0 }, stats: { meals: 0, drinks: 0, sleeps: 0 }, carry: null,   // carry = id of the one thing in hand
+      caches: [],   // v29: personal cache memory [{key, kind, id, x, y, lastKinds}]
       zero: { water: 0, fullness: 0, warmth: 0, energy: 0 },   // minutes in a row at 0 (water/fullness/warmth/energy clocks; warmth & energy kill only after full stage ladders)
       hypo: 0, rainExposedMinutes: 0,
       moods: { happiness: 40, sadness: 40, anger: 40 }, moodClock: { hungryLow: 0, hapWas: 40, logAt: {} },
@@ -54,7 +55,7 @@
   Agent.sight = a => P().sightTiles;
   Agent.tilePos = a => ({ x: Math.round(a.pos.x), y: Math.round(a.pos.y) });
   Agent.doing = a => { const d = a.act.type === "pray" ? G.Faith.doing(a) : (a.act.type === "idle" || a.act.type === "sleep") && a.felt && a.felt.huddle && a.needs.warmth < 60 ? (a.act.type === "sleep" ? "asleep, huddled" : "huddling") :
-    a.hypoUnconscious ? "unconscious from cold" : a.hypo >= 4 && a.needs.warmth <= 0 && a.act.type === "sleep" ? "asleep from cold" : ({ idle: "resting", try: ({ strike: "striking", rub: "rubbing", cut: "cutting" })[a.act.action] || "trying", bind: "binding a tool", chop: "chopping at a tree", eat: "eating a meal", eatMeat: "eating meat", eatCorpse: "eating from a body", dig: "digging", cook: "holding meat to the fire", drink: "drinking", sleep: "asleep" })[a.act.type] || ({ wander: "wandering", food: "going to a bush", explore: "looking for food", water: "going to the water", exploreWater: "looking for water", collapse: "stumbling to a stop", pickup: "going to pick something up", try: "going to try something", shelter: "seeking warmth", fleeFire: "moving away from flames", fireside: "going to sit by the fire", burnt: "jumping back from the flames", hunt: "going after a deer", meat: "going to a carcass", corpse: "going to a body", drag: "dragging a body", follow: "keeping close to someone", mate: "going to sleep beside a partner", keep: "keeping close to family", prayspot: "going to a prayer spot", beside: "going to sleep beside family", avoid: "keeping away from someone", scared: "running from the flash", fleeWolf: "running from the Wolves" })[a.act.goal] || a.act.type;
+    a.hypoUnconscious ? "unconscious from cold" : a.hypo >= 4 && a.needs.warmth <= 0 && a.act.type === "sleep" ? "asleep from cold" : ({ idle: "resting", try: ({ strike: "striking", rub: "rubbing", cut: "cutting" })[a.act.action] || "trying", bind: "binding a tool", chop: "chopping at a tree", eat: "eating a meal", eatMeat: "eating meat", eatCorpse: "eating from a body", dig: "digging", cook: "holding meat to the fire", drink: "drinking", sleep: "asleep" })[a.act.type] || ({ wander: "wandering", food: "going to a bush", explore: "looking for food", water: "going to the water", exploreWater: "looking for water", collapse: "stumbling to a stop", pickup: "going to pick something up", try: "going to try something", shelter: "seeking warmth", fleeFire: "moving away from flames", fireside: "going to sit by the fire", burnt: "jumping back from the flames", hunt: "going after a deer", meat: "going to a carcass", corpse: "going to a body", drag: "dragging a body", follow: "keeping close to someone", mate: "going to sleep beside a partner", keep: "keeping close to family", prayspot: "going to a prayer spot", stash: "going to stash something", cache: "going to a cache", beside: "going to sleep beside family", avoid: "keeping away from someone", scared: "running from the flash", fleeWolf: "running from the Wolves" })[a.act.goal] || a.act.type;
     return (G.Disease && G.Disease.isSick(a) && d.indexOf("sick") < 0) ? d + ", sick" : d; };
 
 
@@ -318,6 +319,7 @@
 
   // Go to the nearest remembered ripe (or due-to-regrow) bush (by path length among the 3 closest); else explore away from known bushes.
   function seekFood(sim, a, skipId, allowFar) {
+    if (Agent.want(a) === "food" && G.Cache && G.Cache.seekRetrieve(sim, a, "food")) return;   // v29: remembered cache before bush/hunt
     if (Agent.want(a) === "food" && G.Hunt.seekFood(sim, a)) return;   // step 16: meat in hand, a carcass in sight, or a grazer to go after
     const K = a.knowledge.bushes, t = Agent.tilePos(a);
     const reach = G.Tools ? G.Tools.reachTiles(sim, a) : 0;
@@ -386,6 +388,8 @@
     if (g === "try") { if (!G.Items.arriveTry(sim, a)) startIdle(sim, a, 0.5); return; }
     if (g === "bind") { if (!G.Tools || !G.Tools.arriveBind(sim, a)) startIdle(sim, a, 0.5); return; }
     if (g === "prayspot") { if (!G.Faith.arriveSpot(sim, a)) startIdle(sim, a); return; }   // step 21
+    if (g === "stash") { if (G.Cache) G.Cache.arriveStash(sim, a); else startIdle(sim, a); return; }   // v29
+    if (g === "cache") { if (G.Cache) G.Cache.arriveRetrieve(sim, a); else startIdle(sim, a); return; }   // v29
     if (g === "shelter") { const back = a.act.coldWake; arriveShelter(sim, a); if (back && shouldSleep(sim, a)) startSleep(sim, a, true); else startIdle(sim, a); return; }
     if (g === "mate") { if (shouldSleep(sim, a)) startSleep(sim, a); else startIdle(sim, a); return; }   // step 19
     if (g === "fleeFire" || g === "burnt") { startIdle(sim, a, 0.3); return; }
@@ -471,8 +475,22 @@
     a.age += G.data.config.time.tickGameMinutes / (1440 * G.Time.daysPerYear());
     // warmth: moves toward equilibrium from felt (v22: eq = 50 + (feltC - 10) * eqPerC; air/shelter/huddle/fire raise feltC)
     const w0 = n.warmth, felt = a.felt = G.Climate.felt(sim, a);
-    const wr0 = G.Climate.warmthRate(felt.c, w0), lossX = felt.wet && G.Powers && G.Powers.lossXAt ? G.Powers.lossXAt(sim, Math.round(a.pos.x), Math.round(a.pos.y)) : (G.data.config.powers.rain.strengths ? G.data.config.powers.rain.strengths.medium.lossX : 1.5),
-          wr = felt.wet && wr0 < 0 ? wr0 * (1 + (lossX - 1) * felt.wet) : wr0;   // step 22 / 24: out in the rain she loses warmth lossX (per strength) as fast
+    const wr0 = G.Climate.warmthRate(felt.c, w0), ax = Math.round(a.pos.x), ay = Math.round(a.pos.y);
+    // step 22 / 24: out in the rain she loses warmth lossX (per strength) as fast
+    // v29: active rain / soft wet-ground exposure blocks daytime warmth climb (unless fire heat); loss still amplified
+    const lossX = felt.wet && G.Powers && G.Powers.lossXAt ? G.Powers.lossXAt(sim, ax, ay) : (G.data.config.powers.rain.strengths ? G.data.config.powers.rain.strengths.medium.lossX : 1.5);
+    const softWet = !(felt.wet > 0) && G.Powers && G.Powers.wetAt && G.Powers.wetAt(sim, ax, ay)
+      && !(G.Shelter && G.Shelter.inside(sim, a))
+      && G.World.tile(sim.world, ax, ay) !== G.data.T.WOODS;
+    let wr = wr0;
+    if (felt.wet > 0) {
+      if (wr0 < 0) wr = wr0 * (1 + (lossX - 1) * felt.wet);
+      else if (wr0 > 0 && !(felt.heat > 0)) wr = 0;   // rain chill blocks day climb; fire may still warm
+    } else if (softWet) {
+      if (wr0 < 0) wr = wr0 * 1.15;                    // residual damp ground: mild extra loss
+      else if (wr0 > 0 && !(felt.heat > 0)) wr = 0;     // damp ground also blocks daytime climb without fire
+      if (softWet) felt.wetGround = true;
+    }
     n.warmth = Math.round(clamp(w0 + wr * G.data.config.time.tickGameMinutes, p.warmth.min, 100) * 1e9) / 1e9;
     if (a.hold) n[a.hold] = 0;   // test-only (GS.debug.drainWater / drainFullness / drainWarmth): hold that need at 0
     const tm = G.data.config.time.tickGameMinutes, z = a.zero || (a.zero = { water: 0, fullness: 0, warmth: 0, energy: 0 });
@@ -522,7 +540,11 @@
       if (a.act.type === "sleep") G.Sim.log(sim, a.name + " wakes to flames", a);
       if (a.act.type === "sleep" || a.act.type === "idle" || a.act.type === "try" || a.act.type === "eat" || a.act.type === "eatMeat" || a.act.type === "eatCorpse" || a.act.type === "dig" || a.act.type === "cook" || a.act.type === "drink" || a.act.type === "walk") { if (a.act.type === "sleep") a.wokeEarly = true; if (fleeFire(sim, a)) { move(sim, a); return; } } }
     // the thing in hand is put down when a need takes over, at bedtime, or after a while - step 16: unless she is hungry and it is fresh meat or something hard to hunt with
-    if (a.carry != null && (a.act.type === "sleep" || ((Agent.want(a) || sim.tick >= a.carryUntil) && !G.Hunt.keep(sim, a)))) G.Items.drop(sim, a);
+    if (a.carry != null && (a.act.type === "sleep" || ((Agent.want(a) || sim.tick >= a.carryUntil) && !G.Hunt.keep(sim, a)))) {
+      // v29: prefer intentional stash at known shelter/prayer cache when freeing hands (not sleep / hypo)
+      if (a.act.type !== "sleep" && G.Cache && G.Cache.tryStash(sim, a)) { /* walking to stash or stashed */ }
+      else G.Items.drop(sim, a);
+    }
     if (!hf && h0 >= thr && n.fullness < thr) G.Sim.log(sim, a.name + " is hungry", a);
     if (!hf && (h0 > p.fullness.min || a.hold === "fullness") && n.fullness <= p.fullness.min) G.Sim.log(sim, a.name + " is starving", a);
     if (!hw && t0 >= tthr && n.water < tthr) G.Sim.log(sim, a.name + " is thirsty", a);

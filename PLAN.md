@@ -163,9 +163,14 @@ Starts as soon as 13-15 and the new UI are frozen to godsim-rc, without waiting 
 ## 29. Tools from cut and strike (save v26) — shipped Oct 24
 - Flake / axe / long stick. Live commit 4aed9eb.
 
-## 30. Disease powers (save v27) — build now
-- Cure + Plague circle powers. Spec: specs/15b-17.md §30.
+## 30. Disease powers (save v27) — shipped Oct 24
+- Cure + Plague. Live commit d8c61ff.
 
-## 31. Hides and warmth (save v28) — after v27 freeze (parallel OK)
-- Grazer hide; wear / sleep-under; warmth bonus. Spec: specs/15b-17.md §31.
-- Artist: hide_16 + worn overlay; Cure/Plague icons if needed.
+## 31. Hides and warmth (save v28) — shipped Oct 24
+- Grazer hide wear/sleep-under. Live commit 928049a.
+
+## 32. Carrying & caching (save v29) — build now
+- Stash food/tools at known shelter/prayer spots; personal cache memory; copy by watching. Spec §32.
+
+## 33. Sacred places (save v30) — after v29 freeze (parallel OK)
+- Light map marker at prayer spots with 3+ prayers; group drift; no named gods. Spec §33.

@@ -388,7 +388,7 @@
         speechRows(sim, a) + prayRows(a);
       const kinPane = familyRows(sim, a) + relRows(sim, a);
       const knowsPane =
-        '<div class="sec">Knows</div><div class="chips">' + chip(known + ' berry bush' + (known === 1 ? "" : "es")) + chip(waterKnown(a)) + chip('Known shelters: ' + (a.shelters || []).length) +
+        '<div class="sec">Knows</div><div class="chips">' + chip(known + ' berry bush' + (known === 1 ? "" : "es")) + chip(waterKnown(a)) + chip('Known shelters: ' + (a.shelters || []).length) + chip('Caches: ' + (a.caches || []).length) +
           chip('carrying ' + (G.Items.held(sim, a) ? esc(G.Items.label(G.Items.held(sim, a))) : 'nothing')) +
           (sim.discoveries || []).filter(d => d.who === a.name).map(d => chip(esc(d.action + " " + d.materials.slice(0, 2).join(" / ") + " → " + d.result), "disc")).join("") + '</div>';
       const logPane = '<div class="sec">' + esc(a.name) + "'s log</div>" + plogHtml(sim, a.id);

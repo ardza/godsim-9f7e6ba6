@@ -2,7 +2,7 @@
 (function (G) {
   G.data = G.data || {};
   G.data.config = {
-    saveVersion: 28,                // v28: grazer hides (wear / sleep-under warmth under fire+shelter cap; Discoveries first wear); v27: Cure/Plague; v26: tools
+    saveVersion: 29,                // v29: carrying & caching + rain/wet blocks daytime warmth climb; v28: hides; v27: Cure/Plague; v26: tools
     saveKey: "godsim.save",
     map: {
       w: 60, h: 40, tilePx: 16,      // map is 960x640 art px, scaled to fit the screen
@@ -403,6 +403,12 @@
       logWear: "pulls the hide about her shoulders",
       logSleep: "curls up under the hide",
       logDrop: "lets the hide fall from her shoulders"
+    },
+    // §32 / v29: stash food/tools at known shelter or prayer spot; personal a.caches; copy by watching
+    cache: {
+      walkTiles: 18,                 // max walk to prefer stash / retrieve over random drop
+      copyChance: 0.55,              // watcher within sightTiles copies the spot
+      includeHide: true              // hide counts as stashable (optional per spec)
     },
     bushes: { count: 60, minCount: 15, moistBase: 0.5, dry: { below: -0.1, at: -0.3, fewer: [0.3, 0.5] }, regrowMinutes: 1440, startRipe: 0.85, minSpacing: 4,   // eaten bush is ripe again 1 game day later (Greening; see season)
       // Step 15 seasons (Greening, High Sun, Leaffall, Deep Cold): a meal gives mealAdds x yield; an eaten bush ripens again after regrowMinutes

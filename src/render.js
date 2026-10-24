@@ -11,7 +11,7 @@
     if (A.person && A.person.src) loadImg(A.person.src, im => art.person = im);
     if (A.founders && A.founders.src) loadImg(A.founders.src, im => art.founders = im);
     loadImg(A.bush, im => art.bush = im); loadImg(A.bushEmpty, im => art.bushEmpty = im);
-    for (const k of ["body", "grazer", "scavenger", "wolves", "items", "fx", "food", "carcass", "smoke", "baby", "child", "pray", "childPray", "gesture", "childGesture", "spot", "shelter", "rain", "rainLight", "rainHeavy", "lightning", "burial", "pyre", "ashBones", "reed", "reedBank", "mountain", "flake", "axe", "spear", "tools", "hide", "hideWorn"]) if (A[k] && A[k].src) loadImg(A[k].src, im => art[k] = im);
+    for (const k of ["body", "grazer", "scavenger", "wolves", "items", "fx", "food", "carcass", "smoke", "baby", "child", "pray", "childPray", "gesture", "childGesture", "spot", "shelter", "rain", "rainLight", "rainHeavy", "lightning", "burial", "pyre", "ashBones", "reed", "reedBank", "mountain", "flake", "axe", "spear", "tools", "hide", "hideWorn", "cache", "sacred"]) if (A[k] && A[k].src) loadImg(A[k].src, im => art[k] = im);
   };
   R.art = () => art;
 
@@ -368,6 +368,14 @@
       if (art.spot && S) { cx.drawImage(art.spot, lv * S.frame, 0, S.frame, S.frame, px, py, tp, tp); continue; }
       cx.fillStyle = "#8a8378"; for (let k = 0; k <= lv + 1; k++) cx.fillRect(px + 3 + k * 3, py + 11 - (k % 2) * 2, 3, 3); }
   }
+  // v29: optional cache pile tint on tiles any living person remembers
+  function drawCaches(sim) {
+    if (!G.Cache || !art.cache) return; const marks = G.Cache.markedTiles(sim); R.cachesDrawn = 0;
+    for (const c of marks.values()) {
+      const px = c.x * tp, py = c.y * tp; R.cachesDrawn++;
+      cx.globalAlpha = 0.85; cx.drawImage(art.cache, 0, 0, 16, 16, px, py, tp, tp); cx.globalAlpha = 1;
+    }
+  }
   // step 21b: natural shelters over the tile beneath (cave / overhang blend into the hill, thicket over the woods); code fallback = dark mouth / brush
   function drawShelters(sim) {
     const S = G.data.art.shelter; R.sheltersDrawn = 0;
@@ -396,7 +404,7 @@
     drawFire(sim, time);
     for (const b of sim.bushes) drawBush(b);
     R.screen = {};
-    drawSpots(sim); drawItems(sim, selectedId);
+    drawSpots(sim); drawCaches(sim); drawItems(sim, selectedId);
     for (const b of sim.bodies || []) { R.screen[b.id] = { x: b.x, y: b.y }; drawBody(b, b.id === selectedId); }
     for (const a of sim.animals || []) {
       const p = sim.prev[a.id] || a.pos, x = p.x + (a.pos.x - p.x) * alpha, y = p.y + (a.pos.y - p.y) * alpha, st = animState(sim, a, x, y);
