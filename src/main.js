@@ -21,7 +21,7 @@
       : k === "rain" && P.rain.strengths && P.rain.strengths[kind] ? P.rain.strengths[kind].label + " rain"
       : k === "lightning" && P.lightning.modes && P.lightning.modes[kind] ? P.lightning.modes[kind].label : L;
     G.UI.toast(r.ok ? what + " near " + r.effect.place : what + ": " + r.reason); G.UI.update(app); return r; };
-  app.clickTile = (tx, ty) => { // nearest person, animal, body or thing on the ground within ~1 tile of the tap (people first, then animals, bodies, then things when equally near)
+  app.clickTile = (tx, ty) => { // nearest person, animal, body or thing on the ground within ~1 tile of the tap (people first, then animals, bodies, then things when equally near); §33 sacred markers last
     let best = null; const S = G.Render.screen || {};
     const consider = (o, pos, pen) => { const p = S[o.id] || pos, d = Math.hypot(p.x + 0.5 - tx, p.y + 0.5 - ty) + pen; if (d < 1.3 + pen && (!best || d < best.d)) best = { id: o.id, d }; };
     for (const a of app.sim.agents) consider(a, a.pos, 0);
@@ -29,6 +29,7 @@
     for (const b of app.sim.bodies || []) consider(b, { x: b.x, y: b.y }, 0.3);
     for (const it of app.sim.items || []) if (it.heldBy == null) consider(it, { x: it.x, y: it.y }, 0.4);
     for (const b of app.sim.babies || []) if (b.orphanAt != null) consider(b, b.pos, 0.2);   // step 19: a baby left lying alone (a carried one: tap the carrier)
+    for (const q of (app.sim.faith && app.sim.faith.spots) || []) if (q.marker) consider({ id: G.Faith.spotId(q.x, q.y) }, { x: q.x, y: q.y }, 0.55);
     app.select(best ? best.id : null);
   };
   // Test-only console hooks (not in the UI): hold a person's water / fullness at 0 so a need-death and the decay can be watched (README).

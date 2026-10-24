@@ -360,13 +360,19 @@
   function drawSparks(sim, time) {   // a spark is a brief flash: shown for the tick it happens and the next, flickering
     for (const f of sim.fx || []) if (f.k === "spark" && sim.tick - f.t < 2 && Math.floor(time * 12) % 3) drawFx("spark", f.x * tp, f.y * tp - 4);
   }
-  // step 21: prayer spots (few stones / more stones / cairn by spot.n); code fallback = small grey stones
+  // step 21: prayer spots (few stones / more stones / cairn by spot.n); §33 sacred_16 marker when spot.marker
   function drawSpots(sim) {
-    const S = G.data.art.spot, spots = (sim.faith && sim.faith.spots) || []; R.spotsDrawn = 0;
+    const S = G.data.art.spot, spots = (sim.faith && sim.faith.spots) || []; R.spotsDrawn = 0; R.sacredDrawn = 0;
     for (const q of spots) { let lv = 0; if (S) for (let i = 0; i < S.at.length; i++) if (q.n >= S.at[i]) lv = i;
       const px = q.x * tp, py = q.y * tp; R.spotsDrawn++;
-      if (art.spot && S) { cx.drawImage(art.spot, lv * S.frame, 0, S.frame, S.frame, px, py, tp, tp); continue; }
-      cx.fillStyle = "#8a8378"; for (let k = 0; k <= lv + 1; k++) cx.fillRect(px + 3 + k * 3, py + 11 - (k % 2) * 2, 3, 3); }
+      if (art.spot && S) cx.drawImage(art.spot, lv * S.frame, 0, S.frame, S.frame, px, py, tp, tp);
+      else { cx.fillStyle = "#8a8378"; for (let k = 0; k <= lv + 1; k++) cx.fillRect(px + 3 + k * 3, py + 11 - (k % 2) * 2, 3, 3); }
+      if (q.marker) {
+        R.sacredDrawn++;
+        if (art.sacred) { cx.globalAlpha = 0.9; cx.drawImage(art.sacred, 0, 0, 16, 16, px, py, tp, tp); cx.globalAlpha = 1; }
+        else { cx.fillStyle = "rgba(120,100,70,0.35)"; cx.fillRect(px + 2, py + 2, tp - 4, tp - 4); }
+      }
+    }
   }
   // v29: optional cache pile tint on tiles any living person remembers
   function drawCaches(sim) {

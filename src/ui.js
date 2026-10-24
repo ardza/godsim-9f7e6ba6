@@ -313,9 +313,16 @@
     const it = !a && !an && !bd && (sim.items || []).find(q => q.id === app.selected);
     if (!a && !an && !bd && app.selected != null) { bd = (sim.bodies || []).find(q => q.of === app.selected); if (bd) app.selected = bd.id; }   // the selected person died: follow to their body
     const bb = !a && !an && !bd && !it && G.Family && G.Family.babyById(sim, app.selected);   // step 19: a baby
-    info.hidden = !a && !an && !bd && !it && !bb;
+    const sp = !a && !an && !bd && !it && !bb && G.Faith && G.Faith.byId(sim, app.selected);   // §33 sacred / prayer spot
+    info.hidden = !a && !an && !bd && !it && !bb && !sp;
     const need = (label, v, cls, word, tip) => '<div class="row need" title="' + tip + '"><span>' + label + '</span>' + bar(v, 100, cls).replace('</div>', '<em>' + word + '</em></div>') + '<b>' + Math.round(v) + '/100</b></div>';
-    if (it) {   // a thing: its material, form, where it is, and its property numbers (these alone decide what happens when it is struck, rubbed or cut)
+    if (sp) {   // §33: sacred / prayer spot — decorative inspect only
+      const knownG = (sim.groups || []).filter(g => (g.sacred || []).some(q => q.x === sp.x && q.y === sp.y)).length;
+      $("info-body").innerHTML = '<h3>' + (sp.marker ? 'Worn ground' : 'Prayer spot') + '</h3>' +
+        '<div class="sub">' + sp.n + ' prayer' + (sp.n === 1 ? '' : 's') + ' here' + (sp.marker ? ' · marked' : '') +
+        (knownG ? ' · known to ' + knownG + ' group' + (knownG === 1 ? '' : 's') : '') + '</div>' +
+        '<div class="sub">A place people return to. Not a building.</div>';
+    } else if (it) {   // a thing: its material, form, where it is, and its property numbers (these alone decide what happens when it is struck, rubbed or cut)
       const P = G.Items.props(it), holder = it.heldBy != null && sim.agents.find(q => q.id === it.heldBy);
       const prop = (k, tip) => '<div class="row" title="' + tip + '"><span>' + k + '</span>' + bar(P[k], 100, "trait") + '<b>' + Math.round(P[k]) + '/100</b></div>';
       $("info-body").innerHTML = '<h3>' + esc(G.Items.matLabel(it).replace(/^./, ch => ch.toUpperCase())) + '</h3><div class="sub">' + (it.form === "shard" ? "a broken piece" : "whole") + ' · ' + (holder ? 'carried by ' + esc(holder.name) : 'on the ground') + (P.burns ? ' · burns' : '') + '</div>' +
@@ -388,7 +395,7 @@
         speechRows(sim, a) + prayRows(a);
       const kinPane = familyRows(sim, a) + relRows(sim, a);
       const knowsPane =
-        '<div class="sec">Knows</div><div class="chips">' + chip(known + ' berry bush' + (known === 1 ? "" : "es")) + chip(waterKnown(a)) + chip('Known shelters: ' + (a.shelters || []).length) + chip('Caches: ' + (a.caches || []).length) +
+        '<div class="sec">Knows</div><div class="chips">' + chip(known + ' berry bush' + (known === 1 ? "" : "es")) + chip(waterKnown(a)) + chip('Known shelters: ' + (a.shelters || []).length) + chip('Caches: ' + (a.caches || []).length) + chip('Sacred places: ' + (a.sacred || []).length) +
           chip('carrying ' + (G.Items.held(sim, a) ? esc(G.Items.label(G.Items.held(sim, a))) : 'nothing')) +
           (sim.discoveries || []).filter(d => d.who === a.name).map(d => chip(esc(d.action + " " + d.materials.slice(0, 2).join(" / ") + " → " + d.result), "disc")).join("") + '</div>';
       const logPane = '<div class="sec">' + esc(a.name) + "'s log</div>" + plogHtml(sim, a.id);

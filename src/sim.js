@@ -196,6 +196,16 @@
     for (const a of s.agents || []) if (!a.caches) a.caches = [];
     s.version = 29; return s;
   };
+  // v29 -> v30 (§33): sacred markers on prayer spots at spotMin; personal/group sacred memory
+  Sim.migrate30 = function (o) {
+    if (!o || o.version !== 29) return o; const s = JSON.parse(JSON.stringify(o));
+    const min = (G.data.config.faith && G.data.config.faith.spotMin) || 3;
+    if (s.faith && s.faith.spots) for (const q of s.faith.spots) { if (q.n >= min) q.marker = true; else if (q.marker == null) q.marker = false; }
+    if (s.faith && s.faith.stats) { s.faith.stats.markers = s.faith.stats.markers || 0; s.faith.stats.groupKnown = s.faith.stats.groupKnown || 0; s.faith.stats.sacredDrifts = s.faith.stats.sacredDrifts || 0; }
+    for (const a of s.agents || []) if (!a.sacred) a.sacred = [];
+    for (const g of s.groups || []) if (!g.sacred) g.sacred = [];
+    s.version = 30; return s;
+  };
   // One log line. who = the person(s) involved (person/body objects or ids): the line is tagged with their ids and also goes into each one's own
   // log (sim.plog[id], last log.personMax kept, saved). k = an optional kind for the personal log ("death", "birth", "disc").
   Sim.ids = who => (who == null ? [] : Array.isArray(who) ? who : [who]).map(w => w == null ? null : typeof w === "number" ? w : w.kind === "body" ? w.of : w.id).filter((v, i, a) => v != null && a.indexOf(v) === i);
@@ -290,6 +300,7 @@
     if (o && o.version === 26) o = Sim.migrate27(o);
     if (o && o.version === 27) o = Sim.migrate28(o);
     if (o && o.version === 28) o = Sim.migrate29(o);
+    if (o && o.version === 29) o = Sim.migrate30(o);
     if (!o || o.version !== CFG().saveVersion) throw new Error("unsupported save version " + (o && o.version));
     const s = JSON.parse(JSON.stringify(o));
     const world = { w: s.world.w, h: s.world.h, seed: s.seed, attempt: s.world.attempt, spawn: s.world.spawn, hills: s.world.hills, mountain: s.world.mountain || "0".repeat(s.world.w * s.world.h), info: s.world.info, tiles: s.world.tiles.split("").map(c => TILE_CH.indexOf(c)) };

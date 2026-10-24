@@ -2,7 +2,7 @@
 (function (G) {
   G.data = G.data || {};
   G.data.config = {
-    saveVersion: 29,                // v29: carrying & caching + rain/wet blocks daytime warmth climb; v28: hides; v27: Cure/Plague; v26: tools
+    saveVersion: 30,                // v30: sacred places; v29: caching + rain/warmth; v28: hides; v27: Cure/Plague; v26: tools
     saveKey: "godsim.save",
     map: {
       w: 60, h: 40, tilePx: 16,      // map is 960x640 art px, scaled to fit the screen
@@ -436,7 +436,12 @@
       offer: ["berry", "meat", "bone", "flint", "stick"], maxActs: 3, fireSight: 10,
       copyTiles: 5,                    // a prayer seen this close may be copied (learn.copyChance x curiosity/50 x social.copy x child.copyX)
       reinforceMinutes: 360, riseBy: 10, likeGain: 25, likeScale: 25,   // triggering need up 10+ within 6 h: liking +25 for that form; pick weight 1 + liking/25
-      spotTiles: 2, spotMin: 3, driftTiles: 10, placesMax: 400, feedMax: 300 },
+      spotTiles: 2, spotMin: 3, driftTiles: 10, placesMax: 400, feedMax: 300,
+      // §33 / v30 sacred places: marker at spotMin; group-known via shared speech; idle drift
+      sacredFaith: 55,               // faith trait at/above this counts as "Faith high" for idle drift
+      sacredNeeds: 45,               // all core needs at/above this counts as "needs low"
+      sacredDrift: 0.35,             // chance when idle+eligible to walk toward a known marked spot within driftTiles
+      sacredSight: 8 },              // tiles: seeing a marker can make the spot known
     // Step 22 / 24 god powers (src/powers.js; own seeded stream, drawn only while a power is active, so a run with no powers is unchanged).
     //   Tap a power, then (for Rain / Lightning / Spawn) pick a strength or mode, then the map. Circle radius = radiusTiles.
     //   v19 power rewrite (Commissioner): no cooldowns on any power. Rain has Light / Medium / Heavy; Lightning has Single bolt / Barrage.

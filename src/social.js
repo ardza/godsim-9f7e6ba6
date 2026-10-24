@@ -90,11 +90,11 @@
         const join = c.filter(id => g.members.indexOf(id) < 0), left = g.members.filter(id => c.indexOf(id) < 0), nm = ids => ids.map(id => alive[id].name);
         for (const id of join) G.Sim.log(sim, alive[id].name + " now keeps with " + nameList(nm(g.members)), [alive[id]].concat(g.members.map(i => alive[i])));
         for (const id of left) G.Sim.log(sim, alive[id].name + " no longer keeps with " + nameList(nm(c)), [alive[id]].concat(c.map(i => alive[i])));
-        out.push({ id: g.id, ci: g.ci, members: c, since: g.since }); }
+        out.push({ id: g.id, ci: g.ci, members: c, since: g.since, sacred: g.sacred ? g.sacred.slice() : [] }); }
       else if (g.members.length >= 2) G.Sim.log(sim, nameList(g.members.map(id => alive[id].name)) + " no longer keep together", g.members.map(id => alive[id]), "group");
     }
     comps.forEach((c, i) => { if (used[i]) return; const id = sim.nextGroup++;
-      out.push({ id, ci: Social.pickColor(sim, id, out.map(g => g.ci)), members: c, since: sim.tick });
+      out.push({ id, ci: Social.pickColor(sim, id, out.map(g => g.ci)), members: c, since: sim.tick, sacred: [] });
       G.Sim.log(sim, nameList(c.map(x => alive[x].name)) + " now keep together", c.map(x => alive[x]), "group"); });
     out.sort((p, q) => p.id - q.id); sim.groups = out;
     for (const a of A) a.group = null; for (const g of out) for (const id of g.members) alive[id].group = g.id;

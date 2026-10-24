@@ -6,7 +6,9 @@
 //     after that she reuses her forms (weight 1 + liking / likeScale). A prayer seen within copyTiles is copied as a form by the learning
 //     copy rule (copyChance x curiosity/50 x group factor x child factor).
 //   reinforcement: if the triggering need rises riseBy+ within reinforceMinutes, her liking for that form goes up (a superstition: no real effect).
-//   places: spotMin prayers within spotTiles of a spot make a prayer spot (data only); praying people within driftTiles walk there first.
+//   places: spotMin prayers within spotTiles of a spot make a prayer spot; praying people within driftTiles walk there first.
+//   §33 / v30 sacred: spots at spotMin get a map marker (spot.marker); groups with shared speech may know a spot (g.sacred / a.sacred)
+//     after a member prayed there or saw the marker; idle people with high faith or low needs may drift toward a known marked spot.
 //   feed: sim.prayers, newest last, last feedMax action lines (saved); shown newest first in the Prayers tab.
 (function (G) {
   const Faith = {};
@@ -14,7 +16,7 @@
   const r2 = v => Math.round(v * 100) / 100, clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const NEEDS = ["fullness", "water", "warmth", "energy"];
 
-  Faith.newState = () => ({ spots: [], places: [], forms: {}, stats: { bouts: 0, byNeed: {}, byDeath: 0, copies: 0, reinforced: 0, offerings: 0, skippedSource: 0, drifts: 0 } });
+  Faith.newState = () => ({ spots: [], places: [], forms: {}, stats: { bouts: 0, byNeed: {}, byDeath: 0, copies: 0, reinforced: 0, offerings: 0, skippedSource: 0, drifts: 0, markers: 0, groupKnown: 0, sacredDrifts: 0 } });
   Faith.init = function (sim) {
     sim.prng = new G.RNG((sim.seed ^ 0xFA17B0DE) >>> 0); sim.faith = Faith.newState(); sim.prayers = [];
     const sp = G.data.config.person.traitSpread;
@@ -31,7 +33,7 @@
       if (o.liked) { const n = Object.keys(o.liked).length; sup += n; for (const id in o.liked) liked[id] = 1; } }
     return { bouts: F.stats.bouts, byNeed: F.stats.byNeed, byDeath: F.stats.byDeath, prayed: Object.keys(people).length, forms: keys.length,
       spreadForms: spread, copies: F.stats.copies, maxHolders, maxGen, reinforced: F.stats.reinforced, superstitions: sup, superPeople: Object.keys(liked).length,
-      offerings: F.stats.offerings, spots: F.spots.length, spotPrayers: F.spots.reduce((t, q) => t + q.n, 0), drifts: F.stats.drifts, skippedSource: F.stats.skippedSource, rolls: F.stats.rolls || 0,
+      offerings: F.stats.offerings, spots: F.spots.length, spotPrayers: F.spots.reduce((t, q) => t + q.n, 0), drifts: F.stats.drifts, markers: F.spots.filter(q => q.marker).length, sacredDrifts: F.stats.sacredDrifts || 0, groupKnown: F.stats.groupKnown || 0, skippedSource: F.stats.skippedSource, rolls: F.stats.rolls || 0,
       top: keys.sort((p, q) => Object.keys(Fm[q].holders).length - Object.keys(Fm[p].holders).length || (p < q ? -1 : 1)).slice(0, 3).map(f => f + " x" + Object.keys(Fm[f].holders).length) };
   };
 
@@ -129,6 +131,7 @@
       if (Faith.sourceClose(sim, a)) { sim.faith.stats.skippedSource++; continue; }
       Faith.start(sim, a, why);
     }
+    Faith.seeMarkers(sim);
   };
   // start a bout: walk to a prayer spot within driftTiles first, else pray here
   Faith.start = function (sim, a, why, form) {
@@ -155,7 +158,9 @@
     a.act.done = shown;
     const whyWord = pay.why === "death" ? (a.sawDeath && a.sawDeath.name ? "near where " + a.sawDeath.name + " died" : "") : Faith.whyTag(sim, a, pay.why);
     Faith.feed(sim, a, Faith.line(a, shown, whyWord), pay.why === "death" ? null : pay.why);
-    Faith.place(sim, Math.round(a.pos.x), Math.round(a.pos.y));
+    const px = Math.round(a.pos.x), py = Math.round(a.pos.y);
+    Faith.place(sim, px, py);
+    Faith.onPrayAt(sim, a, px, py);
     Faith.watch(sim, a, pay.form);
     return true;
   };
@@ -179,12 +184,109 @@
   };
   // prayer places: a spot once spotMin prayers were made within spotTiles of it
   Faith.spotNear = function (sim, x, y, R) { let best = null, bd = Infinity; for (const s of sim.faith.spots) { const d = Math.hypot(s.x - x, s.y - y); if (d <= R && d < bd) { bd = d; best = s; } } return best; };
+  Faith.spotKey = (x, y) => x + "," + y;
+  Faith.spotId = (x, y) => "spot:" + x + "," + y;
+  Faith.parseSpotId = id => { if (typeof id !== "string" || id.indexOf("spot:") !== 0) return null; const p = id.slice(5).split(","); return p.length === 2 ? { x: +p[0], y: +p[1] } : null; };
+  Faith.byId = function (sim, id) {
+    const p = Faith.parseSpotId(id); if (!p || !sim.faith) return null;
+    return sim.faith.spots.find(s => s.x === p.x && s.y === p.y) || null;
+  };
+  // §33: light map marker once spotMin prayers land here (decorative; not a building)
+  Faith.setMarker = function (sim, s) {
+    if (!s || s.marker) return false;
+    if (s.n < FC().spotMin) return false;
+    s.marker = true;
+    sim.faith.stats.markers = (sim.faith.stats.markers || 0) + 1;
+    return true;
+  };
+  Faith.hasPersonal = (a, s) => !!(a.sacred || []).some(q => q.x === s.x && q.y === s.y);
+  Faith.hasGroup = (g, s) => !!((g && g.sacred) || []).some(q => q.x === s.x && q.y === s.y);
+  // personal + (if group has shared speech) group-known; shares to all living members
+  Faith.knowSpot = function (sim, a, s) {
+    if (!a || !s) return false;
+    const L = a.sacred || (a.sacred = []);
+    let added = false;
+    if (!L.some(q => q.x === s.x && q.y === s.y)) { L.push({ x: s.x, y: s.y }); added = true; }
+    const g = G.Social && G.Social.group(sim, a);
+    const shared = g && G.Speech && G.Speech.groupWords(sim, g).length > 0;
+    if (shared) {
+      const K = g.sacred || (g.sacred = []);
+      if (!K.some(q => q.x === s.x && q.y === s.y)) {
+        K.push({ x: s.x, y: s.y });
+        sim.faith.stats.groupKnown = (sim.faith.stats.groupKnown || 0) + 1;
+        added = true;
+      }
+      for (const id of g.members) {
+        const b = sim.agents.find(p => p.id === id); if (!b) continue;
+        const M = b.sacred || (b.sacred = []);
+        if (!M.some(q => q.x === s.x && q.y === s.y)) M.push({ x: s.x, y: s.y });
+      }
+    }
+    return added;
+  };
+  Faith.onPrayAt = function (sim, a, x, y) {
+    const s = Faith.spotNear(sim, x, y, FC().spotTiles); if (!s) return;
+    Faith.knowSpot(sim, a, s);
+  };
+  // idle people who see a marked spot may learn it (and share via speech group)
+  Faith.seeMarkers = function (sim) {
+    if (!sim.faith) return; const R = FC().sacredSight || 8;
+    for (const a of sim.agents) {
+      if (a.act.type === "sleep") continue;
+      for (const s of sim.faith.spots) {
+        if (!s.marker) continue;
+        if (Math.hypot(s.x - a.pos.x, s.y - a.pos.y) > R) continue;
+        Faith.knowSpot(sim, a, s);
+      }
+    }
+  };
+  Faith.knownMarked = function (sim, a) {
+    const g = G.Social && G.Social.group(sim, a), out = [], seen = new Set();
+    const add = (x, y) => { const k = Faith.spotKey(x, y); if (seen.has(k)) return; const s = (sim.faith.spots || []).find(q => q.x === x && q.y === y); if (!s || !s.marker) return; seen.add(k); out.push(s); };
+    for (const q of (a.sacred || [])) add(q.x, q.y);
+    for (const q of (g && g.sacred) || []) add(q.x, q.y);
+    return out;
+  };
+  // §33 idle drift toward a known sacred marker when Faith high or needs low (not starving / fleeing)
+  Faith.maybeDriftSacred = function (sim, a) {
+    if (!sim.faith || !Faith.free(a) || !G.Agent.whole(a)) return false;
+    const C = FC();
+    if (a.needs.fullness < 20 || a.needs.water < 20) return false;
+    const faithHigh = (a.traits.faith || 0) >= (C.sacredFaith || 55);
+    const floor = C.sacredNeeds || 45;
+    const needsLow = ["fullness", "water", "warmth", "energy"].every(k => a.needs[k] >= floor);
+    if (!faithHigh && !needsLow) return false;
+    const R = C.driftTiles, known = Faith.knownMarked(sim, a);
+    let best = null, bd = Infinity;
+    for (const s of known) {
+      const d = Math.hypot(s.x - a.pos.x, s.y - a.pos.y);
+      if (d < 1.5 || d > R) continue;
+      if (d < bd) { bd = d; best = s; }
+    }
+    if (!best) return false;
+    if (!sim.prng.chance(C.sacredDrift == null ? 0.35 : C.sacredDrift)) return false;
+    const c = [];
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const x = best.x + dx, y = best.y + dy;
+      if (G.World.walkable(sim.world, x, y) && !G.Agent.claimed(sim, a, x, y)) c.push([x, y, Math.hypot(x - a.pos.x, y - a.pos.y)]);
+    }
+    c.sort((p, q) => p[2] - q[2]);
+    for (const [x, y] of c) if (G.Agent.walkTo(sim, a, x, y, "sacred")) {
+      sim.faith.stats.sacredDrifts = (sim.faith.stats.sacredDrifts || 0) + 1;
+      return true;
+    }
+    return false;
+  };
   Faith.place = function (sim, x, y) {
     const C = FC(), F = sim.faith, s = Faith.spotNear(sim, x, y, C.spotTiles);
-    if (s) { s.n++; s.last = sim.tick; return; }
+    if (s) { s.n++; s.last = sim.tick; Faith.setMarker(sim, s); return; }
     F.places.push({ x, y, t: sim.tick }); if (F.places.length > C.placesMax) F.places.splice(0, F.places.length - C.placesMax);
     const near = F.places.filter(p => Math.hypot(p.x - x, p.y - y) <= C.spotTiles);
-    if (near.length >= C.spotMin) { F.spots.push({ x, y, n: near.length, since: sim.tick, last: sim.tick }); F.places = F.places.filter(p => near.indexOf(p) < 0); }
+    if (near.length >= C.spotMin) {
+      const spot = { x, y, n: near.length, since: sim.tick, last: sim.tick, marker: false };
+      F.spots.push(spot); F.places = F.places.filter(p => near.indexOf(p) < 0);
+      Faith.setMarker(sim, spot);
+    }
   };
   Faith.feed = function (sim, a, text, need) {
     const L = sim.prayers || (sim.prayers = []); L.push({ t: sim.tick, text, ids: [a.id], g: a.group == null ? null : a.group, need: need || null });
