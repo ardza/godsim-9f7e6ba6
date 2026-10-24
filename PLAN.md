@@ -169,8 +169,13 @@ Starts as soon as 13-15 and the new UI are frozen to godsim-rc, without waiting 
 ## 31. Hides and warmth (save v28) — shipped Oct 24
 - Grazer hide wear/sleep-under. Live commit 928049a.
 
-## 32. Carrying & caching (save v29) — build now
-- Stash food/tools at known shelter/prayer spots; personal cache memory; copy by watching. Spec §32.
+## 32–33 shipped Oct 24
+- v29 Cache + rain fix (1e04256); v30 Sacred places (9b90cbe).
 
-## 33. Sacred places (save v30) — after v29 freeze (parallel OK)
-- Light map marker at prayer spots with 3+ prayers; group drift; no named gods. Spec §33.
+## This week finish line (Commissioner Oct 24)
+1. §34 / v31 Group identity — syllable names (Story list). Build now.
+2. §35 / v32 Built shelters — crude huts from sticks/reeds/hides.
+3. §36 / v33 Ore finds — ore near hills/mountain; no smelting.
+4. §37 / v34 Hard points — ore/flint tip on stick/bone ≥45.
+5. §38 / v35 Hard seasons — ramp harshness; mild start stays.
+Skip Meeting strangers. Specs: specs/15b-17.md §34–38.

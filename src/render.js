@@ -11,7 +11,7 @@
     if (A.person && A.person.src) loadImg(A.person.src, im => art.person = im);
     if (A.founders && A.founders.src) loadImg(A.founders.src, im => art.founders = im);
     loadImg(A.bush, im => art.bush = im); loadImg(A.bushEmpty, im => art.bushEmpty = im);
-    for (const k of ["body", "grazer", "scavenger", "wolves", "items", "fx", "food", "carcass", "smoke", "baby", "child", "pray", "childPray", "gesture", "childGesture", "spot", "shelter", "rain", "rainLight", "rainHeavy", "lightning", "burial", "pyre", "ashBones", "reed", "reedBank", "mountain", "flake", "axe", "spear", "tools", "hide", "hideWorn", "cache", "sacred"]) if (A[k] && A[k].src) loadImg(A[k].src, im => art[k] = im);
+    for (const k of ["body", "grazer", "scavenger", "wolves", "items", "fx", "food", "carcass", "smoke", "baby", "child", "pray", "childPray", "gesture", "childGesture", "spot", "shelter", "rain", "rainLight", "rainHeavy", "lightning", "burial", "pyre", "ashBones", "reed", "reedBank", "mountain", "flake", "axe", "spear", "tools", "hide", "hideWorn", "cache", "sacred", "hut", "ore", "tipStick", "tipBone", "tip"]) if (A[k] && A[k].src) loadImg(A[k].src, im => art[k] = im);
   };
   R.art = () => art;
 
@@ -286,10 +286,13 @@
     if (it.material === "hide") { const c2 = sheetCol("hide", "hide");
       if (c2 >= 0) { cx.drawImage(art.hide, c2 * 16, 0, 16, 16, px, py, size, size); return; }
       const f2 = size / 16; cx.fillStyle = "#8a6a48"; cx.fillRect(px + 3 * f2, py + 5 * f2, 10 * f2, 8 * f2); cx.fillStyle = "#6e5238"; cx.fillRect(px + 4 * f2, py + 6 * f2, 8 * f2, 2 * f2); return; }
+    if (it.material === "ore") { const c2 = sheetCol("ore", it.form === "shard" ? "ore_shard" : "ore");
+      if (c2 >= 0) { cx.drawImage(art.ore, c2 * 16, 0, 16, 16, px, py, size, size); return; }
+      const f2 = size / 16; cx.fillStyle = "#6e4e2a"; cx.fillRect(px + 4 * f2, py + 7 * f2, 8 * f2, 5 * f2); cx.fillStyle = "#a86e30"; cx.fillRect(px + 6 * f2, py + 8 * f2, 3 * f2, 2 * f2); return; }
     const c = sheetCol("items", G.Items.frame(it)), f = size / 16;
     if (c >= 0) { cx.drawImage(art.items, c * 16, 0, 16, 16, px, py, size, size); return; }
     const m = it.material, sh = it.form === "shard";   // code fallback: small shapes in earthy colours
-    cx.fillStyle = { rock: "#7d766b", stick: "#7a5230", flint: "#3f4652", bone: "#e8e0c8", reed: "#5a7a3a", hide: "#8a6a48" }[m] || "#999";
+    cx.fillStyle = { rock: "#7d766b", stick: "#7a5230", flint: "#3f4652", bone: "#e8e0c8", reed: "#5a7a3a", hide: "#8a6a48", ore: "#6e4e2a" }[m] || "#999";
     const R2 = (x, y, w, h) => cx.fillRect(px + x * f, py + y * f, Math.max(1, w * f), Math.max(1, h * f));
     if (m === "stick") { if (sh) R2(5, 9, 6, 2); else { R2(2, 10, 12, 2); R2(9, 8, 2, 2); } }
     else if (m === "bone") { if (sh) { R2(6, 7, 2, 6); R2(7, 5, 1, 2); } else { R2(3, 9, 10, 2); R2(2, 8, 2, 4); R2(12, 8, 2, 4); } }
@@ -311,6 +314,16 @@
     if (art.tools && A.tools) {
       const c = A.tools.cols.indexOf(typ), r = A.tools.rows.indexOf(face);
       if (c >= 0 && r >= 0) { cx.drawImage(art.tools, c * 16, r * 16, 16, 16, px, py, 8, 8); return true; }
+    }
+    // §37 tip sheets: tipStick / tipBone dedicated, or tip_16 cols tip_stick / tip_bone
+    const tipKey = ({ tip_stick: "tipStick", tip_bone: "tipBone", tipStick: "tipStick", tipBone: "tipBone" })[typ];
+    if (tipKey && art[tipKey] && A[tipKey] && A[tipKey].rows) {
+      const r = A[tipKey].rows.indexOf(face); if (r >= 0) { cx.drawImage(art[tipKey], 0, r * 16, 16, 16, px, py, 8, 8); return true; }
+    }
+    if (art.tip && A.tip) {
+      const colName = ({ tipStick: "tip_stick", tipBone: "tip_bone" })[typ] || typ;
+      const c = A.tip.cols.indexOf(colName), r = A.tip.rows.indexOf(face);
+      if (c >= 0 && r >= 0) { cx.drawImage(art.tip, c * 16, r * 16, 16, 16, px, py, 8, 8); return true; }
     }
     return false;
   }

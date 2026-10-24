@@ -206,6 +206,13 @@
     for (const g of s.groups || []) if (!g.sacred) g.sacred = [];
     s.version = 30; return s;
   };
+  // v30 -> v31 (§34): syllable group display names when qualified (3+ shared words + prayer/shelter)
+  Sim.migrate31 = function (o) {
+    if (!o || o.version !== 30) return o; const s = JSON.parse(JSON.stringify(o));
+    for (const g of s.groups || []) if (g.name === undefined) g.name = null;
+    if (G.Social && G.Social.refreshNames) G.Social.refreshNames(s);
+    s.version = 31; return s;
+  };
   // One log line. who = the person(s) involved (person/body objects or ids): the line is tagged with their ids and also goes into each one's own
   // log (sim.plog[id], last log.personMax kept, saved). k = an optional kind for the personal log ("death", "birth", "disc").
   Sim.ids = who => (who == null ? [] : Array.isArray(who) ? who : [who]).map(w => w == null ? null : typeof w === "number" ? w : w.kind === "body" ? w.of : w.id).filter((v, i, a) => v != null && a.indexOf(v) === i);
@@ -301,6 +308,7 @@
     if (o && o.version === 27) o = Sim.migrate28(o);
     if (o && o.version === 28) o = Sim.migrate29(o);
     if (o && o.version === 29) o = Sim.migrate30(o);
+    if (o && o.version === 30) o = Sim.migrate31(o);
     if (!o || o.version !== CFG().saveVersion) throw new Error("unsupported save version " + (o && o.version));
     const s = JSON.parse(JSON.stringify(o));
     const world = { w: s.world.w, h: s.world.h, seed: s.seed, attempt: s.world.attempt, spawn: s.world.spawn, hills: s.world.hills, mountain: s.world.mountain || "0".repeat(s.world.w * s.world.h), info: s.world.info, tiles: s.world.tiles.split("").map(c => TILE_CH.indexOf(c)) };

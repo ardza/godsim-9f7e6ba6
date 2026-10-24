@@ -71,7 +71,7 @@
   Shelter.occupants = (sim, s) => sim.agents.filter(b => b.den === s.id);
   Shelter.known = a => a.shelters || [];
   Shelter.word = s => ({ cave: "cave", overhang: "overhang", thicket: "thicket" })[s.type];
-  function know(sim, a, s) { const K = a.shelters || (a.shelters = []); if (K.indexOf(s.id) >= 0) return false; K.push(s.id); return true; }
+  function know(sim, a, s) { const K = a.shelters || (a.shelters = []); if (K.indexOf(s.id) >= 0) return false; K.push(s.id); if (G.Social && G.Social.refreshNames) G.Social.refreshNames(sim); return true; }
   Shelter.know = know;
 
   // the shelter's share of what she feels (C), for Climate.felt: resting / asleep inside the one she got into; fire + huddle + sleeping

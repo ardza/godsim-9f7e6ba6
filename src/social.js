@@ -64,7 +64,40 @@
     for (let k = 0; k < N; k++) { const c = (s0 + k) % N; if (!taken || taken.indexOf(c) < 0) return c; } return s0; };
   Social.color = (sim, g, alpha) => { const c = Social.PALETTE[(g.ci || 0) % Social.PALETTE.length]; return "rgba(" + c.join(",") + "," + (alpha == null ? 1 : alpha) + ")"; };
   Social.group = (sim, a) => a && a.group != null ? (sim.groups || []).find(g => g.id === a.group) || null : null;
-  Social.groupName = (sim, g) => g ? "Group " + g.id : "";
+  // §34 / v31: syllable display name once the group qualifies (3+ shared speech words + prayer spot or shared shelter).
+  // Until then UI keeps the "Group N" fallback. Names are UI labels only (no speech quotes, no naming log lines).
+  Social.groupName = (sim, g) => g ? (g.name || ("Group " + g.id)) : "";
+  Social.qualifies = function (sim, g) {
+    if (!g || !g.members || g.members.length < 2) return false;
+    const words = G.Speech && G.Speech.groupWords ? G.Speech.groupWords(sim, g).length : 0;
+    if (words < 3) return false;
+    if ((g.sacred || []).length > 0) return true;
+    // shelter cluster the group uses: 2+ living members know the same natural shelter
+    const counts = {};
+    for (const id of g.members) {
+      const a = (sim.agents || []).find(b => b.id === id); if (!a) continue;
+      for (const sid of (a.shelters || [])) { counts[sid] = (counts[sid] || 0) + 1; if (counts[sid] >= 2) return true; }
+    }
+    return false;
+  };
+  Social.pickGroupName = function (sim, g) {
+    const list = (G.data && G.data.groupNames) || [];
+    if (!list.length) return "Group " + g.id;
+    const used = new Set((sim.groups || []).filter(x => x && x !== g && x.name).map(x => x.name));
+    const h = G.RNG.hash2(g.id, 34, sim.seed);
+    const start = Math.floor(h * list.length) % list.length;
+    for (let k = 0; k < list.length; k++) { const n = list[(start + k) % list.length]; if (!used.has(n)) return n; }
+    return list[start];
+  };
+  Social.maybeName = function (sim, g) {
+    if (!g || g.name) return false;
+    if (!Social.qualifies(sim, g)) return false;
+    g.name = Social.pickGroupName(sim, g);
+    return true;
+  };
+  Social.refreshNames = function (sim) {
+    let n = 0; for (const g of sim.groups || []) if (Social.maybeName(sim, g)) n++; return n;
+  };
   Social.mutual = (a, b) => { const C = S().group, p = Social.rel(a, b), q = Social.rel(b, a); return !!p && !!q && p.f >= C.fam && q.f >= C.fam && p.l >= C.like && q.l >= C.like; };
   // a group's known skills: union of its members' learned scores >= skillAt
   Social.skills = function (sim, g) {
@@ -90,14 +123,15 @@
         const join = c.filter(id => g.members.indexOf(id) < 0), left = g.members.filter(id => c.indexOf(id) < 0), nm = ids => ids.map(id => alive[id].name);
         for (const id of join) G.Sim.log(sim, alive[id].name + " now keeps with " + nameList(nm(g.members)), [alive[id]].concat(g.members.map(i => alive[i])));
         for (const id of left) G.Sim.log(sim, alive[id].name + " no longer keeps with " + nameList(nm(c)), [alive[id]].concat(c.map(i => alive[i])));
-        out.push({ id: g.id, ci: g.ci, members: c, since: g.since, sacred: g.sacred ? g.sacred.slice() : [] }); }
+        out.push({ id: g.id, ci: g.ci, members: c, since: g.since, sacred: g.sacred ? g.sacred.slice() : [], name: g.name || null }); }
       else if (g.members.length >= 2) G.Sim.log(sim, nameList(g.members.map(id => alive[id].name)) + " no longer keep together", g.members.map(id => alive[id]), "group");
     }
     comps.forEach((c, i) => { if (used[i]) return; const id = sim.nextGroup++;
-      out.push({ id, ci: Social.pickColor(sim, id, out.map(g => g.ci)), members: c, since: sim.tick, sacred: [] });
+      out.push({ id, ci: Social.pickColor(sim, id, out.map(g => g.ci)), members: c, since: sim.tick, sacred: [], name: null });
       G.Sim.log(sim, nameList(c.map(x => alive[x].name)) + " now keep together", c.map(x => alive[x]), "group"); });
     out.sort((p, q) => p.id - q.id); sim.groups = out;
     for (const a of A) a.group = null; for (const g of out) for (const id of g.members) alive[id].group = g.id;
+    Social.refreshNames(sim);
     const st = sim.socStats || (sim.socStats = { took: 0 }); st.days = (st.days || 0) + 1; st.groupDays = (st.groupDays || 0) + out.length; st.maxGroups = Math.max(st.maxGroups || 0, out.length);
     st.formed = sim.nextGroup - 1;
   };

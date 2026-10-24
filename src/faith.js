@@ -221,6 +221,7 @@
         const M = b.sacred || (b.sacred = []);
         if (!M.some(q => q.x === s.x && q.y === s.y)) M.push({ x: s.x, y: s.y });
       }
+      if (G.Social && G.Social.refreshNames) G.Social.refreshNames(sim);
     }
     return added;
   };

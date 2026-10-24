@@ -71,7 +71,15 @@
     hideWorn: { src: "data/art/hide_worn_16.png", frame: 16, rows: ["down", "left", "right", "up"] },   // 16x64 worn drape
     // §32 / v29 optional cache tile tint; §33 / v30 sacred spot marker (prayer_spot_16 still used for stone piles)
     cache: { src: "data/art/cache_16.png", frame: 16, cols: ["cache"] },
-    sacred: { src: "data/art/sacred_16.png", frame: 16, cols: ["sacred"] }
+    sacred: { src: "data/art/sacred_16.png", frame: 16, cols: ["sacred"] },
+    // §35 / v32 (Artist): crude piled hut overlay (pile = in-progress, hut = done lean-to)
+    hut: { src: "data/art/hut_16.png", frame: 16, cols: ["pile", "hut"] },   // 32x16
+    // §36 / v33 (Artist): ore ground material + struck shard (ochre veins; distinct from rock/flint)
+    ore: { src: "data/art/ore_16.png", frame: 16, cols: ["ore", "ore_shard"] },   // 32x16
+    // §37 / v34 (Artist): hard tip on stick/bone — hand overlays at person origin; bigger tip than spear_16 poke
+    tipStick: { src: "data/art/tip_stick_16.png", frame: 16, rows: ["down", "left", "right", "up"] },   // 16x64
+    tipBone: { src: "data/art/tip_bone_16.png", frame: 16, rows: ["down", "left", "right", "up"] },   // 16x64
+    tip: { src: "data/art/tip_16.png", frame: 16, cols: ["tip_stick", "tip_bone"], rows: ["down", "left", "right", "up"] }   // 32x64 convenience
   };
   G.data.artItems = G.data.art.items.cols;   // which item frames exist (a sharp bone uses bone_shard; other shards use their material)
 })(this.GS = this.GS || {});

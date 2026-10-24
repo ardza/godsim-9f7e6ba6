@@ -328,5 +328,46 @@
    "sacred"
   ],
   "note": "\u00a733 / v30 light sacred-spot marker (\u22653 prayers); soft worn ground, not a shrine"
+ },
+ "hut_16.png": {
+  "frame": 16,
+  "cols": [
+   "pile",
+   "hut"
+  ],
+  "note": "\u00a735 / v32 \u2014 crude piled shelter overlay (sticks/reeds/hide). pile=in-progress; hut=done lean-to. Not a house/village. Transparent on tile."
+ },
+ "ore_16.png": {
+  "frame": 16,
+  "cols": [
+   "ore",
+   "ore_shard"
+  ],
+  "note": "\u00a736 / v33 \u2014 ore ground material (ochre veins, distinct from rock/flint) + struck shard. Pickup/strike like rock; no smelting."
+ },
+ "tip_stick_16.png": {
+  "frame": 16,
+  "rows": [
+   "down",
+   "left",
+   "right",
+   "up"
+  ],
+  "note": "\u00a737 / v34 \u2014 hard tip on stick (ore/flint point + vine). Hand overlay at person origin. Distinct from spear_16 long-stick poke."
+ },
+ "tip_bone_16.png": {
+  "frame": 16,
+  "rows": [
+   "down",
+   "left",
+   "right",
+   "up"
+  ],
+  "note": "\u00a737 / v34 \u2014 hard tip on bone shaft. Same tip language as tip_stick."
+ },
+ "tip_16.png": {
+  "frame": 16,
+  "layout": "cols tip_stick, tip_bone; rows down, left, right, up. Transparent hand overlays at person origin.",
+  "note": "\u00a737 / v34 convenience sheet (also tip_stick_16.png, tip_bone_16.png each 16x64)"
  }
 }

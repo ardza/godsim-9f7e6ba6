@@ -92,6 +92,7 @@
         if (d) d.title = "First shared word";
       }
     }
+    if (G.Social && G.Social.refreshNames) G.Social.refreshNames(sim);
   };
 
   // ---- invent / emit ----

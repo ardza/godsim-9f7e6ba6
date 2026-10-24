@@ -2,7 +2,7 @@
 (function (G) {
   G.data = G.data || {};
   G.data.config = {
-    saveVersion: 30,                // v30: sacred places; v29: caching + rain/warmth; v28: hides; v27: Cure/Plague; v26: tools
+    saveVersion: 31,                // v31: group identity names; v30: sacred places; v29: caching; v28: hides; v27: Cure/Plague; v26: tools
     saveKey: "godsim.save",
     map: {
       w: 60, h: 40, tilePx: 16,      // map is 960x640 art px, scaled to fit the screen
