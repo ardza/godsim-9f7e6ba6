@@ -117,6 +117,11 @@
   Speech.emit = function (sim, a, token, why) {
     const C = SC(), st = sim.speech.stats; st.emits++;
     a.gesture = { token, col: Speech.colOf(token), until: sim.tick + Math.round(C.gestureMinutes / TM()), why: why || null };
+    // v21: speaker intends the gesture — bind token→need so she counts toward groupMin and can teach via copy
+    // (without this, only hearers bind and 3+ hearers rarely share one token; natural runs stayed silent at inventDiv 200)
+    const intent = why && (NEED_TO_MEANING[why] || (C.meanings.indexOf(why) >= 0 ? why : null));
+    const hadMeaning = !!(intent && Speech.meaningOf(a, token));
+    if (intent && !hadMeaning) Speech.bind(sim, a, token, intent);
     // hearers within hearTiles get a watch
     for (const b of sim.agents) {
       if (b === a || b.act.type === "sleep" || Math.hypot(b.pos.x - a.pos.x, b.pos.y - a.pos.y) > C.hearTiles) continue;
@@ -130,14 +135,19 @@
     if (spoken && word) {
       st.spoken++;
       G.Sim.log(sim, a.name + ' says "' + word.word + '!"', a, "speech");
+      // v21: first spoken syllable per seed (the quoted word from words.js), data-detected — never scripted
+      const ds = G.Discoveries.note(sim, a, "speak", [word.word], word.meaning || Speech.meaningOf(a, token) || "word");
+      if (ds) ds.title = "First spoken word";
     } else {
       G.Sim.log(sim, a.name + " " + Speech.actionWords(token), a);
+      const d = G.Discoveries.note(sim, a, "gesture", [token], "sound");
+      if (d) d.title = "First gesture";
     }
-    const d = G.Discoveries.note(sim, a, "gesture", [token], "sound");
-    if (d) d.title = "First gesture";
-    // speaker who already knows the meaning reinforces a little when reusing it
-    const e = a.words && a.words[token];
-    if (e && e.meaning) { e.n++; e.score = r2(clamp(e.score + C.reuseGain, 0, 100)); e.t = sim.tick; }
+    // speaker who already knew the meaning reinforces a little when reusing it (skip if this emit was the intent bind)
+    if (hadMeaning) {
+      const e = a.words && a.words[token];
+      if (e && e.meaning) { e.n++; e.score = r2(clamp(e.score + C.reuseGain, 0, 100)); e.t = sim.tick; }
+    }
     return true;
   };
   Speech.maybeCopy = function (sim, a, b, token) {
@@ -145,7 +155,10 @@
     if (!ma || sa < C.copyMinScore) return;
     const own = Speech.score(b, token); if (sa <= own) return;
     const speechTok = Speech.isSpeech(sim, a, token);
-    const p = clamp(C.copyChance * b.traits.curiosity / 50 * (speechTok && a.group != null && a.group === b.group ? C.copyX : (G.Social ? G.Social.copyFactor(a, b) : 1)), 0, 1);
+    // v21: children/youths copy speech tokens at family.child.copyX (x2 / x1.5), same as skills
+    const stageX = G.Learn && G.Learn.stageX ? G.Learn.stageX(b, a) : 1;
+    const base = speechTok && a.group != null && a.group === b.group ? C.copyX : (G.Social ? G.Social.copyFactor(a, b) : 1);
+    const p = clamp(C.copyChance * b.traits.curiosity / 50 * base * stageX, 0, 1);
     if (!sim.wrng.chance(p)) return;
     const e = rec(b, token); e.meaning = ma; e.score = r2(own + (sa - own) * C.copyShare); e.from = a.name; e.t = sim.tick;
     sim.speech.stats.copies++;
@@ -154,16 +167,21 @@
     const C = SC(), need = Speech.lowNeed(a);
     if (!need || !Speech.nearSomeone(sim, a) || a.act.type === "sleep" || a.act.type === "pray") return false;
     if (a.gesture && sim.tick < a.gesture.until) return false; // already gesturing
-    // at most one invent attempt roll window per hour (flag cleared when due)
-    if (a.speechDue && sim.tick > a.speechDue) a.speechDue = 0;
-    if (!a.speechDue && sim.wrng.chance(clamp(a.traits.curiosity / C.inventDiv * TM() / 60, 0, 1))) {
-      a.speechDue = sim.tick + Math.round(60 / TM());
-      sim.speech.stats.invents++;
-    }
-    if (!a.speechDue) return false;
     // free enough to gesture: idle or light walk
     const free = a.act.type === "idle" || (a.act.type === "walk" && ["wander", "follow", "food", "water", "explore", "exploreWater"].indexOf(a.act.goal) >= 0);
-    if (!free || !G.Agent.whole || !G.Agent.whole(a)) return false;
+    const whole = !G.Agent.whole || G.Agent.whole(a);
+    // v21: invent roll → emit now if free; else keep a longer due window (was 60 min, often expired busy → invents>>emits)
+    if (a.speechDue && sim.tick > a.speechDue) a.speechDue = 0;
+    if (!a.speechDue && sim.wrng.chance(clamp(a.traits.curiosity / C.inventDiv * TM() / 60, 0, 1))) {
+      sim.speech.stats.invents++;
+      if (free && whole) {
+        const token = Speech.pickToken(sim, a, need);
+        return Speech.emit(sim, a, token, need);
+      }
+      a.speechDue = sim.tick + Math.round(360 / TM()); // try again for 6 h
+    }
+    if (!a.speechDue) return false;
+    if (!free || !whole) return false;
     a.speechDue = 0;
     const token = Speech.pickToken(sim, a, need);
     return Speech.emit(sim, a, token, need);

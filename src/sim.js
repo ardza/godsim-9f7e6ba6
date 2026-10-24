@@ -110,6 +110,11 @@
     for (const a of s.agents || []) { delete a.words; delete a.speechWatch; delete a.speechDue; delete a.gesture; }
     s.version = 20; return s;
   };
+  // v20 -> v21 (step 25 polish): same speech state; inventDiv / Discoveries / child copy are code+config, not save fields.
+  Sim.migrate21 = function (o) {
+    if (!o || o.version !== 20) return o; const s = JSON.parse(JSON.stringify(o));
+    s.version = 21; return s;
+  };
   // One log line. who = the person(s) involved (person/body objects or ids): the line is tagged with their ids and also goes into each one's own
   // log (sim.plog[id], last log.personMax kept, saved). k = an optional kind for the personal log ("death", "birth", "disc").
   Sim.ids = who => (who == null ? [] : Array.isArray(who) ? who : [who]).map(w => w == null ? null : typeof w === "number" ? w : w.kind === "body" ? w.of : w.id).filter((v, i, a) => v != null && a.indexOf(v) === i);
@@ -180,6 +185,7 @@
     if (o && o.version === 17) o = Sim.migrate18(o);
     if (o && o.version === 18) o = Sim.migrate19(o);
     if (o && o.version === 19) o = Sim.migrate20(o);
+    if (o && o.version === 20) o = Sim.migrate21(o);
     if (!o || o.version !== CFG().saveVersion) throw new Error("unsupported save version " + (o && o.version));
     const s = JSON.parse(JSON.stringify(o));
     const world = { w: s.world.w, h: s.world.h, seed: s.seed, attempt: s.world.attempt, spawn: s.world.spawn, hills: s.world.hills, info: s.world.info, tiles: s.world.tiles.split("").map(c => TILE_CH.indexOf(c)) };

@@ -253,9 +253,10 @@
   }
   function relRows(sim, a) {
     const S = G.Social, g = S.group(sim, a), top = S.top(sim, a);
+    const speechLbl = G.Speech ? G.Speech.cardLabel(sim, a) : "Speech: none";
     const grp = g ? '<div class="row rel"><span><i class="ring" style="border-color:' + S.color(sim, g) + '"></i>' + esc(S.groupName(sim, g)) + '</span><b>' + g.members.length + ' people</b></div>' +
-        '<div class="sub">keeps with ' + esc(g.members.filter(id => id !== a.id).map(id => (sim.agents.find(b => b.id === id) || {}).name).filter(Boolean).join(", ")) + ' · knows: ' + (S.skills(sim, g).map(k => esc(G.Learn.label(k))).join(", ") || "nothing yet") + '</div>'
-      : '<div class="sub">no group · keeps to no one yet</div>';
+        '<div class="sub">keeps with ' + esc(g.members.filter(id => id !== a.id).map(id => (sim.agents.find(b => b.id === id) || {}).name).filter(Boolean).join(", ")) + ' · knows: ' + (S.skills(sim, g).map(k => esc(G.Learn.label(k))).join(", ") || "nothing yet") + ' · ' + esc(speechLbl) + '</div>'
+      : '<div class="sub">no group · keeps to no one yet · ' + esc(speechLbl) + '</div>';
     return '<div class="sec">Relations (familiarity / liking, 0-100, 50 = avg liking)</div>' + grp +
       (top.length ? top.map(r => '<div class="row rel"><span>' + esc(r.name) + '</span><em class="w-' + r.word + '">' + r.word + '</em><b>' + r.f + ' / ' + r.l + '</b></div>').join("") : '<div class="sub">has met no one yet</div>');
   }

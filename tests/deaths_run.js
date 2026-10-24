@@ -1,7 +1,7 @@
 const root=process.env.ROOT||'/workspace/godsim';
 const vm=require('vm'),fs=require('fs'),path=require('path');
 const ctx={console,Math,JSON}; vm.createContext(ctx);
-for (const f of ["data/config.js","data/tiles.js","data/names.js","data/art.js","data/materials.js","src/rng.js","src/world.js","src/climate.js","src/agent.js","src/animal.js","src/objects.js","src/fire.js","src/learn.js","src/hunt.js","src/cook.js","src/social.js","src/family.js","src/faith.js","src/shelter.js","src/powers.js","src/sim.js"]) if (fs.existsSync(path.join(root,f))) vm.runInContext(fs.readFileSync(path.join(root,f),'utf8'),ctx,{filename:f});
+for (const f of ["data/config.js","data/tiles.js","data/names.js","data/words.js","data/art.js","data/materials.js","src/rng.js","src/world.js","src/climate.js","src/agent.js","src/animal.js","src/objects.js","src/fire.js","src/learn.js","src/hunt.js","src/cook.js","src/social.js","src/family.js","src/faith.js","src/shelter.js","src/powers.js","src/speech.js","src/sim.js"]) if (fs.existsSync(path.join(root,f))) vm.runInContext(fs.readFileSync(path.join(root,f),'utf8'),ctx,{filename:f});
 const G=ctx.GS; const seed=+process.argv[2], years=+(process.argv[3]||2);
 const C=G.data.config, tm=C.time.tickGameMinutes, Y=1440*G.Time.daysPerYear()/tm;
 const D=[]; const _bc=G.Body.create; G.Body.create=function(sim,a,cause){const b=_bc.apply(this,arguments); if(b&&!b.species) D.push(b); return b;};
