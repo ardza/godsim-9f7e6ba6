@@ -2,7 +2,7 @@
 (function (G) {
   G.data = G.data || {};
   G.data.config = {
-    saveVersion: 25,                // v25: disease + person-card Log tab (lasting sick from raw meat/corpse/spread/rot-seed; Energy×1.5 Fullness×1.25 1–3d; rare death if Fullness+Water<20; recover via sleep/drink/cooked/berries/fire → Discoveries); v24: moods
+    saveVersion: 26,                // v26: tools from strike/cut/rub/bind (flake, crude axe/hoe, long stick; score≥45; durability; Discoveries); v25: disease + Log tab; v24: moods
     saveKey: "godsim.save",
     map: {
       w: 60, h: 40, tilePx: 16,      // map is 960x640 art px, scaled to fit the screen
@@ -360,7 +360,11 @@
         bury: { label: "burying a body", short: "burying", fear: "corpseFear" },
         burn: { label: "burning a body", short: "burning bodies", fear: "corpseFear" },
         eat: { label: "eating from a body", short: "eating bodies", fear: "corpseFear" },
-        ritual: { label: "ritual at a body", short: "body ritual", fear: "corpseFear" } }
+        ritual: { label: "ritual at a body", short: "body ritual", fear: "corpseFear" },
+        strike: { label: "striking things together", short: "striking", fear: null },
+        cut: { label: "cutting with an edge", short: "cutting", fear: null },
+        rub: { label: "rubbing things together", short: "rubbing", fear: null },
+        bind: { label: "binding a tool", short: "binding", fear: null } }
     },
     // Step 16 hunting. A hungry person (fullness under actAt, the normal "goes to eat" point) holding a thing hard enough to strike with
     // (hardness >= minHardness: rock 70, stick 25, flint 80, bone 55; meat 5 is not) who sees a grazer within sightTiles may go after it instead of a bush:
@@ -487,6 +491,26 @@
         { token: "stop+hand", col: "stop_hand", bias: ["stop"], action: "holds up a hand" },
         { token: "beckon+call", col: "beckon", bias: ["follow"], action: "beckons and calls" }
       ] },
+    // Step 29 Tools (v26): lock useful strike/cut/rub/bind outcomes as carried tools when Learn score ≥ scoreMin.
+    // flake = sharp rock/bone/flint; axe = stick + sharp (reed binder or friction-fit); spear = long stick (reach berries / poke scavengers).
+    // Durability from hardness; dulls with use. First craft → Discoveries. Overlays: data/art/tools_16.png.
+    tools: {
+      scoreMin: 45,
+      craftGain: 12,
+      missDrop: 1,
+      gain: { strike: 10, cut: 10, rub: 8, bind: 18 },
+      durFromHardness: 1,
+      dullPerUse: 3,
+      dullBelow: 15,
+      binders: ["reed"],
+      bindChance: 0.55,
+      bindCooldown: 360,
+      bindMinutes: 15,
+      bindReach: 1.5,
+      flake: { materials: ["rock", "flint", "bone"], digMult: 0.7, cutMult: 0.6 },
+      axe: { head: ["rock", "flint", "bone"], digMult: 0.5, cutMult: 0.8, chopMinutes: 60, chopCooldown: 720, chopChance: 0.25 },
+      spear: { reachTiles: 2, pokeTiles: 4, pokeChance: 0.4, pokeCooldown: 180, readyChance: 0.25 }
+    },
     // Step 28 Disease (v25): lasting sick state (Energy drain ×1.5, Fullness drain ×1.25) for 1–3 days.
     // Seeded by raw meat / corpse eat, person-to-person spread within spreadTiles, or scavengers at rotting bodies (once/day).
     // Recover score rises from sleep while sick, drink, cooked meat, berries, sitting by fire; at recoverAt → clear + Discoveries.

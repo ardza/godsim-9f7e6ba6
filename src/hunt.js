@@ -98,11 +98,15 @@
     const b = sim.bodies.find(q => q.id === a.act.body), M = MC();
     if (!Hunt.carcassMeat(b) || dist(a, b.x, b.y) > 1.5) { if (b && !Hunt.carcassMeat(b) && b.tookBy != null && b.tookBy !== a.id && sim.tick - b.tookAt <= 240) G.Social.took(sim, a, sim.agents.find(q => q.id === b.tookBy), "last of the meat");   // step 18
       G.Agent.startIdle(sim, a, 0.3); return; }
+    const cutter = G.Items.held(sim, a);
+    const usedCut = !!(G.Tools && cutter && G.Tools.bonusLive(cutter) && (G.Tools.is(cutter, "flake") || G.Tools.is(cutter, "axe")));
+    if (usedCut) G.Tools.use(sim, a, cutter, "cut");
     if (a.carry != null) G.Items.drop(sim, a);
     const it = G.Items.create(sim, "meat", b.x, b.y); it.spoilAt = b.diedAt + CF().body.freshMinutes; it.from = b.id; it.heat = b.heat || 0;   // step 17: meat off a roasted carcass is as cooked as the carcass
     sim.items.push(it); it.heldBy = a.id; a.carry = it.id; a.carryUntil = sim.tick + sim.orng.int(CF().objects.carry[0], CF().objects.carry[1]);
     b.meat--; b.tookBy = a.id; b.tookAt = sim.tick; b.eaten = r9((b.eaten || 0) + M.fleshPerPiece); b.flesh = r9(Math.max(0, b.flesh - M.fleshPerPiece)); stats(sim).taken++;
-    G.Sim.log(sim, a.name + " takes meat from " + b.name + "'s carcass", a);
+    if (usedCut) G.Sim.log(sim, a.name + " cuts meat from " + b.name + "'s carcass", a);
+    else G.Sim.log(sim, a.name + " takes meat from " + b.name + "'s carcass", a);
     if (G.Agent.want(a) === "food") Hunt.seekFood(sim, a); else G.Agent.startIdle(sim, a, 0.5);
   };
 

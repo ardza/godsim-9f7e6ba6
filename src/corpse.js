@@ -31,6 +31,8 @@
   };
   Corpse.digTool = it => {
     if (!it || it.material === "meat" || it.lit) return false;
+    // v26: flake / crude axe dig bonus (while durability above dull)
+    if (G.Tools && G.Tools.digOk(it)) return true;
     const mats = C().digMaterials || ["rock", "bone", "stick", "flint"];
     // Director: bury with a sharp rock/bone/stick (Items.sharp: flint or a sharp shard); material must be a dig tool
     return mats.indexOf(it.material) >= 0 && G.Items.sharp(it);
@@ -206,8 +208,11 @@
   };
 
   function startBury(sim, a, b) {
-    if (!Corpse.digTool(G.Items.held(sim, a)) || !Corpse.soft(sim, b.x, b.y)) { G.Agent.startIdle(sim, a, 0.3); return; }
-    const mins = C().digMinutes || 30, n = Math.max(1, Math.round(mins / TM()));
+    const held = G.Items.held(sim, a);
+    if (!Corpse.digTool(held) || !Corpse.soft(sim, b.x, b.y)) { G.Agent.startIdle(sim, a, 0.3); return; }
+    const base = C().digMinutes || 30;
+    const mult = G.Tools ? G.Tools.digMult(held) : 1;
+    const mins = Math.max(5, Math.round(base * mult)), n = Math.max(1, Math.round(mins / TM()));
     b.burial = { stage: "dug", stageAt: sim.tick };
     a.act = { type: "dig", body: b.id, t: 0, n };
     G.Sim.log(sim, a.name + " digs into the ground by " + b.name + "'s body", a);
@@ -221,6 +226,7 @@
     b.burial = { stage: "mound_fresh", stageAt: sim.tick };
     b.flesh = 0; b.stage = "bones"; b.stageAt = sim.tick; b.material = CF().body.material; b.bonesLeft = 0;
     succeed(sim, a, "bury");
+    if (G.Tools) { const held = G.Items.held(sim, a); if (held && held.tool) G.Tools.use(sim, a, held, "dig"); }
     G.Sim.log(sim, a.name + " buries " + b.name + " under a mound of earth", a);
     G.Agent.startIdle(sim, a, 0.5);
   };

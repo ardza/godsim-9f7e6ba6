@@ -49,6 +49,7 @@
     G.Speech.init(sim);   // step 25: local language (own stream wrng)
     G.Corpse.init(sim);   // step 26: corpseFear (own stream crng), corpse choices
     G.Disease.init(sim);   // step 28: lasting sickness (own stream drng)
+    G.Tools.init(sim);     // step 29: carried tools (flake / axe / long stick)
     return sim;
   };
   // Seeded names with no repeats until the list is used up, then a fresh shuffle (reuse is fine past the list).
@@ -165,6 +166,12 @@
     for (const a of s.agents || []) { if (a.sick === undefined) a.sick = null; }
     s.version = 25; return s;
   };
+  // v25 -> v26 (step 29): tool craft stats; items may already carry a .tool field from play
+  Sim.migrate26 = function (o) {
+    if (!o || o.version !== 25) return o; const s = JSON.parse(JSON.stringify(o));
+    s.toolStats = G.Tools.newStats();
+    s.version = 26; return s;
+  };
   // One log line. who = the person(s) involved (person/body objects or ids): the line is tagged with their ids and also goes into each one's own
   // log (sim.plog[id], last log.personMax kept, saved). k = an optional kind for the personal log ("death", "birth", "disc").
   Sim.ids = who => (who == null ? [] : Array.isArray(who) ? who : [who]).map(w => w == null ? null : typeof w === "number" ? w : w.kind === "body" ? w.of : w.id).filter((v, i, a) => v != null && a.indexOf(v) === i);
@@ -238,7 +245,8 @@
       powers: sim.powers || null,
       wrng: sim.wrng ? sim.wrng.s : null, speech: sim.speech || null,
       crng: sim.crng ? sim.crng.s : null, corpseStats: sim.corpseStats || null,
-      drng: sim.drng ? sim.drng.s : null, diseaseStats: sim.diseaseStats || null };
+      drng: sim.drng ? sim.drng.s : null, diseaseStats: sim.diseaseStats || null,
+      toolStats: sim.toolStats || null };
   };
   Sim.deserialize = function (o) {
     if (o && o.version === 13) o = Sim.migrate(o);
@@ -253,6 +261,7 @@
     if (o && o.version === 22) o = Sim.migrate23(o);
     if (o && o.version === 23) o = Sim.migrate24(o);
     if (o && o.version === 24) o = Sim.migrate25(o);
+    if (o && o.version === 25) o = Sim.migrate26(o);
     if (!o || o.version !== CFG().saveVersion) throw new Error("unsupported save version " + (o && o.version));
     const s = JSON.parse(JSON.stringify(o));
     const world = { w: s.world.w, h: s.world.h, seed: s.seed, attempt: s.world.attempt, spawn: s.world.spawn, hills: s.world.hills, mountain: s.world.mountain || "0".repeat(s.world.w * s.world.h), info: s.world.info, tiles: s.world.tiles.split("").map(c => TILE_CH.indexOf(c)) };
@@ -269,7 +278,8 @@
       powers: s.powers || Object.assign(G.Powers.newState(), { rs: (s.seed ^ 0x5A1D0F22) >>> 0 }),
       wrng: new G.RNG(s.wrng != null ? s.wrng : (s.seed ^ 0x5FEE7C11) >>> 0), speech: s.speech || G.Speech.newState(),
       crng: new G.RNG(s.crng != null ? s.crng : (s.seed ^ 0xC0B5E26F) >>> 0), corpseStats: s.corpseStats || G.Corpse.newStats(),
-      drng: new G.RNG(s.drng != null ? s.drng : (s.seed ^ 0xD15EA5E) >>> 0), diseaseStats: s.diseaseStats || G.Disease.newStats() };
+      drng: new G.RNG(s.drng != null ? s.drng : (s.seed ^ 0xD15EA5E) >>> 0), diseaseStats: s.diseaseStats || G.Disease.newStats(),
+      toolStats: s.toolStats || G.Tools.newStats() };
   };
 
   G.Time = Time; G.Sim = Sim;

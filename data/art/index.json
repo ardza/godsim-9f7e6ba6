@@ -228,8 +228,8 @@
  },
  "tools_16.png": {
   "frame": 16,
-  "layout": "cols flake, axe, spear; rows down, left, right, up. Transparent hand overlays at the founder origin.",
-  "note": "step 28 prep \u2014 Director asked for flake_16/axe_16/spear_16; one sheet covers all three"
+  "layout": "cols flake, axe, spear; rows down, left, right, up. Transparent hand overlays at person origin.",
+  "note": "\u00a729 / v26 \u2014 also shipped as flake_16.png, axe_16.png, spear_16.png (each 16x64, same rows)"
  },
  "reed_16.png": {
   "frame": 16,
@@ -267,5 +267,35 @@
   ],
   "cols": "frames 0-1",
   "note": "pack predator (Wolves); bulkier than scavenger_16 (wild dog); placeholder OK until polish"
+ },
+ "flake_16.png": {
+  "frame": 16,
+  "rows": [
+   "down",
+   "left",
+   "right",
+   "up"
+  ],
+  "note": "\u00a729 / v26 hand overlay \u2014 sharp rock / bone flake. Same origin as person; transparent."
+ },
+ "axe_16.png": {
+  "frame": 16,
+  "rows": [
+   "down",
+   "left",
+   "right",
+   "up"
+  ],
+  "note": "\u00a729 / v26 hand overlay \u2014 crude axe / hoe (stick + sharp bound). Same origin as person; transparent."
+ },
+ "spear_16.png": {
+  "frame": 16,
+  "rows": [
+   "down",
+   "left",
+   "right",
+   "up"
+  ],
+  "note": "\u00a729 / v26 hand overlay \u2014 long stick reach/poke (not thrown). Same origin as person; transparent."
  }
 }

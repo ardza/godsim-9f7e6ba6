@@ -60,7 +60,12 @@
     baby: { src: "data/art/baby_16.png", frame: 16, cols: ["carried_down", "carried_left", "carried_right", "carried_up", "lying"] },   // 80x16
     // step 25 (Artist): speech gesture overlays on the down-facing frame (same origin), until the token is group speech for her group
     gesture: { src: "data/art/gesture_16.png", frame: 16, variants: 8, cols: ["point_right", "point_left", "pat_chest", "stop_hand", "beckon"] },   // 80x128
-    childGesture: { src: "data/art/child_gesture_16.png", frame: 16, variants: 8 }   // 80x128, same columns, 75% figure
+    childGesture: { src: "data/art/child_gesture_16.png", frame: 16, variants: 8 },   // 80x128, same columns, 75% figure
+    // §29 / v26 (Artist): carried tool hand overlays at person origin; rows down/left/right/up
+    flake: { src: "data/art/flake_16.png", frame: 16, rows: ["down", "left", "right", "up"] },   // 16x64
+    axe: { src: "data/art/axe_16.png", frame: 16, rows: ["down", "left", "right", "up"] },   // 16x64
+    spear: { src: "data/art/spear_16.png", frame: 16, rows: ["down", "left", "right", "up"] },   // 16x64 long-stick reach/poke
+    tools: { src: "data/art/tools_16.png", frame: 16, cols: ["flake", "axe", "spear"], rows: ["down", "left", "right", "up"] }   // 48x64 convenience sheet
   };
   G.data.artItems = G.data.art.items.cols;   // which item frames exist (a sharp bone uses bone_shard; other shards use their material)
 })(this.GS = this.GS || {});

@@ -24,7 +24,7 @@
   // name from the data: a broken piece with a keen edge is a "<material> shard", a blunt one is a "broken <material>"
   Items.matLabel = it => { if (it.lit) return "burning " + M()[it.material].label; const l = M()[it.material].label; return it.form === "shard" ? (Items.sharp(it) ? l + " shard" : "broken " + l) : l; };
   Items.baseLabel = it => M()[it.material].label;   // the material's own name, whole or broken
-  Items.label = it => "a " + Items.matLabel(it);
+  Items.label = it => { const tl = G.Tools && G.Tools.labelOf(it); return tl ? "a " + tl : "a " + Items.matLabel(it); };
   Items.frame = it => (it.form === "shard" && G.data.artItems && G.data.artItems.indexOf(it.material + "_shard") >= 0) ? it.material + "_shard" : it.material;
   Items.byId = (sim, id) => sim.items.find(i => i.id === id) || null;
   Items.held = (sim, a) => a.carry != null ? Items.byId(sim, a.carry) : null;
@@ -196,6 +196,7 @@
           if (piece.props.sharpness > 0) piece.props.sharpness = Math.min(100, Math.round(piece.props.sharpness * br)); }
       }
     } else st.results[act.action + " " + hl + " / " + tl + ": nothing"] = (st.results[act.action + " " + hl + " / " + tl + ": nothing"] || 0) + 1;
+    if (G.Tools) G.Tools.onTry(sim, a, act.action, it, t, o);
     return false;
   };
 

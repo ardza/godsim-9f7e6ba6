@@ -54,7 +54,7 @@
   Agent.sight = a => P().sightTiles;
   Agent.tilePos = a => ({ x: Math.round(a.pos.x), y: Math.round(a.pos.y) });
   Agent.doing = a => { const d = a.act.type === "pray" ? G.Faith.doing(a) : (a.act.type === "idle" || a.act.type === "sleep") && a.felt && a.felt.huddle && a.needs.warmth < 60 ? (a.act.type === "sleep" ? "asleep, huddled" : "huddling") :
-    a.hypoUnconscious ? "unconscious from cold" : a.hypo >= 4 && a.needs.warmth <= 0 && a.act.type === "sleep" ? "asleep from cold" : ({ idle: "resting", try: ({ strike: "striking", rub: "rubbing", cut: "cutting" })[a.act.action] || "trying", eat: "eating a meal", eatMeat: "eating meat", eatCorpse: "eating from a body", dig: "digging", cook: "holding meat to the fire", drink: "drinking", sleep: "asleep" })[a.act.type] || ({ wander: "wandering", food: "going to a bush", explore: "looking for food", water: "going to the water", exploreWater: "looking for water", collapse: "stumbling to a stop", pickup: "going to pick something up", try: "going to try something", shelter: "seeking warmth", fleeFire: "moving away from flames", fireside: "going to sit by the fire", burnt: "jumping back from the flames", hunt: "going after a deer", meat: "going to a carcass", corpse: "going to a body", drag: "dragging a body", follow: "keeping close to someone", mate: "going to sleep beside a partner", keep: "keeping close to family", prayspot: "going to a prayer spot", beside: "going to sleep beside family", avoid: "keeping away from someone", scared: "running from the flash", fleeWolf: "running from the Wolves" })[a.act.goal] || a.act.type;
+    a.hypoUnconscious ? "unconscious from cold" : a.hypo >= 4 && a.needs.warmth <= 0 && a.act.type === "sleep" ? "asleep from cold" : ({ idle: "resting", try: ({ strike: "striking", rub: "rubbing", cut: "cutting" })[a.act.action] || "trying", bind: "binding a tool", chop: "chopping at a tree", eat: "eating a meal", eatMeat: "eating meat", eatCorpse: "eating from a body", dig: "digging", cook: "holding meat to the fire", drink: "drinking", sleep: "asleep" })[a.act.type] || ({ wander: "wandering", food: "going to a bush", explore: "looking for food", water: "going to the water", exploreWater: "looking for water", collapse: "stumbling to a stop", pickup: "going to pick something up", try: "going to try something", shelter: "seeking warmth", fleeFire: "moving away from flames", fireside: "going to sit by the fire", burnt: "jumping back from the flames", hunt: "going after a deer", meat: "going to a carcass", corpse: "going to a body", drag: "dragging a body", follow: "keeping close to someone", mate: "going to sleep beside a partner", keep: "keeping close to family", prayspot: "going to a prayer spot", beside: "going to sleep beside family", avoid: "keeping away from someone", scared: "running from the flash", fleeWolf: "running from the Wolves" })[a.act.goal] || a.act.type;
     return (G.Disease && G.Disease.isSick(a) && d.indexOf("sick") < 0) ? d + ", sick" : d; };
 
 
@@ -308,6 +308,7 @@
     const gd = G.Family.guardian(sim, a), near = (x, y) => !gd || Math.hypot(gd.pos.x - x, gd.pos.y - y) <= G.data.config.child.keepTiles;   // a child stays within reach
     if (G.Social.idleMove(sim, a, (x, y, g, ex) => walkTo(sim, a, x, y, g, ex), (x, y) => W.walkable(sim.world, x, y) && !Agent.claimed(sim, a, x, y) && near(x, y))) return;
     if (G.Corpse && G.Corpse.maybe(sim, a)) return;   // step 26: corpse choices (leave/drag/bury/burn/eat/ritual)
+    if (G.Tools && G.Tools.maybe(sim, a)) return;   // step 29: bind / chop / poke / ready long stick
     if (G.Items.maybeTry(sim, a) || G.Items.maybePickUp(sim, a)) return;   // idle curiosity (step 9-10)
     const w = P().wander, r = w.radius, g = G.Family.guardian(sim, a), K = G.data.config.child.keepTiles,
       t = randomTarget(sim, a, 2, r, (x, y) => G.Social.wanderOk(sim, a, x, y) && (!g || Math.hypot(g.pos.x - x, g.pos.y - y) <= K));
@@ -318,10 +319,21 @@
   function seekFood(sim, a, skipId, allowFar) {
     if (Agent.want(a) === "food" && G.Hunt.seekFood(sim, a)) return;   // step 16: meat in hand, a carcass in sight, or a grazer to go after
     const K = a.knowledge.bushes, t = Agent.tilePos(a);
-    const known = Object.keys(K).filter(id => id !== skipId && !Agent.claimed(sim, a, K[id].x, K[id].y) && (K[id].ripe || sim.tick - (K[id].emptySince || 0) >= G.data.config.bushes.regrowMinutes))  // empty ones are expected back after a day
+    const reach = G.Tools ? G.Tools.reachTiles(sim, a) : 0;
+    const bushOk = (id) => {
+      const bx = K[id].x, by = K[id].y;
+      if (!Agent.claimed(sim, a, bx, by)) return { x: bx, y: by };
+      if (reach <= 0) return null;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]]) {
+        const x = bx + dx, y = by + dy;
+        if (Math.hypot(dx, dy) <= reach + 1e-9 && W.walkable(sim.world, x, y) && !Agent.claimed(sim, a, x, y)) return { x, y };
+      }
+      return null;
+    };
+    const known = Object.keys(K).filter(id => id !== skipId && bushOk(id) && (K[id].ripe || sim.tick - (K[id].emptySince || 0) >= G.data.config.bushes.regrowMinutes))  // empty ones are expected back after a day
       .map(id => ({ id, d: Math.hypot(K[id].x - t.x, K[id].y - t.y) })).sort((p, q) => p.d - q.d || (p.id < q.id ? -1 : 1)).slice(0, P().explore.pathCandidates);
     let best = null;
-    for (const k of known) { const p = W.findPath(sim.world, t.x, t.y, K[k.id].x, K[k.id].y); if (p && (!best || W.pathLength(p) < best.len)) best = { id: k.id, p, len: W.pathLength(p) }; }
+    for (const k of known) { const spot = bushOk(k.id); if (!spot) continue; const p = W.findPath(sim.world, t.x, t.y, spot.x, spot.y); if (p && (!best || W.pathLength(p) < best.len)) best = { id: k.id, p, len: W.pathLength(p) }; }
     const e = P().explore;
     if (best && (allowFar || best.len <= e.farTiles)) { a.act = { type: "walk", goal: "food", path: best.p, i: 0, bush: best.id }; return; }
     const near = best && !allowFar, ids = Object.keys(K);
@@ -348,7 +360,12 @@
     const g = a.act.goal;
     if (g === "food") {
       const b = sim.bushes.find(q => q.id === a.act.bush);
-      if (b && b.ripe) { a.act = { type: "eat", bush: b.id, t: 0, from: a.needs.fullness, over: !!a.act.over || a.needs.fullness >= Agent.fullnessThreshold(a), adds: r2(P().fullness.mealAdds * G.Sim.seasonal(sim.tick).yield) }; return; }
+      const reach = G.Tools ? G.Tools.reachTiles(sim, a) : 0;
+      const dBush = b ? Math.hypot(b.x - a.pos.x, b.y - a.pos.y) : 99;
+      const canReach = b && b.ripe && (reach > 0 ? dBush <= reach + 1e-9 : dBush < 0.01);
+      if (canReach) {
+        if (reach > 0 && G.Tools) { const sp = G.Items.held(sim, a); if (sp) G.Tools.use(sim, a, sp, "reach"); G.Tools.ensure(sim).reaches++; }
+        a.act = { type: "eat", bush: b.id, t: 0, from: a.needs.fullness, over: !!a.act.over || a.needs.fullness >= Agent.fullnessThreshold(a), adds: r2(P().fullness.mealAdds * G.Sim.seasonal(sim.tick).yield) }; return; }
       G.Sim.log(sim, a.name + " found the bush bare", a);
       if (b) { a.knowledge.bushes[b.id].ripe = false; tookBush(sim, a, b); }
       if (Agent.want(a) === "water") seekWater(sim, a); else seekFood(sim, a, b && b.id); return;
@@ -366,6 +383,7 @@
     if (g === "den") { startIdle(sim, a); return; }   // step 21b: in the shelter (Shelter.step lets her in or finds it full)
     if (g === "pickup") { G.Items.arrivePickup(sim, a); if (!G.Items.maybeTry(sim, a)) startIdle(sim, a, 0.5); return; }   // a fresh find is often tried on something close by
     if (g === "try") { if (!G.Items.arriveTry(sim, a)) startIdle(sim, a, 0.5); return; }
+    if (g === "bind") { if (!G.Tools || !G.Tools.arriveBind(sim, a)) startIdle(sim, a, 0.5); return; }
     if (g === "prayspot") { if (!G.Faith.arriveSpot(sim, a)) startIdle(sim, a); return; }   // step 21
     if (g === "shelter") { const back = a.act.coldWake; arriveShelter(sim, a); if (back && shouldSleep(sim, a)) startSleep(sim, a, true); else startIdle(sim, a); return; }
     if (g === "mate") { if (shouldSleep(sim, a)) startSleep(sim, a); else startIdle(sim, a); return; }   // step 19
@@ -527,6 +545,8 @@
     if (a.act.type === "try") { if (!G.Items.stepTry(sim, a)) startIdle(sim, a); return; }
     if (a.act.type === "pray") { if (!G.Faith.stepPray(sim, a)) startIdle(sim, a); return; }   // step 21: a prayer bout (10-40 min); step 26 ritual at a body also uses pray
     if (a.act.type === "dig") { G.Corpse.stepDig(sim, a); return; }   // step 26 bury
+    if (a.act.type === "bind") { if (!G.Tools.stepBind(sim, a)) startIdle(sim, a); return; }   // step 29
+    if (a.act.type === "chop") { if (!G.Tools.stepChop(sim, a)) startIdle(sim, a); return; }
     if (a.act.type === "eatCorpse") { G.Corpse.stepEat(sim, a); return; }
     if (a.wokeEarly && !Agent.isNight(sim.tick)) a.wokeEarly = false;
     const seen = sense(sim, a), act = a.act; let want = Agent.want(a);

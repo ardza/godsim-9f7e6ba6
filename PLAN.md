@@ -156,3 +156,10 @@ Starts as soon as 13-15 and the new UI are frozen to godsim-rc, without waiting 
 - Local language
 - Group-to-group contact
 - Further god powers
+
+## 28. Disease (save v25) — shipped Oct 24
+- Sick state, spread, cure; person-card Log tab. Live commit 1877ae1.
+
+## 29. Tools from cut and strike (save v26) — build now
+- Lock strike/cut/rub into carried tools (flake, axe/hoe, long stick). Spec: specs/15b-17.md §29.
+- Artist: axe_16, flake_16, spear_16 overlays.

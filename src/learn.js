@@ -19,7 +19,9 @@
   Learn.gainOf = function (key) {
     const C = L(); if (C[key] && C[key].warmGain != null) return C.successWarmth * C[key].warmGain + (key === "fire" ? C.fireSuccessGain || 0 : 0);
     if (key === "hunt") return CF().hunt.gain; if (key === "cook") return CF().cook.gain;
-    const Cg = CF().corpse && CF().corpse.gain; if (Cg && Cg[key] != null) return Cg[key]; return 0;
+    const Cg = CF().corpse && CF().corpse.gain; if (Cg && Cg[key] != null) return Cg[key];
+    const Tg = CF().tools && CF().tools.gain; if (Tg && Tg[key] != null) return Tg[key];
+    return 0;
   };
   // step 20: who taught her what: [{key, from, name, how: "copied" | "watched"}] (a copy wins over watching)
   Learn.learnedFrom = a => Object.keys(L().actions).map(k => { const e = a.exp && a.exp[k]; if (!e) return null; const c = e.copied || e.seep; return c ? { key: k, from: c.from, name: c.name, how: e.copied ? "copied" : "watched" } : null; }).filter(Boolean);

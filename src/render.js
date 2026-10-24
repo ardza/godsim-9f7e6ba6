@@ -11,7 +11,7 @@
     if (A.person && A.person.src) loadImg(A.person.src, im => art.person = im);
     if (A.founders && A.founders.src) loadImg(A.founders.src, im => art.founders = im);
     loadImg(A.bush, im => art.bush = im); loadImg(A.bushEmpty, im => art.bushEmpty = im);
-    for (const k of ["body", "grazer", "scavenger", "wolves", "items", "fx", "food", "carcass", "smoke", "baby", "child", "pray", "childPray", "gesture", "childGesture", "spot", "shelter", "rain", "rainLight", "rainHeavy", "lightning", "burial", "pyre", "ashBones", "reed", "reedBank", "mountain"]) if (A[k] && A[k].src) loadImg(A[k].src, im => art[k] = im);
+    for (const k of ["body", "grazer", "scavenger", "wolves", "items", "fx", "food", "carcass", "smoke", "baby", "child", "pray", "childPray", "gesture", "childGesture", "spot", "shelter", "rain", "rainLight", "rainHeavy", "lightning", "burial", "pyre", "ashBones", "reed", "reedBank", "mountain", "flake", "axe", "spear", "tools"]) if (A[k] && A[k].src) loadImg(A[k].src, im => art[k] = im);
   };
   R.art = () => art;
 
@@ -294,6 +294,23 @@
     else { R2(4, 7, 8, 6); R2(5, 6, 6, 1); cx.fillStyle = "rgba(255,255,255,0.25)"; R2(5, 7, 3, 1); }
   }
   R.drawItemAt = drawItemAt;
+  // step 29: carried tool hand overlay (flake / axe / spear sheets; fallback tools_16 cols). Returns true if drawn.
+  function drawToolOverlay(it, px, py, facing) {
+    const typ = it.tool; if (!typ) return false;
+    const face = facing || "down";
+    const A = G.data.art;
+    // prefer dedicated sheet (flake_16 / axe_16 / spear_16)
+    if (art[typ] && A[typ] && A[typ].rows) {
+      const r = A[typ].rows.indexOf(face); if (r < 0) return false;
+      cx.drawImage(art[typ], 0, r * 16, 16, 16, px, py, 8, 8); return true;
+    }
+    // convenience sheet tools_16: cols flake/axe/spear × rows facing
+    if (art.tools && A.tools) {
+      const c = A.tools.cols.indexOf(typ), r = A.tools.rows.indexOf(face);
+      if (c >= 0 && r >= 0) { cx.drawImage(art.tools, c * 16, r * 16, 16, 16, px, py, 8, 8); return true; }
+    }
+    return false;
+  }
   // step 19: a burning stick = the stick plus a small flickering flame (the fire fx at half size) at its tip
   function drawBrand(it, px, py, size, time) {
     drawItemAt(it, px, py, size); if (!it.lit) return;
@@ -398,7 +415,11 @@
       const shiver = a.needs.warmth != null && a.needs.warmth < 30 && a.act.type !== "sleep" ? (Math.floor(time * 18 + a.id) % 2 ? 1 : -1) / tp : 0;
       drawPerson(a, x + shiver, y, st.frame, st.facing, time);
       const held = G.Items && G.Items.held(sim, a);
-      if (held && a.act.type !== "sleep") drawBrand(held, Math.round((x + shiver) * tp + (st.facing === "left" ? 0 : 8)), Math.round(y * tp + 5), 8, time);   // half size over the hand
+      if (held && a.act.type !== "sleep") {
+        const hx = Math.round((x + shiver) * tp + (st.facing === "left" ? 0 : 8)), hy = Math.round(y * tp + 5);
+        if (held.tool && drawToolOverlay(held, hx, hy, st.facing)) { /* tool sheet replaces item */ }
+        else drawBrand(held, hx, hy, 8, time);   // half size over the hand
+      }
       let k = 0; for (const b of sim.babies || []) if (b.carrier === a.id && b.orphanAt == null) {   // step 19: her baby (babies) on top of her, or beside her asleep
         if (a.act.type === "sleep") drawBaby(b, Math.round((x + shiver) * tp) + 6, Math.round(y * tp) + 1, "lying", k); else drawBaby(b, Math.round((x + shiver) * tp), Math.round(y * tp) - 2, "carried_" + st.facing, k); k++; }
       if (selectedId != null) for (const b of sim.babies || []) if (b.id === selectedId && b.carrier === a.id && b.orphanAt == null) { cx.strokeStyle = "#fff6b0"; cx.lineWidth = 1.5; cx.beginPath(); cx.ellipse(x * tp + 8, y * tp + 14, 7, 3, 0, 0, 7); cx.stroke(); cx.lineWidth = 1; }
