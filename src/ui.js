@@ -23,6 +23,7 @@
     const side = $("side"); if (!side || UI.panel === undefined) return;
     const on = UI.panel != null, info = !$("info").hidden, bare = !on && !info, open = side.classList.contains("open");
     const k = on + "|" + info + "|" + open + "|" + UC().panels.map(p => UI.panelEl(p).classList.contains("closed")).join() + "|" + innerWidth + "x" + innerHeight; if (k === UI._layKey) return; UI._layKey = k;
+    const pb = $("panelbar"); if (pb) document.documentElement.style.setProperty("--pbh", Math.max(0, innerHeight - pb.getBoundingClientRect().top) + "px");   // v19: the phone power row sits on the bar
     document.body.classList.toggle("log-off", !on); document.body.classList.toggle("side-off", bare);
     side.classList.toggle("bare", bare); side.classList.toggle("solo", !(on && info));
     UI.fit();
@@ -48,7 +49,31 @@
         UI.update(app); };
       bar.appendChild(b);
     });
+    // v19: the Powers tab (shown only on portrait phones < 700px, by CSS): opens / closes the power row; highlighted while a power waits for its spot
+    const PT = UC().powersTab; if (PT && $("powers")) { const b = document.createElement("button"); b.id = "ptab-powers"; b.innerHTML = UI.icon(PT.icon) + '<span class="lbl">' + esc(PT.label) + '</span>';
+      b.setAttribute("aria-label", PT.label); b.title = PT.label; b.setAttribute("aria-expanded", "false"); b.setAttribute("aria-controls", "powers"); b.onclick = () => UI.powerRow(app, !UI.rowOpen()); bar.appendChild(b); }
   }
+  UI.rowOpen = () => document.body.classList.contains("pw-open");
+  UI.powerRow = function (app, open) { if (open && pickOpen()) showPick(false);   // v19: opening the row closes an open picker (it sits in the same spot)
+    document.body.classList.toggle("pw-open", !!open); const b = $("ptab-powers"); if (b) { b.setAttribute("aria-expanded", !!open); b.classList.toggle("on", !!open); } if (app) UI.updatePowers(app); };
+  // ---- v19 (step 24) Find: centre the map on a person (zoom >= find.zoom), pulse their ring for find.pulseMs and follow them until a pan or a tap elsewhere.
+  // On a phone an open panel (Log / People / ...) is closed first so the map gets the room. Works from the map card, the People tab and the Log (all open the same card).
+  const phone = () => innerWidth <= 700 || innerHeight <= 500;
+  UI.focusFrac = function () {   // the middle of the map part not under a card / sheet that floats over it (phones)
+    const c = $("cv").getBoundingClientRect(); let top = c.top, bot = c.bottom;
+    for (const id of ["info", "side"]) { const e = $(id); if (!e || e.hidden || getComputedStyle(e).position !== "fixed") continue; const r = e.getBoundingClientRect();
+      if (r.height && r.top > c.top + 40 && r.top < bot && r.left < c.right && r.right > c.left) bot = r.top; }
+    return { fx: 0.5, fy: c.height ? Math.max(0, Math.min(1, ((top + bot) / 2 - c.top) / c.height)) : 0.5 };
+  };
+  G.Render.focusFrac = UI.focusFrac;
+  UI.find = function (app, id) {
+    const a = app.sim.agents.find(q => q.id === id), F = UC().find, R = G.Render; if (!a || !F) return false;
+    if (phone() && UI.panel != null) { UI.panel = null; UI._logKey = null; }   // not saved: the tab comes back as it was next time
+    if (UI.rowOpen()) UI.powerRow(app, false);
+    app.select(id);
+    const f = UI.focusFrac(); R.centerOn(a.pos.x, a.pos.y, F.zoom, f.fx, f.fy); if (UI.zoomUI) UI.zoomUI();
+    R.follow = id; R.pulse = { id, t0: performance.now(), ms: F.pulseMs }; return true;
+  };
   function updatePanels(app) {
     for (const p of UC().panels) { const on = UI.panel === p.key, el = UI.panelEl(p), b = $("ptab-" + p.key);
       el.classList.toggle("closed", !on); b.classList.toggle("on", on); b.setAttribute("aria-selected", on); b.setAttribute("aria-expanded", on);
@@ -81,14 +106,15 @@
         return;
       }
       if (!press || press.id !== e.pointerId) return;
-      if (!press.pan && Math.hypot(e.clientX - press.x0, e.clientY - press.y0) >= ZC().tapSlop) { press.pan = true; cv.classList.add("panning"); }
+      if (!press.pan && Math.hypot(e.clientX - press.x0, e.clientY - press.y0) >= ZC().tapSlop) { press.pan = true; R.follow = null; cv.classList.add("panning"); }   // v19: a pan ends Find's follow
       if (press.pan) { R.panBy(e.clientX - press.x, e.clientY - press.y); }
       press.x = e.clientX; press.y = e.clientY;
     });
     const up = e => {
       if (!pts.has(e.pointerId)) return; pts.delete(e.pointerId);
       if (press && press.id === e.pointerId) {
-        if (!press.pan && e.type === "pointerup") { const t = R.toTile(press.x0, press.y0); if (UI.power) app.castPower(UI.power, Math.floor(t.x), Math.floor(t.y)); else app.clickTile(t.x, t.y); } // under tapSlop px = a tap (step 22: an armed power lands there)
+        if (!press.pan && e.type === "pointerup") { const t = R.toTile(press.x0, press.y0); R.follow = null;   // v19: so does a tap on the map
+          if (UI.power) app.castPower(UI.power, Math.floor(t.x), Math.floor(t.y)); else app.clickTile(t.x, t.y); } // under tapSlop px = a tap (step 22: an armed power lands there)
         press = null; cv.classList.remove("panning");
       }
       if (pts.size < 2) pinch = null;
@@ -97,41 +123,59 @@
     zoomUI();
   }
 
-  // ---- step 22: god powers bar (Rain / Warm / Cool) over the bottom of the map. Tap a power, then the map; tap the power again to cancel. ----
+  // ---- step 22 / 24: god powers bar. Tap a power (Rain / Lightning / Spawn open a picker first), then the map; tap again to cancel. No cooldowns. ----
   const PW = () => G.data.config.powers;
   UI.power = null;
-  const cdText = m => m >= 60 ? Math.floor(m / 60) + " h " + (Math.round(m % 60) ? Math.round(m % 60) + " min" : "") : Math.ceil(m) + " min";
+  UI.spawnKind = null; UI.rainStr = null; UI.boltMode = null; UI.pickFor = null;
   function initPowers(app) {
     const box = $("powers"); if (!box || !PW()) return;
     PW().order.forEach(k => { const b = document.createElement("button"), L = PW().labels[k];
       b.id = "power-" + k; b.dataset.power = k; b.setAttribute("aria-pressed", "false"); b.title = L + ": tap, then tap the map (tap again to cancel)";
       b.innerHTML = UI.icon(k) + '<span class="lbl">' + L + '</span><span class="cd"></span>'; b.onclick = () => UI.armPower(app, k); box.appendChild(b); });
-    // step 23: the Spawn picker (Grazer / Predator), shown above the bar when Spawn is tapped; a choice arms Spawn with that animal
-    const SP = PW().spawn; if (SP) { const pk = document.createElement("div"); pk.id = "spawnpick"; pk.setAttribute("role", "group"); pk.setAttribute("aria-label", "spawn which animal"); pk.hidden = true;
-      Object.keys(SP.kinds).forEach(kind => { const b = document.createElement("button"), L = SP.kindLabels[kind] || kind; b.id = "spawn-" + kind; b.dataset.kind = kind; b.textContent = L; b.setAttribute("aria-label", "Spawn a " + L.toLowerCase());
-        b.onclick = () => UI.pickSpawn(app, kind); pk.appendChild(b); }); box.parentNode.appendChild(pk); }
+    // shared picker (Rain strengths / Lightning modes / Spawn kinds); id kept as spawnpick for the existing CSS
+    const pk = document.createElement("div"); pk.id = "spawnpick"; pk.setAttribute("role", "group"); pk.setAttribute("aria-label", "power options"); pk.hidden = true;
+    box.parentNode.appendChild(pk);
     const cv = $("cv");
-    cv.addEventListener("pointermove", e => { if (!UI.power || e.pointerType === "touch") { G.Render.aim = null; return; } const t = G.Render.toTile(e.clientX, e.clientY); G.Render.aim = { x: Math.floor(t.x), y: Math.floor(t.y), r: UI.power === "lightning" || UI.power === "spawn" ? 0 : PW().radiusTiles }; });
+    cv.addEventListener("pointermove", e => { if (!UI.power || e.pointerType === "touch") { G.Render.aim = null; return; }
+      const t = G.Render.toTile(e.clientX, e.clientY), rAim = UI.power === "spawn" ? 0 : UI.power === "lightning" ? (UI.boltMode === "barrage" ? (PW().lightning.modes.barrage.scatterTiles || PW().radiusTiles) : 0) : PW().radiusTiles;
+      G.Render.aim = { x: Math.floor(t.x), y: Math.floor(t.y), r: rAim }; });
     cv.addEventListener("pointerleave", () => { G.Render.aim = null; });
   }
-  UI.spawnKind = null;
-  const pickOpen = () => { const p = $("spawnpick"); return !!p && !p.hidden; }, showPick = on => { const p = $("spawnpick"); if (p) p.hidden = !on; };
+  const pickOpen = () => { const p = $("spawnpick"); return !!p && !p.hidden; };
+  const showPick = on => { const p = $("spawnpick"); if (p) p.hidden = !on; if (!on) UI.pickFor = null; };
+  function fillPick(app, kind) {
+    const pk = $("spawnpick"); if (!pk) return; pk.innerHTML = ""; UI.pickFor = kind;
+    if (kind === "spawn") { const SP = PW().spawn; pk.setAttribute("aria-label", "spawn which animal");
+      Object.keys(SP.kinds).forEach(k => { const b = document.createElement("button"), L = SP.kindLabels[k] || k; b.id = "spawn-" + k; b.dataset.kind = k; b.textContent = L; b.setAttribute("aria-label", "Spawn a " + L.toLowerCase());
+        b.onclick = () => UI.pickSpawn(app, k); pk.appendChild(b); }); }
+    else if (kind === "rain") { const R = PW().rain; pk.setAttribute("aria-label", "rain strength");
+      (R.strengthOrder || Object.keys(R.strengths)).forEach(k => { const S = R.strengths[k], b = document.createElement("button"); b.id = "rain-" + k; b.dataset.str = k; b.textContent = S.label; b.setAttribute("aria-label", "Rain: " + S.label);
+        b.onclick = () => UI.pickRain(app, k); pk.appendChild(b); }); }
+    else if (kind === "lightning") { const L = PW().lightning; pk.setAttribute("aria-label", "lightning mode");
+      (L.modeOrder || Object.keys(L.modes)).forEach(k => { const M = L.modes[k], b = document.createElement("button"); b.id = "bolt-" + k; b.dataset.mode = k; b.textContent = M.label; b.setAttribute("aria-label", "Lightning: " + M.label);
+        b.onclick = () => UI.pickBolt(app, k); pk.appendChild(b); }); }
+    pk.hidden = false;
+  }
   UI.armPower = function (app, k) {
-    const L = PW().labels[k];
-    if (UI.power === k || (k === "spawn" && pickOpen())) { UI.power = null; showPick(false); G.Render.aim = null; UI.toast(L + " cancelled"); }
-    else { const left = G.Powers.cooldownLeft(app.sim, k); if (left > 0) { UI.toast(L + " is ready in " + cdText(left).trim()); return; }
-      showPick(false);
-      if (k === "spawn") { UI.power = null; showPick(true); UI.toast("Spawn which animal?"); }   // step 23: pick the animal first
+    const L = PW().labels[k]; if (UI.rowOpen()) UI.powerRow(null, false);   // v19: picking a power closes the phone row
+    if (UI.power === k || (pickOpen() && UI.pickFor === k)) { UI.power = null; showPick(false); G.Render.aim = null; UI.toast(L + " cancelled"); }
+    else { showPick(false);
+      if (k === "spawn" || k === "rain" || k === "lightning") { UI.power = null; fillPick(app, k);
+        UI.toast(k === "spawn" ? "Spawn which animal?" : k === "rain" ? "Rain: Light, Medium or Heavy?" : "Lightning: Single bolt or Barrage?"); }
       else { UI.power = k; UI.toast("Tap the map: " + L); } }
     UI.updatePowers(app);
   };
   UI.pickSpawn = function (app, kind) { showPick(false); UI.spawnKind = kind; UI.power = "spawn"; UI.toast("Tap the land: " + (PW().spawn.kindLabels[kind] || kind)); UI.updatePowers(app); };
+  UI.pickRain = function (app, str) { showPick(false); UI.rainStr = str; UI.power = "rain"; UI.toast("Tap the map: " + PW().rain.strengths[str].label + " rain"); UI.updatePowers(app); };
+  UI.pickBolt = function (app, mode) { showPick(false); UI.boltMode = mode; UI.power = "lightning"; UI.toast("Tap the map: " + PW().lightning.modes[mode].label); UI.updatePowers(app); };
   UI.updatePowers = function (app) {
     if (!PW()) return; $("cv").classList.toggle("aiming", !!UI.power);
-    for (const k of PW().order) { const b = $("power-" + k); if (!b) continue; const left = G.Powers.cooldownLeft(app.sim, k), on = UI.power === k, t = left > 0 ? cdText(left).trim() : "";
-      b.classList.toggle("on", on || (k === "spawn" && pickOpen())); b.classList.toggle("cooling", left > 0); b.setAttribute("aria-pressed", on);
-      const cd = b.querySelector(".cd"); if (cd.textContent !== t) cd.textContent = t;
-      b.setAttribute("aria-label", PW().labels[k] + (left > 0 ? ", ready in " + t : on ? ", tap the map" : "")); }
+    const pt = $("ptab-powers"); if (pt) { const w = !!UI.power || pickOpen(); const wait = UI.power ? PW().labels[UI.power] + " waiting: tap the map" : UI.pickFor === "rain" ? "pick a rain strength" : UI.pickFor === "lightning" ? "pick a lightning mode" : "pick an animal";
+      pt.classList.toggle("armed", w); pt.setAttribute("aria-label", UC().powersTab.label + (w ? ", " + wait : "")); }
+    for (const k of PW().order) { const b = $("power-" + k); if (!b) continue; const on = UI.power === k, picking = pickOpen() && UI.pickFor === k;
+      b.classList.toggle("on", on || picking); b.classList.remove("cooling"); b.setAttribute("aria-pressed", on);
+      const cd = b.querySelector(".cd"); if (cd && cd.textContent) cd.textContent = "";
+      b.setAttribute("aria-label", PW().labels[k] + (on ? ", tap the map" : picking ? ", pick an option" : "")); }
   };
   UI.init = function (app) {
     const sp = $("speeds");
@@ -148,6 +192,10 @@
     // a keyboard press on the button arrives as a click with detail 0)
     const selLink = e => { const b = e.target.closest && e.target.closest("[data-sel]"); if (!b) return; e.preventDefault(); app.select(+b.dataset.sel); };
     $("info-body").addEventListener("pointerup", selLink); $("info-body").addEventListener("click", e => { if (e.detail === 0) selLink(e); });
+    // v19: Find on the card; a person's name in the Log opens their card (same delegation: the log is rebuilt as lines arrive)
+    const findLink = e => { const b = e.target.closest && e.target.closest("[data-find]"); if (!b) return; e.preventDefault(); UI.find(app, +b.dataset.find); };
+    $("info-body").addEventListener("pointerup", findLink); $("info-body").addEventListener("click", e => { if (e.detail === 0) findLink(e); });
+    $("log").addEventListener("pointerup", selLink); $("log").addEventListener("click", e => { if (e.detail === 0) selLink(e); });
     $("seed").addEventListener("keydown", e => { if (e.key === "Enter") app.newWorld($("seed").value); e.stopPropagation(); });
     $("info-close").onclick = () => app.select(null);
     $("sheet-handle").onclick = () => { const o = !$("side").classList.contains("open");
@@ -156,7 +204,8 @@
     initPanels(app); initPowers(app);
     if (isSheet() && prefs().sheet) UI.openSheet(true, true);
     initMap(app);
-    window.addEventListener("keydown", e => { if (e.key === "Escape" && (UI.power || pickOpen())) { UI.armPower(app, UI.power || "spawn"); return; }
+    window.addEventListener("keydown", e => { if (e.key === "Escape" && (UI.power || pickOpen())) { UI.armPower(app, UI.power || UI.pickFor || "spawn"); return; }
+      if (e.key === "Escape" && UI.rowOpen()) { UI.powerRow(app, false); return; }
       if (e.code === "Space") { app.setSpeed(app.speed ? 0 : (app.lastSpeed || 1)); e.preventDefault(); }
       const sp = G.data.config.time.speeds, n = /^[0-9]$/.test(e.key) ? +e.key : -1; if (n >= 0 && n < sp.length) app.setSpeed(sp[n]); }); // 0 pause, 1 = 1x, 2 = 10x, 3 = 60x
     window.addEventListener("resize", UI.layout); UI.layout(); UI.fit();
@@ -168,6 +217,14 @@
   const chip = (t, cls) => '<span class="chip' + (cls ? " " + cls : "") + '">' + t + '</span>';
   // step 18: group line + Relations (top 5 by familiarity; liking word warm 70+, neutral 40-69, wary under 40; the two numbers 0-100)
   // step 19: a clickable name (44 px tall), "(died)" when only a body is left; plain text when nothing is left at all
+  // v19 (step 24): the Find button on a person's card (the kit's locate crosshair + "Find", 44px+); see UI.find
+  const findBtn = a => { const F = UC().find; return F ? '<button class="findbtn" data-find="' + a.id + '" aria-label="' + esc(F.label) + ' ' + esc(a.name) + ' on the map" title="Centre the map on ' + esc(a.name) + ' and follow">' + UI.icon(F.icon) + '<span>' + esc(F.label) + '</span></button>' : ''; };
+  // v19: the names of the people a log line is about (e.ids) become buttons that open their card (44px tap area, the line's look kept: theme in index.html)
+  const reEsc = t => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  function logNames(sim, e) { let h = esc(e.text); if (!e.ids) return h;
+    for (const id of e.ids) { const w = G.Family.who(sim, id); if (!w) continue; const n = esc(w.name);
+      h = h.replace(new RegExp("(^|[^\\w>])(" + reEsc(n) + ")(?![\\w<])"), '$1<button class="logn" data-sel="' + w.id + '">$2</button>'); }
+    return h; }
   function who(sim, id, name) { const w = G.Family.who(sim, id);
     if (!w) return '<span class="lnk-gone">' + esc(name || "?") + ' (gone)</span>';
     return '<button class="lnk" data-sel="' + w.id + '">' + esc(w.name) + (w.alive ? '' : ' (died)') + '</button>'; }
@@ -284,7 +341,7 @@
     }
     if (a) {
       const A = G.Agent, PC = G.data.config.person, known = Object.keys(a.knowledge.bushes).length, n = a.needs;
-      $("info-body").innerHTML = '<h3>' + esc(a.name) + '</h3><div class="sub">' + Math.floor(a.age) + ' years · <span class="stage">' + G.Family.stageWord(a) + '</span> · ' + A.doing(a) + '</div>' +
+      $("info-body").innerHTML = findBtn(a) + '<h3 class="hasfind">' + esc(a.name) + '</h3><div class="sub">' + Math.floor(a.age) + ' years · <span class="stage">' + G.Family.stageWord(a) + '</span> · ' + A.doing(a) + '</div>' +
         '<div class="sec">Needs (0-100, full = good)</div>' +
         need("Fullness", n.fullness, n.fullness < A.fullnessThreshold(a) ? "hot" : "", A.fullnessWord(n.fullness), "100 = stuffed, " + PC.fullness.mealFillTo + " = full after a meal; eats below " + A.fullnessThreshold(a) + "; 0 = starving") +
         need("Water", n.water, n.water < A.waterThreshold(a) ? "hot" : "water", A.waterWord(n.water), "100 = just drank; drinks below " + A.waterThreshold(a) + "; 0 = parched") +
@@ -305,7 +362,7 @@
     if (UI._logKey !== key) {
       UI._logKey = key;
       const rows = sim.log.filter(e => inTab(e.text)).slice(-40).reverse();
-      $("log").innerHTML = rows.length ? rows.map(e => '<div class="ev ' + kindOf(e.text) + '"><time>' + G.Time.stamp(e.t) + '</time>' + esc(e.text) + '</div>').join("") : '<div class="empty">Nothing here yet.</div>';
+      $("log").innerHTML = rows.length ? rows.map(e => '<div class="ev ' + kindOf(e.text) + '"><time>' + G.Time.stamp(e.t) + '</time>' + logNames(sim, e) + '</div>').join("") : '<div class="empty">Nothing here yet.</div>';
       $("sheet-peek").textContent = last ? G.Time.stamp(last.t) + "  " + last.text : "Log";
     }
     if (UI.zoomUI) UI.zoomUI();

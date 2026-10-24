@@ -1,0 +1,16 @@
+# v18 progress (step 23: Lightning and Spawn powers)
+- 4:16 PM start: reading spec 23, v17 code.
+- 16:19 config: saveVersion 18, powers.lightning / spawn / boltStick / faith blocks
+- 16:21 powers.js: strike / spawn / run / fright / answer; faith.js Faith.answer
+- 16:22 agent/fire/objects/sim: scared walk, bolt look + flee exemption, first lit stick carried discovery, migrate18, ?v=18
+- 16:23 ui (Lightning / Spawn buttons + picker), render flashes, art.js lightning entry, icons synced
+- 16:27 tests/headless_powers23.js (12 checks) passes standalone; bolt sticks seen within 12 tiles (was 8: runners ended out of sight); bolt walk paths round burning tiles; fixed a commented-out brands/caught stat in catchNear. Full suite started -> tests/headless_v18_run1.txt
+- 16:37 chrome step 23 block added; desktop 1280x800 PASSED (166 checks); phone failed only the step 22 fs check (labels hidden in portrait: no visible text) -> step 22 check now accepts icons-only below 700px; rerunning phone
+- 16:37 deaths runs (16 seeds x 2 y, no powers) started -> /tmp/v18d
+- 16:47 full headless PASSED (285 PASS, 0 FAIL, run1, started after all code edits); chrome desktop PASSED (165), phone PASSED (167); deaths_v18.md written (5 deaths, 11/16 grew, 44 births, births on 14/16, pop 97/102/136)
+- 16:50 steering: step 23 frozen (snapshot /workspace/godsim-step23-v18-frozen.tar.gz); now building v19: phone Powers row, spawn curiosity fade (7 d), baby dies with struck carrier
+- 17:05 v19: config saveVersion 19 + curiosityFadeMinutes, Powers.curioBoost/curioStep, Family.babyDie + strike kills carried / lying babies, Sim.migrate19, ?v=19; tests/headless_powers24.js 5 PASS standalone; powers23 + powers22 still pass
+- 17:15 phone Powers row (CSS + ptab-powers toggle, config.ui.powersTab), chrome: step 22/23 blocks open the row first, panelbar queries use [role=tab], new v19 row block; running phone chrome
+- 17:25 phone chrome v19: 179 PASS 0 FAIL, CHROME CHECK PASSED. deaths_v19.md: 11/16 grew, identical to v18 (target 12 not met; rules only act under powers). desktop chrome + full headless running.
+- 17:40 v19 Find: config ui.find, locate icon synced, Render follow/pulse (+ pulseDrawn for the check), UI.find + Find button on person cards, log names -> buttons; chrome Find block (People tab / map card / Log, centring, follow, pan + tap end it, 3 s pulse) + powerrow_closed/_open shots. Fixed a ui.js syntax slip (tap line folded into a comment).
+- 17:45 seed 4 traced (/tmp/s4/seed4.txt) -> "Why seed 4 shrinks" in deaths_v19.md (two loners froze 15+ tiles from everyone). Variants: no natural bolt sticks 13/16 (against spec, diagnostic only); lonerTiles 20/25/30 -> 12/16 each. Adopted lonerTiles 15 -> 20 (headless 21b check updated + 17-19 tile join). Rerunning 16 seeds, full headless, both chrome.

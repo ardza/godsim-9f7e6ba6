@@ -51,6 +51,20 @@
   #spawnpick[hidden] { display: none; }
   #spawnpick button { min-width: 96px; min-height: 48px; padding: 0 14px; font-size: 16px; background: transparent; border: 0; border-radius: 12px; }
   @media (max-width: 700px) { #powers button { padding: 0 10px; } #powers button .lbl { display: none; } }
+  /* v19 (Director + Artist): portrait phones under 700px: no floating bar. The Powers tab in the bottom bar slides up one 56px row of power icons
+     just above the bar; picking a power closes it (the whole map is free to tap the spot); the tab is highlighted while a power waits for its spot.
+     Closed = hidden (nothing over the map). Desktop and landscape unchanged: the tab is not shown there. */
+  #ptab-powers { display: none; }
+  #panelbar #ptab-powers.armed { background: var(--on); color: var(--on-text); }
+  @media (max-width: 700px) and (orientation: portrait) {
+    #panelbar #ptab-powers { display: flex; }
+    #powers { position: fixed; left: 0; right: 0; bottom: var(--pbh, var(--bar)); z-index: 19; height: 56px; box-sizing: border-box; justify-content: space-around; align-items: center;
+      border-radius: 16px 16px 0 0; border-bottom: 0; padding: 4px 8px; background: rgba(28,22,17,.97);
+      transform: translateY(100%); visibility: hidden; transition: transform .2s cubic-bezier(.2,.8,.2,1), visibility 0s linear .2s; }
+    body.pw-open #powers { transform: none; visibility: visible; transition: transform .2s cubic-bezier(.2,.8,.2,1), visibility 0s; }
+    #powers button { flex: 1 1 0; justify-content: center; max-width: 88px; }
+    #spawnpick { position: fixed; left: 8px; right: 8px; bottom: calc(var(--pbh, var(--bar)) + 8px); z-index: 19; justify-content: center; }
+  }
   #cv.aiming { cursor: crosshair; }
   /* panels: the person card and the open tab's panel (Log / Discoveries / Prayers) */
   #side { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); min-height: 0; }
@@ -94,6 +108,13 @@
   .row.fam { grid-template-columns: 6.2em 1fr; align-items: center; } .lnks { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; }
   button.lnk { min-height: 44px; min-width: 44px; padding: 0 12px; font-size: 16px; background: transparent; color: var(--wheat); border: 1px solid var(--line); border-radius: 8px; text-decoration: underline; cursor: pointer; }
   .lnk-gone, .dim { color: var(--dim); }
+  /* v19 (step 24) Find on a person's card: the kit's locate crosshair + "Find", next to the close button; and person names in the Log (tap = their card).
+     A log name keeps the line's look; padding + negative margin give it a 44px tap area without making the line taller. */
+  #info .findbtn { position: absolute; right: 64px; top: 12px; z-index: 1; min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; font-size: 16px; }
+  #info .findbtn svg { width: 24px; height: 24px; flex: 0 0 auto; }
+  #info h3.hasfind { margin-right: 172px; }
+  button.logn { display: inline-block; font: inherit; color: inherit; background: none; border: 0; border-radius: 6px; padding: 12px 10px; margin: -12px -10px; min-height: 44px; min-width: 44px; text-align: center; text-decoration: underline; text-decoration-color: var(--dim); text-underline-offset: 3px; cursor: pointer; }
+  button.logn:hover, button.logn:focus-visible { text-decoration-color: currentColor; }
   .empty { color: var(--dim); padding: 6px 2px; }
   #hint { flex: 1 1 100%; color: var(--dim); max-width: 34em; }
   .touch-only { display: none; }
@@ -114,7 +135,8 @@
     #info-body { flex: 1 1 auto; min-height: min(380px, 46vh); overflow-y: auto; }   /* card details scroll; its own log (max 40vh) stays at the bottom */
     #plog-sec { flex: 0 0 auto; } #plog { flex: 0 1 auto; min-height: 96px; }
     #logwrap { position: absolute; right: var(--gap); bottom: var(--gap); width: 380px; height: min(320px, calc(100% - 68px - var(--gap))); }
-    #panel-discoveries, #panel-prayers { position: absolute; right: var(--gap); bottom: var(--gap); width: min(620px, calc(100% - 340px - 3 * var(--gap))); max-height: calc(100% - 68px - var(--gap)); }
+    /* v19: People joins them on the right (it sat across the top, over the card and its Find button) */
+    #panel-discoveries, #panel-prayers, #panel-people { position: absolute; right: var(--gap); bottom: var(--gap); width: min(620px, calc(100% - 340px - 3 * var(--gap))); max-height: calc(100% - 68px - var(--gap)); }
     #zoom { top: 60px; }
     #stage { padding: 0; }
   }
@@ -156,7 +178,7 @@
     #info > * { flex-shrink: 0; }   /* the short card scrolls as a whole; her log follows the details */
   }
 </style>
-<link rel="stylesheet" href="data/ui/theme.css?v=18">
+<link rel="stylesheet" href="data/ui/theme.css?v=19">
 </head><body>
 <div id="top">
   <span class="grp"><button id="btn-menu" aria-expanded="false" aria-controls="files" title="World: save, load, new world"><span class="ico" data-icon="menu"></span><span class="wide">World</span></button></span>
@@ -177,30 +199,30 @@
 </div>
 <div id="panelbar" role="tablist" aria-label="panels"></div>
 <div id="toast"></div>
-<script src="data/config.js?v=18"></script>
-<script src="data/tiles.js?v=18"></script>
-<script src="data/names.js?v=18"></script>
-<script src="data/art.js?v=18"></script>
-<script src="data/materials.js?v=18"></script>
-<script src="src/rng.js?v=18"></script>
-<script src="src/world.js?v=18"></script>
-<script src="src/climate.js?v=18"></script>
-<script src="src/agent.js?v=18"></script>
-<script src="src/animal.js?v=18"></script>
-<script src="src/objects.js?v=18"></script>
-<script src="src/fire.js?v=18"></script>
-<script src="src/learn.js?v=18"></script>
-<script src="src/hunt.js?v=18"></script>
-<script src="src/cook.js?v=18"></script>
-<script src="src/social.js?v=18"></script>
-<script src="src/family.js?v=18"></script>
-<script src="src/faith.js?v=18"></script>
-<script src="src/shelter.js?v=18"></script>
-<script src="src/powers.js?v=18"></script>
-<script src="src/sim.js?v=18"></script>
-<script src="src/save.js?v=18"></script>
-<script src="src/icons.js?v=18"></script>
-<script src="src/render.js?v=18"></script>
-<script src="src/ui.js?v=18"></script>
-<script src="src/main.js?v=18"></script>
+<script src="data/config.js?v=19"></script>
+<script src="data/tiles.js?v=19"></script>
+<script src="data/names.js?v=19"></script>
+<script src="data/art.js?v=19"></script>
+<script src="data/materials.js?v=19"></script>
+<script src="src/rng.js?v=19"></script>
+<script src="src/world.js?v=19"></script>
+<script src="src/climate.js?v=19"></script>
+<script src="src/agent.js?v=19"></script>
+<script src="src/animal.js?v=19"></script>
+<script src="src/objects.js?v=19"></script>
+<script src="src/fire.js?v=19"></script>
+<script src="src/learn.js?v=19"></script>
+<script src="src/hunt.js?v=19"></script>
+<script src="src/cook.js?v=19"></script>
+<script src="src/social.js?v=19"></script>
+<script src="src/family.js?v=19"></script>
+<script src="src/faith.js?v=19"></script>
+<script src="src/shelter.js?v=19"></script>
+<script src="src/powers.js?v=19"></script>
+<script src="src/sim.js?v=19"></script>
+<script src="src/save.js?v=19"></script>
+<script src="src/icons.js?v=19"></script>
+<script src="src/render.js?v=19"></script>
+<script src="src/ui.js?v=19"></script>
+<script src="src/main.js?v=19"></script>
 </body></html>

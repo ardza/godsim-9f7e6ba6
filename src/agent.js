@@ -413,7 +413,8 @@
     a.age += G.data.config.time.tickGameMinutes / (1440 * G.Time.daysPerYear());
     // warmth: toward the felt temperature (air, trees, others close by, fire heat, moving / lying still)
     const w0 = n.warmth, felt = a.felt = G.Climate.felt(sim, a);
-    const wr0 = G.Climate.warmthRate(felt.c), wr = felt.wet && wr0 < 0 ? wr0 * (1 + (G.data.config.powers.rain.lossX - 1) * felt.wet) : wr0;   // step 22: out in the rain she loses warmth lossX as fast
+    const wr0 = G.Climate.warmthRate(felt.c), lossX = felt.wet && G.Powers && G.Powers.lossXAt ? G.Powers.lossXAt(sim, Math.round(a.pos.x), Math.round(a.pos.y)) : (G.data.config.powers.rain.strengths ? G.data.config.powers.rain.strengths.medium.lossX : 1.5),
+          wr = felt.wet && wr0 < 0 ? wr0 * (1 + (lossX - 1) * felt.wet) : wr0;   // step 22 / 24: out in the rain she loses warmth lossX (per strength) as fast
     n.warmth = Math.round(clamp(w0 + wr * G.data.config.time.tickGameMinutes, p.warmth.min, 100) * 1e9) / 1e9;
     if (a.hold) n[a.hold] = 0;   // test-only (GS.debug.drainWater / drainFullness / drainWarmth): hold that need at 0
     const tm = G.data.config.time.tickGameMinutes, z = a.zero || (a.zero = { water: 0, fullness: 0, warmth: 0 });

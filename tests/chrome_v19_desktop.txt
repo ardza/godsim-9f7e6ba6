@@ -1,0 +1,221 @@
+desktop_1280x800_file
+  PASS boots seed 42 with 5-8 founders on their own tiles, 15-60 bushes (15b: dry seeds fewer), clock  {"founders":5,"bushes":32,"clock":"Year 1 · Greening 1 · Day 1 · 6:00 AM · 34°F"}
+  PASS Artist PNGs (data/art) loaded, incl. founders_16.png (256x80)
+  PASS whole map fits on screen at 3:2, no page scroll  {"cv":[98,6,1084,723],"side":[0,735]}
+  PASS click person opens info panel (name, Fullness/Water/Energy, traits incl. Curiosity, Cold fear, Fire fear, Experience)  "Find / Kog / 22 years · adult · resting"
+  PASS panel shows 0-100 integers (needs rounded, traits ints)  {"fullness":80,"water":89,"energy":97,"speed":17,"appetite":37}
+  PASS need bars: Fullness/Water/Energy/Warmth (the mock order), full = good, fill left to right with the value, state word >= 16px  "Fullness fed 81% | Water watered 90% | Energy rested 98% | Warmth warm 94%"
+  PASS step 13: the card shows her fire score (Experience: Fire n/100)  {"text":"Fire\n50/100","score":50}
+  PASS personal log on the card: her own events, newest first, scrolls at max 40vh, >= 16px  {"sec":"Kog's log (1)","n":1,"rows":1,"maxH":"320px","vh":800,"oy":"auto","fs":16,"first":"Day 1 6:00 AMKog woke in the meadow","last":"Day 1 6:00 AMKog woke in the meadow"}
+  PASS step 18: card shows the group (colour swatch, members) and Relations (top 5, warm / neutral / wary, f / l), >= 16px; the log line is an action  {"rows":5,"fs":16,"col":"rgb(255, 255, 255)","groups":1,"log":["Sef woke in the meadow","Golla woke in the meadow","Kog and Oska now keep together"]}
+  PASS step 19: mother's card links Partner / Children (>= 44px, 16px); clicking the child opens the baby's card with Parents links and ▲/▼ traits; baby sprite loaded; birth logged as an action  {"mom":[{"t":"Oska","h":44,"w":65.390625,"fs":16},{"t":"Ahna","h":44,"w":66.421875,"fs":16}],"P":["Kog","Kog","Oska"],"arrows":10,"art":80,"log":["Kog and Oska now keep together","Kog gives birth; a baby lies beside her"]}
+  PASS step 20: a child is drawn at ~75% of an adult (sheet); her card shows the stage and 'Learned from' links (>= 44px, 16px)  {"stage":"child","row":"Learned from Kog (fire) Oska (hunting)","links":[{"t":"Kog (fire)","h":44,"fs":16},{"t":"Oska (hunting)","h":44,"fs":16}],"scale":"file:// (pixels unreadable; measured on http)","mode":"sheet"}
+  screenshot /workspace/godsim/tests/screenshots/desktop_1280x800_file_info.png
+  PASS click an animal opens its panel (species, Fullness, behaviour) at >= 16px  "Scavenger 21 / eats the flesh of bodies · resting, min font 16"
+  screenshot /workspace/godsim/tests/screenshots/desktop_1280x800_file_animal.png
+  PASS click a body opens its panel (whose, stage, cause, Flesh)  "Body of Testbody / fresh · died of thirst at 22 years / Day 1 6:00 AM · 0 h ago"
+  screenshot /workspace/godsim/tests/screenshots/desktop_1280x800_file_body.png
+  PASS 4 speed buttons: kit icons pause/play/fast/superfast + labels Pause/1x/10x/60x, aria-labels, >= 44px, on top  "pause:Pause 101x44 icon 22 'Pause' | play:1x 70x44 icon 22 '1x speed' | fast:10x 80x44 icon 22 '10x speed' | superfast:60x 84x44 icon 22 '60x speed'"
+  PASS 60x button: ~12 ticks per real second  "11.97"
+  PASS 10x button: ~2 ticks per real second  "2.00"
+  PASS Pause stops the clock
+  PASS 1x (Play) button: selects alone, the clock runs at ~0.2 ticks per real second  {"on":["speed-1"],"rate":"0.201"}
+  PASS keys 2/3/Space/Space/0/1 -> 10x, 60x, pause, resume 60x, pause, 1x  [10,60,0,60,0,1]
+  PASS button tooltips name the keys  ["Pause (key 0, Space toggles)","1x speed (key 1)","10x speed (key 2)","60x speed (key 3)"]
+  PASS all text >= 16px (log, buttons, panel)  {"min":16,"log":16,"btn":16,"panel":16,"small":[]}
+  PASS palette (data/ui/theme.css): active speed green pill, soft dark translucent panels with hairline borders, warm text  {"on":"rgb(140, 191, 85)","off":"rgba(0, 0, 0, 0)","panel":"rgba(28, 22, 17, 0.82)","log":"rgba(28, 22, 17, 0.82)","frame":"rgba(241, 230, 207, 0.1)","text":"rgb(241, 230, 207)"}
+  PASS log Food tab filters the log  {"shown":14,"of":51}
+  PASS log Water tab shows the water lines  {"shown":25,"first":"Day 1 10:37 AMAhna drinks at the river"}
+  PASS 6 log filter pills (All/Food/Water/Sleep/Events/Death) fit at >= 16px  "All:16 Food:16 Water:16 Sleep:16 Events:16 Death:16"
+  PASS log All tab shows everything
+  PASS tab bar is a full-width bottom bar (bottom edge within 8px of the viewport bottom), buttons on top at >= 16px  {"bar":[0,735,1280,800],"viewport":[1280,800],"buttons":[{"t":"Log","w":128,"h":56,"fs":16,"hit":true},{"t":"Discoveries","w":128,"h":56,"fs":16,"hit":true},{"t":"Prayers","w":128,"h":56,"fs":16,"hit":true},{"t":"People","w":128,"h":56,"fs":16,"hit":true}]}
+  PASS bottom bar: 56px tabs, icon above the label, green pill on the active tab  [{"t":"Log","h":56,"above":true,"on":true,"bg":"rgba(140, 191, 85, 0.14)","col":"rgb(140, 191, 85)"},{"t":"Discoveries","h":56,"above":true,"on":false,"bg":"rgba(0, 0, 0, 0)","col":"rgb(185, 165, 133)"},{"t":"Prayers","h":56,"above":true,"on":false,"bg":"rgba(0, 0, 0, 0)","col":"rgb(185, 165, 133)"},{"t":"People","h":56,"above":true,"on":false,"bg":"rgba(0, 0, 0, 0)","col":"rgb(185, 165, 133)"}]
+  PASS desktop (mock): floating card on the left, log on the right, both above the bottom bar; clock shows the season  {"info":[12,68,352,723],"log":[888,403,1268,723],"bar":735,"vh":800,"clock":"Year 1 · Greening 1 · Day 1 · 10:49 AM · 43°F","season":true}
+  PASS 1x: drawn position changes every frame between ticks (no tile snapping)  {"samplesInOneTick":9,"distinctPositions":9}
+  PASS step frame flips every 0.5 tile covered (60x)  {"tiles":1.56,"frameFlips":3}
+  PASS paused mid-walk: position and step frame hold still  {"frame":3}
+  PASS standing still at 60x: standing frame, no leg movement  {"ticks":13,"frames":[0]}
+  PASS real seconds per tile (measured on screen)  {"measured":{"1x":59.68,"10x":5.98,"60x":1},"expected":{"speedTrait":17,"minPerTile":11.94,"avgTrait1x":40,"1x":59.7,"10x":5.97,"60x":1}}
+  PASS +/- buttons step zoom 1x-4x in whole numbers and stop at the ends  [2,3,4,4,3,2,1,1]
+  PASS mouse wheel steps zoom 1-4 around the cursor (point under cursor stays put)  {"steps":[2,3,4,4,4,3,2,1,1,1],"moved":0.96}
+  PASS a drag starting on the person pans and does not select
+  PASS drag pans and clamps to the map edges  {"topLeft":{"z":4,"ox":0,"oy":0,"bw":960,"bh":640},"bottomRight":{"z":4,"ox":720,"oy":480,"bw":960,"bh":640}}
+  PASS tap/click on the person at 3x zoom opens the inspect panel  {"z":3,"sel":1,"shown":true}
+  screenshot /workspace/godsim/tests/screenshots/desktop_1280x800_file_zoomed.png
+  screenshot /workspace/godsim/tests/screenshots/desktop_1280x800_file_running.png
+  PASS Save button writes versioned JSON to localStorage  {"v":19,"tick":1318,"tiles":2400,"agents":6,"plog":24}
+  PASS Load button restores the saved tick  {"saved":1318,"ranTo":1329,"loaded":1318}
+  PASS personal log is saved and shows again after Load  {"saved":24,"loaded":24,"rows":24,"vis":true,"first":"Day 2 3:06 AMKog ate berries (fed)","last":"Day 2 3:06 AMKog ate berries (fed)"}
+  PASS tap a thing on the ground (rock): inspect shows its material properties  {"sel":25,"text":"Rock\nwhole · on the ground\nProperties (0-100)\nhardness\n70/100\nsharpness\n10/100\ndryness\n100/100\ndurability\n95/100"}
+  screenshot /workspace/godsim/tests/screenshots/desktop_1280x800_file_item.png
+  PASS clock shows the air temperature in °F and a 12-hour time with AM/PM  "Year 1 · Greening 2 · Day 2 · 3:58 AM · 38°F"
+  PASS Discoveries tab opens a table of firsts (who / when / what / result, group: '-' when she had none, else her group (step 18 groups can form first)), >= 16px  {"open":true,"logOpen":false,"rows":1,"n":1,"fs":16,"group":"-","text":"Discoveries\n#\tWhen\tWho\tWhat\tResult\tGroup\n1\tDay 1 2:11 PM\tSef\tstrike stick on rock\tstick breaks\t-"}
+  PASS Discoveries open: its panel sits above the bottom bar, full width, and counts as a panel in use  {"s":[0,0,1280,735],"barTop":735,"cvH":723,"d":[620,148],"logOff":false,"bare":false}
+  screenshot /workspace/godsim/tests/screenshots/desktop_1280x800_file_discoveries.png
+  PASS step 21 Prayers tab: action lines only, newest first, group filter buttons >= 44px, text >= 16px  {"rows":6,"first":"Day 2 4:03 AMAhna sways, shivering","fs":16,"bmin":44,"nb":3}
+  PASS step 21 Prayers tab: the group filter shows only that group's lines  {"all":6,"group1":3,"want":3}
+  PASS step 21 art: prayer frames from pray_16 / child_pray_16 (kneel then arms up = kneel+arms up; offering = kneel + item; lie still = sleep row; circle = walk rows turning; face = walk row), prayer spots drawn from prayer_spot_16  {"pray":true,"child":true,"spot":true,"last":"kneel_arms_up","spots":1,"pose":"kneel_arms_up","offer":{"step":"offer:stick","col":"kneel","item":"stick","facing":null,"frame":0},"still":"sleep","circle":["walk:down","walk:right","walk:up","walk:left"],"circleDrawn":"circle:right","face":"walk:up"}
+  screenshot /workspace/godsim/tests/screenshots/desktop_1280x800_file_prayers.png
+  PASS step 21b People tab: one row per living person (name, age, sex, stage, Fullness/Water/Warmth meter + number, red under 50), name A-Z by default; rows >= 44px, text >= 16px  {"rows":5,"first":"Golla 21 y · M · adult Fullness 15 Water 79 Warmth 20","hmin":48,"fs":16,"low":2}
+  PASS step 21b People tab: sort by Age (tap again to reverse) and by Name (tap again for Z-A)  {"age":[17,19,21,22,31],"ageRev":[31,22,21,19,17],"nameRev":["Sef","Pira","Oska","Kog","Golla"]}
+  PASS step 21b People tab: updates live (at most once a second)  "Golla 21 y · M · adult Fullness 15 Water 12 Warmth 20"
+  PASS step 21b People tab: tapping a row opens that person's card (with 'Known shelters') and centres the map on them  {"sel":1,"shown":true,"name":"Kog","want":"Kog","z":2,"dx":0,"dy":0.3550000000000004,"inView":true,"maxDx":15,"maxDy":10,"mw":60,"mh":40,"ox":184,"oy":8,"bw":960,"bh":640,"card":["Known shelters: 0"]}
+  PASS step 21b People tab: a collapsed Dead section lists name, age at death and cause  {"closed":"Dead (1)","rows":1,"text":"Dead (1)\nAhna\n3 y\ncold"}
+  screenshot /workspace/godsim/tests/screenshots/desktop_1280x800_file_people.png
+  PASS step 21b: natural shelters are drawn from shelter_16.png over the tile beneath (every shelter tile)  {"art":true,"drawn":13,"tiles":13,"n":7,"types":"thicket,overhang,cave,overhang,thicket,overhang,overhang"}
+  PASS tab bar has Log, Discoveries, Prayers and People (>= 16px); pressing it closes the log  {"before":true,"after":false,"pref":"{\"sheet\":true,\"panel\":null}"}
+  PASS reload continues from the saved tick (no catch-up)  {"before":1331,"after":1331}
+  PASS log closed stays closed across a reload; reopened stays open (localStorage godsim.ui, not the save)  {"afterReload":false,"reopened":true,"afterReload2":true}
+  PASS step 22 powers bar: Rain / Warm / Cool buttons >= 44px with icon + label (step 23: label shown from 700px wide; aria-label always), text >= 16px, on top (hit-test), clear of zoom / tab bar / top bar / card / log  {"bs":[["rain",88,48,16],["warm",100,48,16],["cool",89,48,16]],"bar":[106,663,642,721],"overlap":[]}
+  PASS step 22 powers: tap a power to arm it, tap again to cancel; armed + tap on the map casts there; the button shows its 1 h cooldown and a tap while cooling only says when it is ready  {"tile":[29,19],"cd":"1 h","toast":"Rain is ready in 1 h","effects":["rain@29,19","warm@29,19"],"log":["Rain falls near the lake","The air grows warm near the lake"]}
+  screenshot /workspace/godsim/tests/screenshots/desktop_1280x800_file_powers.png
+  PASS step 22 rain art loaded (4 x 16px frames) and drawn over the circle without errors  {"w":64,"h":16}
+  PASS step 23 powers bar: Rain / Warm / Cool / Lightning / Spawn >= 44px with icons (labels >= 16px; icons only on a phone in portrait), on top, inside the screen, clear of zoom / tab bar / card / log  {"bs":[["rain",88,48,16],["warm",100,48,16],["cool",89,48,16],["lightning",126,48,16],["spawn",107,48,16]],"bar":[106,663,642,721],"overlap":[]}
+  PASS step 23 spawn picker: tapping Spawn shows Grazer / Scavenger (>= 44px, 16px, on top, clear of the bar and other panels); nothing armed until one is picked  {"pick":[106,599,327,657],"pbs":[["Grazer",96,48,16],["Scavenger",111,48,16]],"overlap":[]}
+  screenshot /workspace/godsim/tests/screenshots/desktop_1280x800_file_spawn.png
+  PASS step 23 spawn: pick Grazer, tap land: one grazer appears there with a shimmer, the toast names the spot, the button shows its 30 min cooldown and a tap while cooling only says when it is ready  {"tile":[29,19],"toast":"Grazer near the meadow","cd":"30 min","toast2":"Spawn is ready in 30 min"}
+  screenshot /workspace/godsim/tests/screenshots/desktop_1280x800_file_lightning.png
+  PASS step 23 lightning: arm + tap strikes that tile (bolt art 48x48 loaded and drawn, no errors), 1 h cooldown on the button  {"toast":"Lightning near the meadow","art":{"w":48,"h":48},"log":["Lightning strikes the bare ground near the meadow"]}
+  PASS v19: no Powers tab here (desktop / landscape); the power bar floats on the map as before  {"tab":false,"row":[106,663,642,721]}
+  PASS v19 Find: the card opened from the People tab has a Find button (locate crosshair + 'Find', >= 44px, 16px text, on top)  {"w":89,"h":44,"hit":true,"on":"SPAN","icon":true,"text":"Find","fs":16,"id":1}
+  PASS v19 Find from the People tab: the map is centred on them (zoom >= 2, in the part of the map the card leaves free), their ring pulses; the panel stays open on desktop  {"dx":0,"dy":0,"tile":36.1,"z":2,"panel":"people","cvH":[723,723]}
+  screenshot /workspace/godsim/tests/screenshots/desktop_1280x800_file_find.png
+  PASS v19 Find: the camera follows them (moved 3 tiles, still centred)  {"dx":0,"dy":0}
+  PASS v19 Find: their ring is drawn pulsing (bigger and brighter, every frame), then stops after 3 s  {"during":{"id":1,"scale":1.32,"n":55,"ageMs":11},"after":{"id":1,"scale":1.28,"n":172,"ageMs":1060}}
+  PASS v19 Find: a pan ends the follow (moved back 3 tiles, the view stays put)  {"dx":54,"dy":72}
+  PASS v19 Find from the map card (tap her on the map, then Find): centred and pulsing  {"tapped":true,"sel":1,"at":{"x":495,"y":295},"dx":0,"dy":0}
+  PASS v19 Find: a tap elsewhere on the map ends the follow  {"at":{"x":1019,"y":114},"follow":null}
+  PASS v19: a person's name in the Log is a button (>= 44px tap area, 16px) that opens their card, with Find  {"ln":{"w":50,"h":46,"hit":true,"fs":16,"t":"Kog","lineH":39},"sel":1}
+  PASS v19 Find from the Log card: centred and pulsing  {"dx":0,"dy":0,"panel":"log"}
+  PASS v19 Find checks leave the panel as it was  "log"
+  PASS Log closed: the visible map grows into the freed space (visible map area, open vs closed)  {"open":[1084,723,689652],"closed":[1084,723,783732]}
+  PASS Log open/close keeps zoom and the pan clamped to the map  {"z":3,"clampedOpen":true,"clampedClosed":true}
+  PASS desktop: Log closed uncovers the whole map (panels float over a full-height map)  {"open":[1084,723,689652],"closed":[1084,723,783732]}
+  PASS Log closed: the tab bar stays at the bottom and its Log button stays reachable  [0,735,1280,800]
+  PASS with the Log closed, tapping a person still selects them (input maps to the resized canvas)  {"at":{"x":685.1666666666666,"y":340.3875},"dbg":{"sel":1,"t":{"x":32.5,"y":18.5},"pos":{"x":32,"y":18},"scr":{"x":32,"y":18},"hit":"cv","view":{"z":1,"ox":0,"oy":0,"bw":960,"bh":640}}}
+  PASS reopening the Log gives the map its old size back, zoom kept  {"reopened":[1084,723,689652],"before":[1084,723,689652],"closedAgain":783732}
+  PASS Log open survives a reload and is on screen (localStorage godsim.ui)  {"before":true,"after":true,"pref":"{\"sheet\":true,\"panel\":\"log\"}"}
+  PASS Log closed survives a reload: no panel above the bar, map still the larger size  {"after":false,"pref":"{\"sheet\":true,\"panel\":null}","map":783732,"panel":[0,0]}
+  PASS Log reopened from the bottom bar stays open across a reload  {"pref":"{\"sheet\":true,\"panel\":\"log\"}"}
+  PASS after the Log toggles and reloads, all visible text is still >= 16px  []
+  PASS New world from seed 777  {"seed":777,"tick":0,"shown":"seed 777"}
+  screenshot /workspace/godsim/tests/screenshots/desktop_1280x800_file_night.png
+  PASS by 22:00 the founders are asleep; inspect shows 'asleep since' and energy  {"asleep":5,"of":5}
+  PASS clock shows night time (12-hour)  "Year 1 · Greening 1 · Day 1 · 10:00 PM · 48°F"
+  PASS card animates in 150-250 ms; prefers-reduced-motion: no animation or transition  {"normal":{"name":"panel-in","dur":0.25,"tr":"0.15s, 0.15s, 0.15s"},"reduced":{"name":"none","dur":0,"tr":"0s"}}
+  PASS no visible °C or 24-hour time (clock, log, Discoveries, person card)  {"c":[],"h24":[],"f":true,"ampm":138}
+  PASS no page scroll after all interactions
+  PASS no JS errors  "none"
+desktop_1280x800_http
+  PASS boots seed 42 with 5-8 founders on their own tiles, 15-60 bushes (15b: dry seeds fewer), clock  {"founders":5,"bushes":32,"clock":"Year 1 · Greening 1 · Day 1 · 6:00 AM · 34°F"}
+  PASS Artist PNGs (data/art) loaded, incl. founders_16.png (256x80)
+  PASS whole map fits on screen at 3:2, no page scroll  {"cv":[98,6,1084,723],"side":[0,735]}
+  PASS click person opens info panel (name, Fullness/Water/Energy, traits incl. Curiosity, Cold fear, Fire fear, Experience)  "Find / Kog / 22 years · adult · resting"
+  PASS panel shows 0-100 integers (needs rounded, traits ints)  {"fullness":80,"water":89,"energy":97,"speed":17,"appetite":37}
+  PASS need bars: Fullness/Water/Energy/Warmth (the mock order), full = good, fill left to right with the value, state word >= 16px  "Fullness fed 81% | Water watered 90% | Energy rested 98% | Warmth warm 94%"
+  PASS step 13: the card shows her fire score (Experience: Fire n/100)  {"text":"Fire\n50/100","score":50}
+  PASS personal log on the card: her own events, newest first, scrolls at max 40vh, >= 16px  {"sec":"Kog's log (1)","n":1,"rows":1,"maxH":"320px","vh":800,"oy":"auto","fs":16,"first":"Day 1 6:00 AMKog woke in the meadow","last":"Day 1 6:00 AMKog woke in the meadow"}
+  PASS step 18: card shows the group (colour swatch, members) and Relations (top 5, warm / neutral / wary, f / l), >= 16px; the log line is an action  {"rows":5,"fs":16,"col":"rgb(255, 255, 255)","groups":1,"log":["Sef woke in the meadow","Golla woke in the meadow","Kog and Oska now keep together"]}
+  PASS step 19: mother's card links Partner / Children (>= 44px, 16px); clicking the child opens the baby's card with Parents links and ▲/▼ traits; baby sprite loaded; birth logged as an action  {"mom":[{"t":"Oska","h":44,"w":65.390625,"fs":16},{"t":"Ahna","h":44,"w":66.421875,"fs":16}],"P":["Kog","Kog","Oska"],"arrows":10,"art":80,"log":["Kog and Oska now keep together","Kog gives birth; a baby lies beside her"]}
+  PASS step 20: a child is drawn at ~75% of an adult (sheet); her card shows the stage and 'Learned from' links (>= 44px, 16px)  {"stage":"child","row":"Learned from Kog (fire) Oska (hunting)","links":[{"t":"Kog (fire)","h":44,"fs":16},{"t":"Oska (hunting)","h":44,"fs":16}],"scale":"0.71","mode":"sheet"}
+  screenshot /workspace/godsim/tests/screenshots/desktop_1280x800_http_info.png
+  PASS click an animal opens its panel (species, Fullness, behaviour) at >= 16px  "Scavenger 21 / eats the flesh of bodies · resting, min font 16"
+  screenshot /workspace/godsim/tests/screenshots/desktop_1280x800_http_animal.png
+  PASS click a body opens its panel (whose, stage, cause, Flesh)  "Body of Testbody / fresh · died of thirst at 22 years / Day 1 6:00 AM · 0 h ago"
+  screenshot /workspace/godsim/tests/screenshots/desktop_1280x800_http_body.png
+  PASS 4 speed buttons: kit icons pause/play/fast/superfast + labels Pause/1x/10x/60x, aria-labels, >= 44px, on top  "pause:Pause 101x44 icon 22 'Pause' | play:1x 70x44 icon 22 '1x speed' | fast:10x 80x44 icon 22 '10x speed' | superfast:60x 84x44 icon 22 '60x speed'"
+  PASS 60x button: ~12 ticks per real second  "11.97"
+  PASS 10x button: ~2 ticks per real second  "2.00"
+  PASS Pause stops the clock
+  PASS 1x (Play) button: selects alone, the clock runs at ~0.2 ticks per real second  {"on":["speed-1"],"rate":"0.200"}
+  PASS keys 2/3/Space/Space/0/1 -> 10x, 60x, pause, resume 60x, pause, 1x  [10,60,0,60,0,1]
+  PASS button tooltips name the keys  ["Pause (key 0, Space toggles)","1x speed (key 1)","10x speed (key 2)","60x speed (key 3)"]
+  PASS all text >= 16px (log, buttons, panel)  {"min":16,"log":16,"btn":16,"panel":16,"small":[]}
+  PASS palette (data/ui/theme.css): active speed green pill, soft dark translucent panels with hairline borders, warm text  {"on":"rgb(140, 191, 85)","off":"rgba(0, 0, 0, 0)","panel":"rgba(28, 22, 17, 0.82)","log":"rgba(28, 22, 17, 0.82)","frame":"rgba(241, 230, 207, 0.1)","text":"rgb(241, 230, 207)"}
+  PASS log Food tab filters the log  {"shown":14,"of":51}
+  PASS log Water tab shows the water lines  {"shown":25,"first":"Day 1 10:37 AMAhna drinks at the river"}
+  PASS 6 log filter pills (All/Food/Water/Sleep/Events/Death) fit at >= 16px  "All:16 Food:16 Water:16 Sleep:16 Events:16 Death:16"
+  PASS log All tab shows everything
+  PASS tab bar is a full-width bottom bar (bottom edge within 8px of the viewport bottom), buttons on top at >= 16px  {"bar":[0,735,1280,800],"viewport":[1280,800],"buttons":[{"t":"Log","w":128,"h":56,"fs":16,"hit":true},{"t":"Discoveries","w":128,"h":56,"fs":16,"hit":true},{"t":"Prayers","w":128,"h":56,"fs":16,"hit":true},{"t":"People","w":128,"h":56,"fs":16,"hit":true}]}
+  PASS bottom bar: 56px tabs, icon above the label, green pill on the active tab  [{"t":"Log","h":56,"above":true,"on":true,"bg":"rgba(140, 191, 85, 0.14)","col":"rgb(140, 191, 85)"},{"t":"Discoveries","h":56,"above":true,"on":false,"bg":"rgba(0, 0, 0, 0)","col":"rgb(185, 165, 133)"},{"t":"Prayers","h":56,"above":true,"on":false,"bg":"rgba(0, 0, 0, 0)","col":"rgb(185, 165, 133)"},{"t":"People","h":56,"above":true,"on":false,"bg":"rgba(0, 0, 0, 0)","col":"rgb(185, 165, 133)"}]
+  PASS desktop (mock): floating card on the left, log on the right, both above the bottom bar; clock shows the season  {"info":[12,68,352,723],"log":[888,403,1268,723],"bar":735,"vh":800,"clock":"Year 1 · Greening 1 · Day 1 · 10:49 AM · 43°F","season":true}
+  PASS 1x: drawn position changes every frame between ticks (no tile snapping)  {"samplesInOneTick":9,"distinctPositions":9}
+  PASS step frame flips every 0.5 tile covered (60x)  {"tiles":1.52,"frameFlips":3}
+  PASS paused mid-walk: position and step frame hold still  {"frame":3}
+  PASS standing still at 60x: standing frame, no leg movement  {"ticks":13,"frames":[0]}
+  PASS real seconds per tile (measured on screen)  {"measured":{"1x":59.63,"10x":5.96,"60x":1},"expected":{"speedTrait":17,"minPerTile":11.94,"avgTrait1x":40,"1x":59.7,"10x":5.97,"60x":1}}
+  PASS +/- buttons step zoom 1x-4x in whole numbers and stop at the ends  [2,3,4,4,3,2,1,1]
+  PASS mouse wheel steps zoom 1-4 around the cursor (point under cursor stays put)  {"steps":[2,3,4,4,4,3,2,1,1,1],"moved":0.37}
+  PASS a drag starting on the person pans and does not select
+  PASS drag pans and clamps to the map edges  {"topLeft":{"z":4,"ox":0,"oy":0,"bw":960,"bh":640},"bottomRight":{"z":4,"ox":720,"oy":480,"bw":960,"bh":640}}
+  PASS tap/click on the person at 3x zoom opens the inspect panel  {"z":3,"sel":1,"shown":true}
+  screenshot /workspace/godsim/tests/screenshots/desktop_1280x800_http_zoomed.png
+  screenshot /workspace/godsim/tests/screenshots/desktop_1280x800_http_running.png
+  screenshot /workspace/godsim/tests/screenshots/ui_new_desktop.png
+  PASS Save button writes versioned JSON to localStorage  {"v":19,"tick":1317,"tiles":2400,"agents":6,"plog":24}
+  PASS Load button restores the saved tick  {"saved":1317,"ranTo":1329,"loaded":1317}
+  PASS personal log is saved and shows again after Load  {"saved":24,"loaded":24,"rows":24,"vis":true,"first":"Day 2 3:04 AMKog ate berries (fed)","last":"Day 2 3:04 AMKog ate berries (fed)"}
+  PASS tap a thing on the ground (rock): inspect shows its material properties  {"sel":25,"text":"Rock\nwhole · on the ground\nProperties (0-100)\nhardness\n70/100\nsharpness\n10/100\ndryness\n100/100\ndurability\n95/100"}
+  screenshot /workspace/godsim/tests/screenshots/desktop_1280x800_http_item.png
+  PASS clock shows the air temperature in °F and a 12-hour time with AM/PM  "Year 1 · Greening 2 · Day 2 · 3:57 AM · 38°F"
+  PASS Discoveries tab opens a table of firsts (who / when / what / result, group: '-' when she had none, else her group (step 18 groups can form first)), >= 16px  {"open":true,"logOpen":false,"rows":1,"n":1,"fs":16,"group":"-","text":"Discoveries\n#\tWhen\tWho\tWhat\tResult\tGroup\n1\tDay 1 2:11 PM\tSef\tstrike stick on rock\tstick breaks\t-"}
+  PASS Discoveries open: its panel sits above the bottom bar, full width, and counts as a panel in use  {"s":[0,0,1280,735],"barTop":735,"cvH":723,"d":[620,148],"logOff":false,"bare":false}
+  screenshot /workspace/godsim/tests/screenshots/desktop_1280x800_http_discoveries.png
+  PASS step 21 Prayers tab: action lines only, newest first, group filter buttons >= 44px, text >= 16px  {"rows":6,"first":"Day 2 4:02 AMAhna sways, shivering","fs":16,"bmin":44,"nb":3}
+  PASS step 21 Prayers tab: the group filter shows only that group's lines  {"all":6,"group1":3,"want":3}
+  PASS step 21 art: prayer frames from pray_16 / child_pray_16 (kneel then arms up = kneel+arms up; offering = kneel + item; lie still = sleep row; circle = walk rows turning; face = walk row), prayer spots drawn from prayer_spot_16  {"pray":true,"child":true,"spot":true,"last":"kneel_arms_up","spots":1,"pose":"kneel_arms_up","offer":{"step":"offer:stick","col":"kneel","item":"stick","facing":null,"frame":0},"still":"sleep","circle":["walk:down","walk:right","walk:up","walk:left"],"circleDrawn":"circle:right","face":"walk:up"}
+  screenshot /workspace/godsim/tests/screenshots/desktop_1280x800_http_prayers.png
+  PASS step 21b People tab: one row per living person (name, age, sex, stage, Fullness/Water/Warmth meter + number, red under 50), name A-Z by default; rows >= 44px, text >= 16px  {"rows":5,"first":"Golla 21 y · M · adult Fullness 15 Water 79 Warmth 20","hmin":48,"fs":16,"low":2}
+  PASS step 21b People tab: sort by Age (tap again to reverse) and by Name (tap again for Z-A)  {"age":[17,19,21,22,31],"ageRev":[31,22,21,19,17],"nameRev":["Sef","Pira","Oska","Kog","Golla"]}
+  PASS step 21b People tab: updates live (at most once a second)  "Golla 21 y · M · adult Fullness 15 Water 12 Warmth 20"
+  PASS step 21b People tab: tapping a row opens that person's card (with 'Known shelters') and centres the map on them  {"sel":1,"shown":true,"name":"Kog","want":"Kog","z":2,"dx":0,"dy":0.43875000000000064,"inView":true,"maxDx":15,"maxDy":10,"mw":60,"mh":40,"ox":184,"oy":8,"bw":960,"bh":640,"card":["Known shelters: 0"]}
+  PASS step 21b People tab: a collapsed Dead section lists name, age at death and cause  {"closed":"Dead (1)","rows":1,"text":"Dead (1)\nAhna\n3 y\ncold"}
+  screenshot /workspace/godsim/tests/screenshots/desktop_1280x800_http_people.png
+  PASS step 21b: natural shelters are drawn from shelter_16.png over the tile beneath (every shelter tile)  {"art":true,"drawn":13,"tiles":13,"n":7,"types":"thicket,overhang,cave,overhang,thicket,overhang,overhang"}
+  screenshot /workspace/godsim/tests/screenshots/shelters_4seeds.png
+  PASS tab bar has Log, Discoveries, Prayers and People (>= 16px); pressing it closes the log  {"before":true,"after":false,"pref":"{\"sheet\":true,\"panel\":null}"}
+  PASS reload continues from the saved tick (no catch-up)  {"before":1331,"after":1331}
+  PASS log closed stays closed across a reload; reopened stays open (localStorage godsim.ui, not the save)  {"afterReload":false,"reopened":true,"afterReload2":true}
+  PASS step 22 powers bar: Rain / Warm / Cool buttons >= 44px with icon + label (step 23: label shown from 700px wide; aria-label always), text >= 16px, on top (hit-test), clear of zoom / tab bar / top bar / card / log  {"bs":[["rain",88,48,16],["warm",100,48,16],["cool",89,48,16]],"bar":[106,663,642,721],"overlap":[]}
+  PASS step 22 powers: tap a power to arm it, tap again to cancel; armed + tap on the map casts there; the button shows its 1 h cooldown and a tap while cooling only says when it is ready  {"tile":[29,19],"cd":"1 h","toast":"Rain is ready in 1 h","effects":["rain@29,19","warm@29,19"],"log":["Rain falls near the lake","The air grows warm near the lake"]}
+  screenshot /workspace/godsim/tests/screenshots/desktop_1280x800_http_powers.png
+  PASS step 22 rain art loaded (4 x 16px frames) and drawn over the circle without errors  {"w":64,"h":16}
+  PASS step 23 powers bar: Rain / Warm / Cool / Lightning / Spawn >= 44px with icons (labels >= 16px; icons only on a phone in portrait), on top, inside the screen, clear of zoom / tab bar / card / log  {"bs":[["rain",88,48,16],["warm",100,48,16],["cool",89,48,16],["lightning",126,48,16],["spawn",107,48,16]],"bar":[106,663,642,721],"overlap":[]}
+  PASS step 23 spawn picker: tapping Spawn shows Grazer / Scavenger (>= 44px, 16px, on top, clear of the bar and other panels); nothing armed until one is picked  {"pick":[106,599,327,657],"pbs":[["Grazer",96,48,16],["Scavenger",111,48,16]],"overlap":[]}
+  screenshot /workspace/godsim/tests/screenshots/desktop_1280x800_http_spawn.png
+  PASS step 23 spawn: pick Grazer, tap land: one grazer appears there with a shimmer, the toast names the spot, the button shows its 30 min cooldown and a tap while cooling only says when it is ready  {"tile":[29,19],"toast":"Grazer near the meadow","cd":"30 min","toast2":"Spawn is ready in 30 min"}
+  screenshot /workspace/godsim/tests/screenshots/desktop_1280x800_http_lightning.png
+  PASS step 23 lightning: arm + tap strikes that tile (bolt art 48x48 loaded and drawn, no errors), 1 h cooldown on the button  {"toast":"Lightning near the meadow","art":{"w":48,"h":48},"log":["Lightning strikes the bare ground near the meadow"]}
+  PASS v19: no Powers tab here (desktop / landscape); the power bar floats on the map as before  {"tab":false,"row":[106,663,642,721]}
+  PASS v19 Find: the card opened from the People tab has a Find button (locate crosshair + 'Find', >= 44px, 16px text, on top)  {"w":89,"h":44,"hit":true,"on":"SPAN","icon":true,"text":"Find","fs":16,"id":1}
+  PASS v19 Find from the People tab: the map is centred on them (zoom >= 2, in the part of the map the card leaves free), their ring pulses; the panel stays open on desktop  {"dx":0,"dy":0,"tile":36.1,"z":2,"panel":"people","cvH":[723,723]}
+  screenshot /workspace/godsim/tests/screenshots/desktop_1280x800_http_find.png
+  PASS v19 Find: the camera follows them (moved 3 tiles, still centred)  {"dx":0,"dy":0}
+  PASS v19 Find: their ring is drawn pulsing (bigger and brighter, every frame), then stops after 3 s  {"during":{"id":1,"scale":1.33,"n":52,"ageMs":14},"after":{"id":1,"scale":1.28,"n":170,"ageMs":1073}}
+  PASS v19 Find: a pan ends the follow (moved back 3 tiles, the view stays put)  {"dx":54,"dy":72}
+  PASS v19 Find from the map card (tap her on the map, then Find): centred and pulsing  {"tapped":true,"sel":1,"at":{"x":495,"y":295},"dx":0,"dy":0}
+  PASS v19 Find: a tap elsewhere on the map ends the follow  {"at":{"x":1019,"y":114},"follow":null}
+  PASS v19: a person's name in the Log is a button (>= 44px tap area, 16px) that opens their card, with Find  {"ln":{"w":50,"h":46,"hit":true,"fs":16,"t":"Kog","lineH":39},"sel":1}
+  PASS v19 Find from the Log card: centred and pulsing  {"dx":0,"dy":0,"panel":"log"}
+  PASS v19 Find checks leave the panel as it was  "log"
+  PASS Log closed: the visible map grows into the freed space (visible map area, open vs closed)  {"open":[1084,723,689652],"closed":[1084,723,783732]}
+  PASS Log open/close keeps zoom and the pan clamped to the map  {"z":3,"clampedOpen":true,"clampedClosed":true}
+  PASS desktop: Log closed uncovers the whole map (panels float over a full-height map)  {"open":[1084,723,689652],"closed":[1084,723,783732]}
+  PASS Log closed: the tab bar stays at the bottom and its Log button stays reachable  [0,735,1280,800]
+  PASS with the Log closed, tapping a person still selects them (input maps to the resized canvas)  {"at":{"x":685.1666666666666,"y":340.3875},"dbg":{"sel":1,"t":{"x":32.5,"y":18.5},"pos":{"x":32,"y":18},"scr":{"x":32,"y":18},"hit":"cv","view":{"z":1,"ox":0,"oy":0,"bw":960,"bh":640}}}
+  PASS reopening the Log gives the map its old size back, zoom kept  {"reopened":[1084,723,689652],"before":[1084,723,689652],"closedAgain":783732}
+  PASS Log open survives a reload and is on screen (localStorage godsim.ui)  {"before":true,"after":true,"pref":"{\"sheet\":true,\"panel\":\"log\"}"}
+  PASS Log closed survives a reload: no panel above the bar, map still the larger size  {"after":false,"pref":"{\"sheet\":true,\"panel\":null}","map":783732,"panel":[0,0]}
+  PASS Log reopened from the bottom bar stays open across a reload  {"pref":"{\"sheet\":true,\"panel\":\"log\"}"}
+  PASS after the Log toggles and reloads, all visible text is still >= 16px  []
+  PASS New world from seed 777  {"seed":777,"tick":0,"shown":"seed 777"}
+  screenshot /workspace/godsim/tests/screenshots/desktop_1280x800_http_night.png
+  PASS by 22:00 the founders are asleep; inspect shows 'asleep since' and energy  {"asleep":5,"of":5}
+  PASS clock shows night time (12-hour)  "Year 1 · Greening 1 · Day 1 · 10:00 PM · 48°F"
+  PASS night is darker than day on the canvas  {"day":8328082,"night":4609042}
+  PASS card animates in 150-250 ms; prefers-reduced-motion: no animation or transition  {"normal":{"name":"panel-in","dur":0.25,"tr":"0.15s, 0.15s, 0.15s"},"reduced":{"name":"none","dur":0,"tr":"0s"}}
+  PASS no visible °C or 24-hour time (clock, log, Discoveries, person card)  {"c":[],"h24":[],"f":true,"ampm":138}
+  PASS no page scroll after all interactions
+  PASS no JS errors  "none"
+missing files (404): none
+CHROME CHECK PASSED

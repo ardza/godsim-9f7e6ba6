@@ -38,8 +38,13 @@
   // pan by a drag of (dx, dy) CSS px on the canvas
   R.panBy = function (dx, dy) { const r = cv.getBoundingClientRect(); view.ox -= dx / r.width * view.bw / view.z; view.oy -= dy / r.height * view.bh / view.z; clampView(); };
   // step 21b (People tab): put tile (x, y) in the middle of the view (zooming in to centerZoom first if at the whole-map view)
-  R.centerOn = function (x, y, minZ) { if (minZ && view.z < minZ) view.z = Math.min(ZC().max, minZ);
-    view.ox = (x + 0.5) * tp - view.bw / (2 * view.z); view.oy = (y + 0.5) * tp - view.bh / (2 * view.z); clampView(); };
+  // v19: fx / fy = where on the canvas (fractions, default the middle) the tile should land, e.g. the middle of the part a phone card does not cover
+  R.centerOn = function (x, y, minZ, fx, fy) { if (minZ && view.z < minZ) view.z = Math.min(ZC().max, minZ); if (fx == null) fx = 0.5; if (fy == null) fy = 0.5;
+    view.ox = (x + 0.5) * tp - fx * view.bw / view.z; view.oy = (y + 0.5) * tp - fy * view.bh / view.z; clampView(); };
+  // v19 (step 24) Find: follow = a person id the camera keeps centred (until a pan / a tap elsewhere, see ui.js); pulse = { id, t0 (ms), ms }: their group ring
+  // pulses brighter and bigger. View only, nothing saved. R.focusFrac (set by ui.js) = where on the canvas the person should sit.
+  R.follow = null; R.pulse = null;
+  R.pulsing = id => !!R.pulse && R.pulse.id === id && performance.now() - R.pulse.t0 < R.pulse.ms;
   R.resetView = () => { view.z = 1; view.ox = 0; view.oy = 0; clampView(); };
   // canvas shape changed (Log opened/closed): aspect = canvas w/h, or null for the whole 3:2 map. Keeps the view centre, zoom and the pan clamp.
   R.setViewport = function (aspect) {
@@ -117,7 +122,13 @@
     const px = x * tp, py = y * tp, F = G.data.art.founders, A = G.data.art.person, asleep = a.act.type === "sleep";
     cx.fillStyle = "rgba(0,0,0,0.3)"; cx.beginPath(); cx.ellipse(px + 8, py + 14, asleep ? 6.5 : 4.5, 2, 0, 0, 7); cx.fill();
     const grp = G.Social && G.Social.group(R.sim, a);   // step 18: a ring in the group colour under her feet (loners: none)
-    if (grp) {   // Director (call 7 on 18): dark outline first, then the colour on top, so it reads on any ground
+    const P = R.pulse && R.pulse.id === a.id ? Math.max(0, (R.time * 1000 - R.pulse.t0) / R.pulse.ms) : -1;   // (the frame clock can be a hair behind t0)
+    if (P >= 0 && P < 1) {   // v19 Find: the same ring, bigger and brighter, pulsing (3 beats) for pulse.ms; a loner gets the selection colour
+      const k = 0.5 - 0.5 * Math.cos(P * 6 * Math.PI), sc0 = 1 + (G.data.config.ui.find.ringScale - 1) * (0.4 + 0.6 * k), rx = 7 * sc0, ry = 3 * sc0 + 1, col = grp ? G.Social.color(R.sim, grp) : "#fff6b0";
+      cx.strokeStyle = "rgba(0,0,0,.6)"; cx.lineWidth = 4; cx.beginPath(); cx.ellipse(px + 8, py + 14, rx, ry, 0, 0, 7); cx.stroke();
+      cx.strokeStyle = col; cx.lineWidth = 3; cx.stroke(); cx.globalAlpha = 0.35 + 0.5 * k; cx.strokeStyle = "#fff"; cx.lineWidth = 1.5; cx.stroke(); cx.globalAlpha = 1; cx.lineWidth = 1;
+      R.pulseDrawn = { id: a.id, scale: +sc0.toFixed(2), at: R.time, n: (R.pulseDrawn && R.pulseDrawn.id === a.id ? R.pulseDrawn.n : 0) + 1 };   // what was last drawn (read by the Chrome check)
+    } else if (grp) {   // Director (call 7 on 18): dark outline first, then the colour on top, so it reads on any ground
       const rx = asleep ? 8.5 : 7, ry = asleep ? 3.4 : 3;
       cx.strokeStyle = "rgba(0,0,0,.55)"; cx.lineWidth = 3; cx.beginPath(); cx.ellipse(px + 8, py + 14, rx, ry, 0, 0, 7); cx.stroke();
       cx.strokeStyle = G.Social.color(R.sim, grp); cx.lineWidth = 2; cx.beginPath(); cx.ellipse(px + 8, py + 14, rx, ry, 0, 0, 7); cx.stroke(); cx.lineWidth = 1; }
@@ -303,6 +314,8 @@
   // Position, step frame and facing are computed here only; the sim stays tick-based and deterministic.
   R.draw = function (sim, alpha, time, selectedId) {
     R.sim = sim; R.time = time;
+    if (R.follow != null) { const a = sim.agents.find(q => q.id === R.follow);   // v19 Find: keep them centred (smoothly, at the drawn position)
+      if (!a) R.follow = null; else { const p = sim.prev[a.id] || a.pos, f = R.focusFrac ? R.focusFrac() : { fx: 0.5, fy: 0.5 }; R.centerOn(p.x + (a.pos.x - p.x) * alpha, p.y + (a.pos.y - p.y) * alpha, 0, f.fx, f.fy); } }
     if (R.terrainFor !== sim.world || R.dirty) drawTerrain(sim.world);
     cx.setTransform(1, 0, 0, 1, 0, 0); cx.fillStyle = "#000"; cx.fillRect(0, 0, cv.width, cv.height);
     const s = sc * view.z; cx.setTransform(s, 0, 0, s, -Math.round(view.ox * s), -Math.round(view.oy * s)); cx.imageSmoothingEnabled = false;

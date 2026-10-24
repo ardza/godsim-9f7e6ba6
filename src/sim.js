@@ -95,6 +95,12 @@
     if (s.powers) { const t = s.powers.stats || {}; s.powers.stats = Object.assign(N, t, { casts: Object.assign(N.casts, t.casts || {}) }); s.powers.cd = s.powers.cd || {}; }
     s.version = 18; return s;
   };
+  // v18 -> v19 (step 24): strikes.babies starts at 0; nobody has a fading curiosity bump (a.curioFade absent: v18 bumps were permanent and are not tracked, so they stay). Nothing else changes.
+  Sim.migrate19 = function (o) {
+    if (!o || o.version !== 18) return o; const s = JSON.parse(JSON.stringify(o));
+    if (s.powers && s.powers.stats && s.powers.stats.strikes) s.powers.stats.strikes.babies = s.powers.stats.strikes.babies || 0;
+    s.version = 19; return s;
+  };
   // One log line. who = the person(s) involved (person/body objects or ids): the line is tagged with their ids and also goes into each one's own
   // log (sim.plog[id], last log.personMax kept, saved). k = an optional kind for the personal log ("death", "birth", "disc").
   Sim.ids = who => (who == null ? [] : Array.isArray(who) ? who : [who]).map(w => w == null ? null : typeof w === "number" ? w : w.kind === "body" ? w.of : w.id).filter((v, i, a) => v != null && a.indexOf(v) === i);
@@ -161,6 +167,7 @@
     if (o && o.version === 15) o = Sim.migrate16(o);
     if (o && o.version === 16) o = Sim.migrate17(o);
     if (o && o.version === 17) o = Sim.migrate18(o);
+    if (o && o.version === 18) o = Sim.migrate19(o);
     if (!o || o.version !== CFG().saveVersion) throw new Error("unsupported save version " + (o && o.version));
     const s = JSON.parse(JSON.stringify(o));
     const world = { w: s.world.w, h: s.world.h, seed: s.seed, attempt: s.world.attempt, spawn: s.world.spawn, hills: s.world.hills, info: s.world.info, tiles: s.world.tiles.split("").map(c => TILE_CH.indexOf(c)) };

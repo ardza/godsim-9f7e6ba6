@@ -1,0 +1,11 @@
+# v16 progress (step 21b)
+- 12:31 start: read spec 21b + People tab; Director adds: no-births diagnosis + pairing 65/60, loner warmth rule, sticks parked.
+- No-birth diagnosis written (tests/births_diag.js -> tests/deaths_v16_diag.md, to fold into deaths_v16.md). Cause: sex-blind pairing locks women into f+f pairs (8/11/16); late f+m pairs that mostly sleep apart (1/4).
+- Config: bond like 65 / fam 60, conceive.chance 0.20, brand.litMinutes 360.
+- 12:38 shelters wired (src/shelter.js, sim/climate/learn/agent/render), v16 migration, ?v=16; 16-seed run r1 started -> /tmp/v16
+- 12:45 r1 16 seeds: 0 deaths, births on 12/16 (none 1,8,14,16), grew 12/16; People tab + shelter render + card count + Discoveries title added; old v15 tests bumped to v16/0.20
+- 12:51 PM balance FAIL (777777 0.243) traced to thicket walkX x2 (noshel/nothick/walkX=1 all pass; no loner/seek/step-in effect). Fix: walkTo plans by time (World.findPath optional cost); 777777 now 0.157 ok. Added routing test. Chrome: People tab + shelters drawn + 4-seed composite checks added.
+- 1:11 PM r2 16 seeds x 2y after routing fix: 4 cold deaths (v15 5), grew 10/16, births 31 on 11/16; seeds 17-32 with/without fix 7/8 deaths (noise). births_diag on 1,4,8,11,16 final code. deaths_v16.md written (diag folded in). family test now reads config (65/60). headless h3: only that FAIL.
+- 1:22 PM resumed after interruption: fresh headless + chrome desktop/phone reruns (no tuning; ship 10/16).
+- 1:37 PM rerun: headless running; desktop chrome 152 PASS; phone 4 FAIL (2 checks x2): (a) bottom bar 'icon above label' — theme.css hides inactive labels on phones once there are 4 tabs (People added) -> test accepts icon-only inactive tabs on <600px; panel tabs now get aria-label/title so they keep a name; (b) Dead summary below the fold on phone -> test scrolls it into view before tapping. Phone rerun -> /tmp/cp4.txt.
+- 1:48 PM DONE 21b: headless 257 PASS / 0 FAIL (HEADLESS PASSED, /tmp/h5.txt); chrome desktop_1280x800 152 PASS (/tmp/cd4.txt), phone_390x844 154 PASS (/tmp/cp4.txt), both CHROME CHECK PASSED. shelters_4seeds.png + phone people screenshots regenerated. Shipping r2 as is (10/16 grew).

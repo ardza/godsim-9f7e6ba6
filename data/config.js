@@ -2,7 +2,7 @@
 (function (G) {
   G.data = G.data || {};
   G.data.config = {
-    saveVersion: 18,                // v18: Lightning and Spawn powers (per-power cooldowns, strike / spawn stats, a.fright, bolt sticks); v17: god powers (sim.powers: active Rain / Warm / Cool effects, cooldowns, own stream), pairs man + woman only; v16: natural shelters (sim.shelters, per-person known shelters, den score); v15: faith trait, prayer forms, prayer spots, Prayers feed (own stream prng); v14: children / youths as people (stage by age, guardian, learned-from), name numbering; v13: sex, pairs, pregnancy, babies (own stream frng), burning sticks; v12: relations (familiarity, liking) and groups; v11: cooked meat (heat), grazer births (own stream), cook score; v10: hunting, carcasses, meat, lightning; v9: varied maps (spawn, hills, map info; no lake/source); v8: learning (experience scores, copying), seasonal food, per-person logs; v7: objects, physics + discoveries, temperature + warmth, fire (v6: aging, death, bodies, animals); older saves are rejected
+    saveVersion: 19,                // v19: power rewrite (no cooldowns; Rain Light/Medium/Heavy; Lightning Single/Barrage), spawn-watch curiosity fades over 7 days (a.curioFade), a baby carried by someone struck dies too (strikes.babies), phone Powers row, Find button; v18: Lightning and Spawn powers (per-power cooldowns, strike / spawn stats, a.fright, bolt sticks); v17: god powers (sim.powers: active Rain / Warm / Cool effects, cooldowns, own stream), pairs man + woman only; v16: natural shelters (sim.shelters, per-person known shelters, den score); v15: faith trait, prayer forms, prayer spots, Prayers feed (own stream prng); v14: children / youths as people (stage by age, guardian, learned-from), name numbering; v13: sex, pairs, pregnancy, babies (own stream frng), burning sticks; v12: relations (familiarity, liking) and groups; v11: cooked meat (heat), grazer births (own stream), cook score; v10: hunting, carcasses, meat, lightning; v9: varied maps (spawn, hills, map info; no lake/source); v8: learning (experience scores, copying), seasonal food, per-person logs; v7: objects, physics + discoveries, temperature + warmth, fire (v6: aging, death, bodies, animals); older saves are rejected
     saveKey: "godsim.save",
     map: {
       w: 60, h: 40, tilePx: 16,      // map is 960x640 art px, scaled to fit the screen
@@ -94,7 +94,7 @@
         // Director (21): sleepers keep each other warm - 3+ people asleep within sleepTiles of each other get fire warmth (groupC = fire heatC 25),
         // 2 get half (pairC). Replaces bondC for sleepers (bondC stays for awake people at night). Anyone at warmth <= urgentBelow heads for the
         // nearest group member (or partner / guardian) or fire before anything else (retry every urgentRetry minutes).
-        sleepHeat: { tiles: 1.5, pairC: 12.5, groupC: 25, groupMin: 3 }, urgentBelow: 20, urgentRetry: 10, lonerTiles: 15, lonerFam: 1,   // 21b Director: at <= urgentBelow, the nearest person / sleep pile within lonerTiles (group or not); joining = +lonerFam familiarity both ways
+        sleepHeat: { tiles: 1.5, pairC: 12.5, groupC: 25, groupMin: 3 }, urgentBelow: 20, urgentRetry: 10, lonerTiles: 20, lonerFam: 1,   // 21b Director: at <= urgentBelow, the nearest person / sleep pile within lonerTiles (group or not); joining = +lonerFam familiarity both ways. v19 (step 24 growth recheck): 15 -> 20 tiles, see tests/deaths_v19.md (seed 4's two loners froze 15+ tiles from everyone)
        
         nightFirstBelow: 60,          // on a Deep Cold night, below this warmth she makes no food trips (walks / bedtime meals): warmth first; water still wins
         shelterTiles: 15,             // looks this far for a woods tile / company when seeking warmth
@@ -352,40 +352,43 @@
       copyTiles: 5,                    // a prayer seen this close may be copied (learn.copyChance x curiosity/50 x social.copy x child.copyX)
       reinforceMinutes: 360, riseBy: 10, likeGain: 25, likeScale: 25,   // triggering need up 10+ within 6 h: liking +25 for that form; pick weight 1 + liking/25
       spotTiles: 2, spotMin: 3, driftTiles: 10, placesMax: 400, feedMax: 300 },
-    // Step 22 god powers (src/powers.js; own seeded stream, drawn only while a power is active, so a run with no powers is unchanged).
-    //   Tap a power, then the map: it covers every tile within radiusTiles of the spot. Each power has its own cooldownMinutes (game time).
-    //   rain: minutes of rain. At once it puts out burning tiles, embers and lit sticks in the circle; a smouldering tree (a lightning hold ember)
-    //     goes out within holdOutMinutes. Lit sticks carried in while it rains go out. The ground stays wet for wetMinutes (no spark, spread,
-    //     lightning or flare there). Bushes in the circle regrow bushX as fast for bushMinutes. People out in the open lose warmth lossX as fast
-    //     (shelter types block by their shelter.*.rain; woods block fully) and feel chillC colder; no sun warmth under rain. Every checkMinutes an
-    //     awake idle / wandering person in the open may (coverChance x (0.5 + coldFear/100)) walk to the nearest cover within coverTiles and wait
-    //     there while it rains (up to waitMinutes). On first rain a person may turn her face up (faceChance x curiosity/50).
-    //     puddles: the lowest walkable dry tiles in the circle (count) hold drinkable water for minutes (data only, no tile art).
+    // Step 22 / 24 god powers (src/powers.js; own seeded stream, drawn only while a power is active, so a run with no powers is unchanged).
+    //   Tap a power, then (for Rain / Lightning / Spawn) pick a strength or mode, then the map. Circle radius = radiusTiles.
+    //   v19 power rewrite (Commissioner): no cooldowns on any power. Rain has Light / Medium / Heavy; Lightning has Single bolt / Barrage.
+    //   rain strengths (scales in rain.strengths): duration, bushX / bushMinutes, puddles count, lossX (warmth), wetMinutes, douse mode
+    //     (small = sticks + non-hold embers only; fires = burning tiles + embers, hold trees within holdOutMinutes; all = fires + hold trees at once).
+    //   Shared rain: checkMinutes / coverChance / coverTiles / waitMinutes / faceChance / chillC.
     //   warm / cool: shift the air by deltaF (°F) inside the circle for minutes, fading out over the last fadeMinutes; overlapping effects add,
     //     capped at +/- maxShiftF. tint = the overlay colour (view only); rainFrameMs = rain art frame time (view only).
-    // step 23: Lightning (one tile) and Spawn (one animal) join the bar; each power may set its own cooldownMinutes (else the shared one)
-    powers: { radiusTiles: 8, cooldownMinutes: 60, order: ["rain", "warm", "cool", "lightning", "spawn"], labels: { rain: "Rain", warm: "Warm", cool: "Cool", lightning: "Lightning", spawn: "Spawn" },
-      // Lightning: strikes the tapped tile. Fire chance by ground: grass (meadow) or forest only, 0 on bare ground (sand), rock (hills) or water; the lowest
-      // of the matching cases (rain = raining there or ground still wet from Rain; deepCold = season index). The fire then spreads by the normal wildfire rules.
-      // Anyone on the tile dies; awake or asleep, anyone within scareTiles gets +fearAdd fright (on top of fireFear) for fearMinutes and runs from it for runMinutes.
-      // A prayer by someone within faithTiles in the last faithMinutes counts as answered (reinforced) by a strike or a spawn.
-      lightning: { cooldownMinutes: 60, fire: { dry: 0.6, rain: 0.4, deepCold: 0.2, deepColdSeason: 3 }, cause: "struck by lightning", scareTiles: 6, fearAdd: 20, fearMinutes: 1440,
+    //   Lightning modes: single = one tile at the tap; barrage = count[0..1] bolts on random land tiles within scatterTiles (no water, at most one per tile).
+    //   Spawn: one animal (picker), under the usual caps. Faith: a strike / spawn within faithTiles / faithMinutes answers a recent prayer.
+    powers: { radiusTiles: 8, order: ["rain", "warm", "cool", "lightning", "spawn"], labels: { rain: "Rain", warm: "Warm", cool: "Cool", lightning: "Lightning", spawn: "Spawn" },
+      lightning: { modes: { single: { label: "Single bolt", count: [1, 1], scatterTiles: 0 }, barrage: { label: "Barrage", count: [2, 3], scatterTiles: 8 } },
+                   modeOrder: ["single", "barrage"],
+                   fire: { dry: 0.6, rain: 0.4, deepCold: 0.2, deepColdSeason: 3 }, cause: "struck by lightning", scareTiles: 6, fearAdd: 20, fearMinutes: 1440,
                    runMinutes: 60, runTiles: [7, 10], frameMs: [80, 80, 150] },
       // Spawn: one animal on a free land tile (at the tap or the nearest free one within 2), under the usual caps (pop.maxAnimals, grazer births.cap).
+      // v19: the +curiosityAdd fades back over curiosityFadeMinutes (7 days) after the latest watch, 1 point at a time.
       // kinds: picker key -> species ("predator" = the scavenger, the only meat-eater there is). Watchers awake within watchTiles: +curiosityAdd (trait, max 100);
       // for a predator each watcher rolls fearChance x (1.5 - curiosity/100) to back away (fright fearAdd for fearMinutes, runs runMinutes).
-      spawn: { cooldownMinutes: 30, kinds: { grazer: "grazer", predator: "scavenger" }, kindLabels: { grazer: "Grazer", predator: "Scavenger" }, freeTiles: 2,
-               watchTiles: 6, curiosityAdd: 5, predator: { fearChance: 0.5, fearAdd: 10, fearMinutes: 720, runMinutes: 20, runTiles: [4, 6] }, shimmerMs: 700 },
+      spawn: { kinds: { grazer: "grazer", predator: "scavenger" }, kindLabels: { grazer: "Grazer", predator: "Scavenger" }, freeTiles: 2,
+               watchTiles: 6, curiosityAdd: 5, curiosityFadeMinutes: 10080, predator: { fearChance: 0.5, fearAdd: 10, fearMinutes: 720, runMinutes: 20, runTiles: [4, 6] }, shimmerMs: 700 },
       faithTiles: 12, faithMinutes: 1440,
       // lit sticks (step 23): a stick within fire.brand.catchTiles of a lightning fire (a struck tree, a strike, or a Lightning power) is a bolt stick, lit
       // fire.brand.litMinutes past the flames. Every everyMinutes each free adult (idle / wandering, empty-handed) who can see one within seeTiles rolls
       // chance x clamp(0.5 + (curiosity - fireFear - fright) / 100, 0, 1) to walk over and pick it up (the walk does not turn back at the flee rule).
       boltStick: { everyMinutes: 30, seeTiles: 12, chance: 0.5 },
-      rain: { minutes: 360, holdOutMinutes: 60, wetMinutes: 1440, bushX: 3, bushMinutes: 4320, lossX: 1.5, chillC: 2, checkMinutes: 30, coverChance: 0.5, coverTiles: 10, waitMinutes: 180, faceChance: 0.3,
-              puddles: { count: 6, minutes: 1440 } },
+      rain: { chillC: 2, checkMinutes: 30, coverChance: 0.5, coverTiles: 10, waitMinutes: 180, faceChance: 0.3,
+              strengthOrder: ["light", "medium", "heavy"],
+              strengths: {
+                light:  { label: "Light",  minutes: 180, bushX: 1.5, bushMinutes: 1440, lossX: 1.25, wetMinutes: 720,  holdOutMinutes: null, douse: "small", puddles: { count: 2,   minutes: 720 } },
+                medium: { label: "Medium", minutes: 360, bushX: 3,   bushMinutes: 4320, lossX: 1.5,  wetMinutes: 1440, holdOutMinutes: 60,   douse: "fires", puddles: { count: 6,   minutes: 1440 } },
+                heavy:  { label: "Heavy",  minutes: 720, bushX: 5,   bushMinutes: 7200, lossX: 2,    wetMinutes: 2880, holdOutMinutes: 0,    douse: "all",   puddles: { count: 200, minutes: 2880 } } } },
       warm: { deltaF: 15, minutes: 1440, fadeMinutes: 120 }, cool: { deltaF: -15, minutes: 1440, fadeMinutes: 120 }, maxShiftF: 30,
       tint: { warm: "rgba(255,150,60,0.13)", cool: "rgba(90,170,255,0.15)", rain: "rgba(60,80,110,0.12)", lightning: "rgba(255,250,210,0.6)" }, rainFrameMs: 150 },
     ui: { prefsKey: "godsim.ui",
+      powersTab: { label: "Powers", icon: "powers" },   // v19: portrait phones (< 700px): the bottom-bar tab that slides up the power row (CSS in index.html)
+      find: { label: "Find", icon: "locate", pulseMs: 3000, zoom: 2, ringScale: 1.7 },   // v19 (step 24): the Find button on a person's card: centre the map on them (zoom at least 2), pulse their group ring brighter and bigger for pulseMs, follow until a pan or a tap elsewhere
       panels: [{ key: "log", label: "Log", icon: "log", el: "logwrap", open: true },
                { key: "discoveries", label: "Discoveries", icon: "discoveries" },
                { key: "prayers", label: "Prayers", icon: "prayers" },

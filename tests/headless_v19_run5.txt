@@ -1,0 +1,86 @@
+PASS data/names.js matches data/names.json  70 names
+PASS names: seeded pick, no repeats until all 70 are used  Sef, Lom, Golla, Quo, Abet...
+PASS names: same seed -> same order
+PASS seed 1: map deterministic  attempt 0
+PASS seed 1: has meadow and water  1628/447/196/20/109 {"lakes":2,"lakeSizes":[50,59],"rivers":1,"waterPct":5.4,"forestDensity":0.2,"moistureBias":-0.19,"hillPct":14.3,"woodsPct":18.6,"attempt":0}
+PASS seed 1: land connected
+PASS seed 2: map deterministic  attempt 0
+PASS seed 2: has meadow and water  1114/1069/85/17/115 {"lakes":2,"lakeSizes":[54,61],"rivers":1,"waterPct":5.5,"forestDensity":0.48,"moistureBias":0.2,"hillPct":10.9,"woodsPct":44.5,"attempt":0}
+PASS seed 2: land connected
+PASS seed 3: map deterministic  attempt 0
+PASS seed 3: has meadow and water  1506/662/101/30/101 {"lakes":4,"lakeSizes":[33,22,27,19],"rivers":2,"waterPct":5.5,"forestDensity":0.31,"moistureBias":0.05,"hillPct":10.8,"woodsPct":27.6,"attempt":0}
+PASS seed 3: land connected
+PASS seed 7: map deterministic  attempt 0
+PASS seed 7: has meadow and water  1301/864/76/0/159 {"lakes":2,"lakeSizes":[97,62],"rivers":0,"waterPct":6.6,"forestDensity":0.4,"moistureBias":0.06,"hillPct":13.9,"woodsPct":36,"attempt":0}
+PASS seed 7: land connected
+PASS seed 42: map deterministic  attempt 1
+PASS seed 42: has meadow and water  816/373/1031/38/142 {"lakes":3,"lakeSizes":[39,56,47],"rivers":2,"waterPct":7.5,"forestDensity":0.17,"moistureBias":-0.26,"hillPct":10.4,"woodsPct":15.5,"attempt":1}
+PASS seed 42: land connected
+PASS seed 99: map deterministic  attempt 0
+PASS seed 99: has meadow and water  1590/527/115/0/168 {"lakes":1,"lakeSizes":[168],"rivers":0,"waterPct":7,"forestDensity":0.27,"moistureBias":-0.02,"hillPct":11.5,"woodsPct":22,"attempt":0}
+PASS seed 99: land connected
+PASS seed 1234: map deterministic  attempt 0
+PASS seed 1234: has meadow and water  1489/681/110/0/120 {"lakes":4,"lakeSizes":[19,46,42,13],"rivers":0,"waterPct":5,"forestDensity":0.32,"moistureBias":0.03,"hillPct":11.4,"woodsPct":28.4,"attempt":0}
+PASS seed 1234: land connected
+PASS seed 12345: map deterministic  attempt 0
+PASS seed 12345: has meadow and water  915/406/893/29/157 {"lakes":1,"lakeSizes":[157],"rivers":1,"waterPct":7.8,"forestDensity":0.19,"moistureBias":-0.22,"hillPct":11.6,"woodsPct":16.9,"attempt":0}
+PASS seed 12345: land connected
+PASS seed 777777: map deterministic  attempt 0
+PASS seed 777777: has meadow and water  1176/990/53/0/181 {"lakes":1,"lakeSizes":[181],"rivers":0,"waterPct":7.5,"forestDensity":0.45,"moistureBias":0.11,"hillPct":12.5,"woodsPct":41.3,"attempt":0}
+PASS seed 777777: land connected
+PASS seed 4000000000: map deterministic  attempt 0
+PASS seed 4000000000: has meadow and water  1396/652/180/0/172 {"lakes":2,"lakeSizes":[83,89],"rivers":0,"waterPct":7.2,"forestDensity":0.31,"moistureBias":-0.03,"hillPct":12.2,"woodsPct":27.2,"attempt":0}
+PASS seed 4000000000: land connected
+PASS 15b 150 seeds: every founder has water within 12 tiles  worst 10.0 tiles; bad none
+PASS 15b 150 seeds: at least 15 bushes  min 30; bad none
+PASS 15b 150 seeds: all walkable land reachable (one component)  bad none
+PASS 15b 150 seeds: water 3-12% of tiles (matches seedInfo)  bad none
+PASS 15b 150 seeds: lakes 0-4, rivers 0-2, never no water  lake counts seen 0,1,2,3,4, river counts 0,1,2
+PASS 15b 150 seeds: every river starts higher than it ends and ends in a lake or at the edge  bad none
+PASS 15b: same seed -> same map; seeds range dry..lush  43 dry, 37 lush of 150
+PASS 15b: dry seeds get fewer bushes (30-50% cut), never under 15  dry avg 32, lush avg 60
+PASS 15b: hills carry rock clusters; seedInfo has lakes/rivers/water%/forest density/moisture bias  71 hill rocks; {"seed":42,"bushes":32,"lakes":3,"lakeSizes":[39,56,47],"rivers":2,"waterPct":7.5,"forestDensity":0.17,"moistureBias":-0.26,"hillPct":10.4,"woodsPct":15.5,"attempt":1}
+PASS different seeds give different maps
+FAIL UI kit: src/icons.js matches data/ui/icons (re-run node tools/sync_icons.js), speed icons pause/play/fast/superfast  21 icons
+PASS A*: 600 paths, none cross water or cut a water corner, all reachable  bad 0, unreachable 0
+PASS crossing 60 tiles takes ~1/3 day  8.00 game h (40.0 real min at 1x), row 0
+PASS walk time = path length x 8 min (detour around lake)  8.2 game h
+PASS speed trait: 8 min/tile at 50, 16 at 0, 5.33 at 100
+PASS traits are speed, appetite, curiosity, coldFear, fireFear, faith (ints 0-100)  {"speed":100,"appetite":37,"curiosity":47,"coldFear":45,"fireFear":41,"faith":38}
+PASS founders: the seed picks 5-8 people  {"5":56,"6":57,"7":42,"8":45} over 200 seeds
+PASS founders: ages 16-40, distinct names from names.json, look = index mod 8
+PASS founders: each on their own land tile
+PASS founders: start clustered  max 2.9 tiles from the group centre
+PASS founders: same seed -> same people  Ilo 36, Jessa 28, Haru 16, Leva 29, Cosk 22, Beso 29, Yari 22, Zol 21
+PASS fullness: full (85) to hungry (below 50) in ~6 game h at appetite 50  361 min (drain 5.83/h)
+PASS logs 'is hungry' once when fullness drops below 50
+PASS appetite scales the fullness drain  4 h at 100, 12 h at 0
+PASS rolled traits average ~50, ints in 0-100  mean 49.8, min 1, max 100, n 11574
+PASS meal: +40, a hungry meal stops at 85, overeating caps at 100  0->40 30->70 49->85 10+snack->50 50+snack->90 70+snack->100 95+snack->100
+PASS state words: starving/hungry/fed/full/overfull and parched/thirsty/watered
+PASS starving: fullness holds at 0, logged once, no death  fullness 0 after 10 h with no food, starving logged 1x
+PASS starving: stays at 0 until she eats; one meal brings her to ~40  ate after 46 min, fullness now 40.00, log 'Inn ate berries (hungry)'
+PASS starving logs again on a new episode  2 total
+PASS hungry person finds a bush, eats one meal: fullness 85, logs 'ate berries (full)'  meal done after 33 min, fullness 85.00, knows 5 bushes
+PASS that bush is now empty (whole bush eaten in one sitting)  b17
+PASS event log has entries  Day 1 6:01 AM Inn found 5 berry bushes | Day 1 6:01 AM Inn found water at the lake | Day 1 6:32 AM Inn ate berries (full)
+PASS empty bush is ripe again after ~1 game day  24.0 game h
+PASS snack above 50: +40 capped at 100, logs 'ate berries (overfull)'  fullness 100.0 after 33 min
+PASS snacking is off by default (snackAbove null): no meal above 50
+PASS water: 100 to thirsty (below 50) in ~4 game h, logs 'is thirsty' once  241 min, drain 12.500/h
+PASS water drain is not scaled by any trait
+PASS parched: water holds at 0, logged once, no death  water 0, logged 1x
+PASS shore tiles: land next to the lake and the river  148 tiles
+PASS thirsty on a shore tile drinks where she stands  drink
+PASS a drink takes 10 game min and sets water to 100  10 min, water 100
+PASS logs 'found water at the lake' and 'drinks at the lake'
+PASS a thirsty founder walks to a shore tile and drinks  after 73 min at 29,15 (river)
+PASS decision: act on the lower need below 50; a tie goes to water  30/30->water 30/40->food 40/30->water 50/50->null 45/60->food 60/49->water 49.5/49.5->water 80/90->null
+PASS energy drains 100 over 16 waking h, refills 100 over 8 h asleep
+PASS no sleep by day while energy > 0  Day 1 12:30 PM idle
+PASS after dusk with energy < 50 she lies down  Day 1 6:31 PM
+PASS sleeps through the night, full energy, wakes at dawn  Day 2 6:00 AM, slept 11.5 h, fullness 85 water 64
+PASS a sleeper wakes when water drops below 10  after 2 min, water 10.00
+PASS a sleeper wakes when fullness drops below 10 (or at dawn)  Kog woke up hungry at Day 1 11:59 PM
+PASS exhausted: energy 0 logs once and she lies down, day or night  Day 1 10:03 AM
+PASS needs stay inside 0-100 (2 days, all founders)

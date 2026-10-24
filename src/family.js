@@ -176,6 +176,13 @@
       const body = G.Body.create(sim, b, "being left alone"); body.baby = true; sim.bodies.push(body); }
   }
 
+  // step 24 (v19): a baby dies at once (a carried baby whose carrier was struck, or one lying on the struck tile); same log line and body as a person
+  Family.babyDie = function (sim, b, cause) {
+    const i = sim.babies.indexOf(b); if (i < 0) return null; sim.babies.splice(i, 1); sim.famStats.babyDeaths++;
+    const vb = (G.data.config.body.causeVerb || {})[cause];
+    G.Sim.log(sim, b.name + " lies still. " + b.name + (vb ? " " + vb + " " : " has died of ") + cause + ".", b, "death");
+    const body = G.Body.create(sim, b, cause); body.baby = true; sim.bodies.push(body); return body;
+  };
   Family.step = function (sim) {
     if (!sim.babies) return; const tm = TM();
     if ((sim.tick * tm) % 1440 === 0) daily(sim);   // with Social.daily (relations and groups are fresh)

@@ -166,5 +166,25 @@
    "ground_flash"
   ],
   "note": "bottom 16px row sits on the struck tile; bolt reaches 2 tiles above. Show strike ~80ms, fade ~80ms, flash ~150ms, then the normal fire/scorch fx"
+ },
+ "rain_light_16.png": {
+  "frame": 16,
+  "cols": [
+   "fall_0",
+   "fall_1",
+   "fall_2",
+   "fall_3"
+  ],
+  "note": "Light rain; use rain_16.png for Medium"
+ },
+ "rain_heavy_16.png": {
+  "frame": 16,
+  "cols": [
+   "fall_0",
+   "fall_1",
+   "fall_2",
+   "fall_3"
+  ],
+  "note": "Heavy rain overlay"
  }
 }

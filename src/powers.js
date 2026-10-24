@@ -1,7 +1,8 @@
-// Step 22 god powers: Rain, Warm, Cool. The player taps a power, then a spot on the map; it acts on every tile within powers.radiusTiles.
-// State (saved): sim.powers = { effects: [...], cd: {kind: tick it is ready again}, rs: stream state, stats, next }.
+// Step 22 / 24 god powers: Rain (Light/Medium/Heavy), Warm, Cool, Lightning (Single/Barrage), Spawn.
+// State (saved): sim.powers = { effects: [...], cd: {} (unused since v19), rs: stream state, stats, next }.
 // Own seeded stream (rs), drawn only while an effect is active, so a run where no power is used matches one without this module.
 // Nothing here is scripted: rain changes the ground, the bushes, warmth loss and water; people react through their own rules and traits.
+// v19: no cooldowns; Rain and Lightning pick a strength / mode first (opt); each rain effect stores its own scales.
 (function (G) {
   const Powers = {};
   const PC = () => G.data.config.powers, TM = () => G.data.config.time.tickGameMinutes, mins = m => Math.max(1, Math.round(m / TM()));
@@ -9,7 +10,7 @@
   Powers.KINDS = ["rain", "warm", "cool", "lightning", "spawn"];
   // step 23 stats: strikes (fires lit, killed, scared), spawned animals by species, prayers answered by a strike / spawn
   Powers.newStats = () => ({ casts: { rain: 0, warm: 0, cool: 0, lightning: 0, spawn: 0 }, putOut: 0, sticksOut: 0, covers: 0, faces: 0, puddleDrinks: 0,
-    strikes: { fires: 0, scorched: 0, killed: 0, scared: 0 }, spawns: { grazer: 0, scavenger: 0, watched: 0, backedAway: 0 }, answered: 0 });
+    strikes: { fires: 0, scorched: 0, killed: 0, scared: 0, babies: 0 }, spawns: { grazer: 0, scavenger: 0, watched: 0, backedAway: 0 }, answered: 0 });
   Powers.newState = () => ({ effects: [], cd: {}, rs: 0, next: 1, stats: Powers.newStats() });
   Powers.init = function (sim) { sim.powers = Powers.newState(); sim.powers.rs = (sim.seed ^ 0x5A1D0F22) >>> 0; };
   const st = sim => sim.powers || (sim.powers = Object.assign(Powers.newState(), { rs: (sim.seed ^ 0x5A1D0F22) >>> 0 }));
@@ -17,8 +18,9 @@
   Powers.roll = function (sim) { const S = st(sim), r = new G.RNG(S.rs), v = r.float(); S.rs = r.s; return v; };
   const inC = (e, x, y) => (x - e.x) * (x - e.x) + (y - e.y) * (y - e.y) <= e.r * e.r + 1e-9;
   Powers.any = sim => !!(sim.powers && sim.powers.effects.length);
-  // minutes until a power can be used again (0 = ready)
-  Powers.cooldownLeft = (sim, k) => { const t = (sim.powers && sim.powers.cd[k]) || 0; return Math.max(0, (t - sim.tick) * TM()); };
+  // v19: no cooldowns; kept returning 0 so old UI / saves that still look at cd stay quiet
+  Powers.cooldownLeft = (sim, k) => 0;
+  Powers.cdTicks = k => 0;
 
   // a short place word for the log: near the lake / river / hills / woods / meadow (from the tiles in the circle)
   Powers.place = function (sim, x, y, r) {
@@ -29,16 +31,17 @@
     return n.lake ? "the lake" : n.river ? "the river" : n.hill >= n.all * 0.3 ? "the hills" : n.woods >= n.all * 0.4 ? "the woods" : "the meadow";
   };
 
-  Powers.cdTicks = k => { const C = PC(); return mins((C[k] && C[k].cooldownMinutes) || C.cooldownMinutes); };   // step 23: per-power cooldowns
-  // Cast a power at tile (x, y). Returns { ok, reason?, effect? }. Respects the cooldown.
-  Powers.cast = function (sim, k, x, y, opt) {   // opt: the Spawn picker choice ("grazer" / "predator")
+  // Cast a power at tile (x, y). Returns { ok, reason?, effect? }. opt: rain strength / lightning mode / spawn kind.
+  Powers.cast = function (sim, k, x, y, opt) {
     const C = PC(), S = st(sim); if (Powers.KINDS.indexOf(k) < 0) return { ok: false, reason: "unknown" };
     x = Math.round(x); y = Math.round(y); if (!G.World.inb(sim.world, x, y)) return { ok: false, reason: "off the map" };
-    const left = Powers.cooldownLeft(sim, k); if (left > 0) return { ok: false, reason: "cooldown", left };
-    if (k === "lightning" || k === "spawn") return k === "lightning" ? Powers.strike(sim, x, y) : Powers.spawn(sim, x, y, opt || "grazer");
+    if (k === "lightning") return Powers.strike(sim, x, y, opt || "single");
+    if (k === "spawn") return Powers.spawn(sim, x, y, opt || "grazer");
     const r = C.radiusTiles, place = Powers.place(sim, x, y, r), e = { id: S.next++, k, x, y, r, t: sim.tick, place };
-    S.cd[k] = sim.tick + Powers.cdTicks(k); S.stats.casts[k] = (S.stats.casts[k] || 0) + 1;
-    if (k === "rain") { const R = C.rain; e.end = sim.tick + mins(R.minutes); e.wetEnd = sim.tick + mins(R.wetMinutes); e.bushEnd = sim.tick + mins(R.bushMinutes);
+    S.stats.casts[k] = (S.stats.casts[k] || 0) + 1;
+    if (k === "rain") { const str = (opt && C.rain.strengths[opt]) ? opt : "medium", R = C.rain.strengths[str];
+      e.str = str; e.end = sim.tick + mins(R.minutes); e.wetEnd = sim.tick + mins(R.wetMinutes); e.bushEnd = sim.tick + mins(R.bushMinutes);
+      e.bushX = R.bushX; e.lossX = R.lossX; e.douse = R.douse; e.holdOutMinutes = R.holdOutMinutes;
       e.pudEnd = sim.tick + mins(R.puddles.minutes); e.puddles = puddleTiles(sim, e, R.puddles.count); e.on = true;
       G.Sim.log(sim, "Rain falls near " + place); douse(sim, e); }
     else { const W = C[k]; e.end = sim.tick + mins(W.minutes); e.fade = mins(W.fadeMinutes); e.dC = fToC(W.deltaF);
@@ -60,13 +63,17 @@
     use.sort((p, q) => p.h - q.h || p.y - q.y || p.x - q.x); return use.slice(0, n).map(q => [q.x, q.y]);
   }
 
-  // rain arriving: burning tiles go to ash, embers out (a smouldering tree within holdOutMinutes), lit sticks out
+  // rain arriving: douse mode from the strength (small / fires / all). Lit sticks always go out in the rain.
   function douse(sim, e) {
-    const S = st(sim), F = sim.fireStats, R = PC().rain;
+    const S = st(sim), F = sim.fireStats, mode = e.douse || "fires", holdM = e.holdOutMinutes;
     let fires = 0;
     for (const key in sim.fire) { const f = sim.fire[key], i = key.indexOf(","), x = +key.slice(0, i), y = +key.slice(i + 1); if (!inC(e, x, y)) continue;
-      if (f.s === "fire") { f.s = "ash"; f.t = sim.tick; f.end = sim.tick + mins(G.data.config.fire.ashMinutes); fires++; S.stats.putOut++; }
-      else if (f.s === "ember") { if (f.hold) f.end = Math.min(f.end, sim.tick + mins(R.holdOutMinutes));
+      if (f.s === "fire") { if (mode === "small") continue;   // Light: leave burning tiles
+        f.s = "ash"; f.t = sim.tick; f.end = sim.tick + mins(G.data.config.fire.ashMinutes); fires++; S.stats.putOut++; }
+      else if (f.s === "ember") {
+        if (mode === "small") { if (f.hold) continue; delete sim.fire[key]; S.stats.putOut++; const ev = F && F.events.find(v => v.id === f.ev); if (ev && !ev.fired) { ev.end = sim.tick; ev.regrown = sim.tick; } }
+        else if (mode === "all" || holdM === 0) { delete sim.fire[key]; S.stats.putOut++; if (f.hold) fires++; const ev = F && F.events.find(v => v.id === f.ev); if (ev && !ev.fired) { ev.end = sim.tick; ev.regrown = sim.tick; } }
+        else if (f.hold) f.end = Math.min(f.end, sim.tick + mins(holdM == null ? 60 : holdM));
         else { delete sim.fire[key]; S.stats.putOut++; const ev = F && F.events.find(v => v.id === f.ev); if (ev && !ev.fired) { ev.end = sim.tick; ev.regrown = sim.tick; } } } }
     if (fires) G.Sim.log(sim, "The rain puts out the fire near " + e.place);
     sticksOut(sim);
@@ -83,7 +90,9 @@
   Powers.raining = function (sim, x, y) { if (!Powers.any(sim)) return false; for (const e of sim.powers.effects) if (e.k === "rain" && e.on && sim.tick < e.end && inC(e, x, y)) return true; return false; };
   Powers.rainAt = function (sim, x, y) { if (!Powers.any(sim)) return null; for (const e of sim.powers.effects) if (e.k === "rain" && e.on && sim.tick < e.end && inC(e, x, y)) return e; return null; };
   Powers.wetAt = function (sim, x, y) { if (!Powers.any(sim)) return false; for (const e of sim.powers.effects) if (e.k === "rain" && sim.tick < e.wetEnd && inC(e, x, y)) return true; return false; };
-  Powers.bushX = function (sim, b) { if (!Powers.any(sim)) return 1; for (const e of sim.powers.effects) if (e.k === "rain" && sim.tick < e.bushEnd && inC(e, b.x, b.y)) return PC().rain.bushX; return 1; };
+  Powers.bushX = function (sim, b) { if (!Powers.any(sim)) return 1; let x = 1; for (const e of sim.powers.effects) if (e.k === "rain" && sim.tick < e.bushEnd && inC(e, b.x, b.y)) x = Math.max(x, e.bushX != null ? e.bushX : 1); return x; };
+  // warmth loss multiplier under rain at a tile (max of active rains there)
+  Powers.lossXAt = function (sim, x, y) { if (!Powers.any(sim)) return 1; let v = 1; for (const e of sim.powers.effects) if (e.k === "rain" && e.on && sim.tick < e.end && inC(e, x, y)) v = Math.max(v, e.lossX != null ? e.lossX : 1); return v; };
   // air temperature shift (°C) at a tile: sum of active Warm / Cool effects there, each fading out over its last fade minutes, capped
   Powers.shiftC = function (sim, x, y) { if (!Powers.any(sim)) return 0; let s = 0;
     for (const e of sim.powers.effects) if (e.dC && sim.tick < e.end && inC(e, x, y)) { const left = e.end - sim.tick; s += e.dC * Math.min(1, left / e.fade); }
@@ -131,6 +140,7 @@
   // each tick: rain ends, sticks carried into the rain go out, people react to the first drops, expired effects go
   Powers.step = function (sim) {
     for (const a of sim.agents) { if (a.fright && sim.tick >= a.fright.until) a.fright = null; if (a.runUntil && sim.tick >= a.runUntil) a.runUntil = null; }   // step 23
+    Powers.curioStep(sim);   // step 24
     if (!Powers.any(sim)) return;
     const S = sim.powers, R = PC().rain;
     for (const e of S.effects) if (e.k === "rain" && e.on && sim.tick >= e.end) { e.on = false; G.Sim.log(sim, "The rain stops near " + e.place); }
@@ -153,11 +163,11 @@
   // fire chance for a strike at (x, y): dry grass / forest only; the lowest of rain (raining or wet from Rain) and Deep Cold
   Powers.strikeChance = function (sim, x, y) { const L = PC().lightning.fire, g = Powers.ground(sim, x, y); if (g !== "grass" && g !== "forest") return 0;
     let p = L.dry; if (Powers.raining(sim, x, y) || Powers.wetAt(sim, x, y)) p = Math.min(p, L.rain); if (G.Climate.seasonIndex(sim.tick) === L.deepColdSeason) p = Math.min(p, L.deepCold); return p; };
-  Powers.strike = function (sim, x, y) {
-    const C = PC(), L = C.lightning, S = st(sim), k = "lightning", key = x + "," + y, g = Powers.ground(sim, x, y), place = Powers.place(sim, x, y, 2), F = sim.fireStats;
-    S.cd[k] = sim.tick + Powers.cdTicks(k); S.stats.casts[k] = (S.stats.casts[k] || 0) + 1;
-    const e = { id: S.next++, k, x, y, r: 0, t: sim.tick, place, ground: g }; sim.fx.push({ k: "bolt", x, y, t: sim.tick, id: e.id });
-    const p = Powers.strikeChance(sim, x, y), cur = sim.fire[key], fire = !(cur && (cur.s === "fire" || cur.s === "ember")) && p > 0 && Powers.roll(sim) < p;   // no draw on bare ground / rock / water
+  // one bolt at (x, y); used by Single and by each Barrage hit. Does not bump casts (the parent cast does).
+  Powers.strikeOne = function (sim, x, y, parent) {
+    const L = PC().lightning, S = st(sim), key = x + "," + y, g = Powers.ground(sim, x, y), place = Powers.place(sim, x, y, 2), F = sim.fireStats;
+    const e = { id: S.next++, k: "lightning", x, y, r: 0, t: sim.tick, place, ground: g, mode: parent && parent.mode }; sim.fx.push({ k: "bolt", x, y, t: sim.tick, id: e.id });
+    const p = Powers.strikeChance(sim, x, y), cur = sim.fire[key], fire = !(cur && (cur.s === "fire" || cur.s === "ember")) && p > 0 && Powers.roll(sim) < p;
     const what = g === "water" ? "the water near " + place : g === "forest" ? "a tree near " + place : g === "grass" ? "the grass near " + place : g === "rock" ? "the rocks near " + place : "the bare ground near " + place;
     if (fire) {
       const ev = { id: F.events.length + 1, start: sim.tick, x, y, by: null, byName: null, combo: null, fuel: g === "forest" ? "struck tree" : Fire().fuelName(sim, x, y), tiles: 0, fired: true, end: null, regrown: null, lightning: true, god: true };
@@ -168,7 +178,10 @@
         F.events.push(ev); sim.fire[key] = { s: "scorched", t: sim.tick, end: sim.tick + mins(G.data.config.fire.regrowMinutes), ev: ev.id }; S.stats.strikes.scorched++; }
       G.Sim.log(sim, "Lightning strikes " + what);
     }
+    const babyHere = b => b.orphanAt == null ? sim.agents.some(a => a.id === b.carrier && Math.round(a.pos.x) === x && Math.round(a.pos.y) === y) : Math.round(b.pos.x) === x && Math.round(b.pos.y) === y;
+    const doomed = (sim.babies || []).filter(babyHere);
     for (const a of sim.agents.slice()) if (Math.round(a.pos.x) === x && Math.round(a.pos.y) === y) { G.Sim.die(sim, a, L.cause); S.stats.strikes.killed++; }
+    for (const b of doomed) if (G.Family.babyDie(sim, b, L.cause)) { S.stats.strikes.killed++; S.stats.strikes.babies = (S.stats.strikes.babies || 0) + 1; }
     for (const a of sim.agents) { const d = Math.hypot(a.pos.x - x, a.pos.y - y); if (d > L.scareTiles) continue;
       const slept = a.act.type === "sleep"; frighten(sim, a, L.fearAdd, L.fearMinutes); S.stats.strikes.scared++;
       if (slept) a.wokeEarly = true;
@@ -176,6 +189,25 @@
       G.Sim.log(sim, a.name + (slept ? " wakes with a start" + (ran ? " and runs from the flash" : "") : d <= 3 ? " drops flat as the sky cracks" : ran ? " runs from the flash" : " flinches at the crack"), a); }
     Powers.answer(sim, x, y);
     return { ok: true, effect: e, fire };
+  };
+  // mode: "single" (default) or "barrage" — Barrage drops count[0..1] bolts on random land tiles within scatterTiles of the tap
+  Powers.strike = function (sim, x, y, mode) {
+    const C = PC(), L = C.lightning, S = st(sim), M = (L.modes && L.modes[mode]) || (L.modes && L.modes.single) || { count: [1, 1], scatterTiles: 0 };
+    S.stats.casts.lightning = (S.stats.casts.lightning || 0) + 1;
+    const lo = M.count[0], hi = M.count[1], nWant = lo === hi ? lo : lo + Math.floor(Powers.roll(sim) * (hi - lo + 1));
+    if (!M.scatterTiles || nWant <= 1) return Powers.strikeOne(sim, x, y, { mode: mode || "single" });
+    const tiles = [], R = M.scatterTiles;
+    for (let yy = y - R; yy <= y + R; yy++) for (let xx = x - R; xx <= x + R; xx++) {
+      if (!G.World.inb(sim.world, xx, yy) || (xx - x) * (xx - x) + (yy - y) * (yy - y) > R * R + 1e-9) continue;
+      if (Powers.ground(sim, xx, yy) === "water") continue; tiles.push([xx, yy]); }
+    // Fisher–Yates with the power stream so the barrage is seeded and unique tiles
+    for (let i = tiles.length - 1; i > 0; i--) { const j = Math.floor(Powers.roll(sim) * (i + 1)), tmp = tiles[i]; tiles[i] = tiles[j]; tiles[j] = tmp; }
+    const pick = tiles.slice(0, Math.min(nWant, tiles.length));
+    if (!pick.length) pick.push([x, y]);
+    const bolts = []; let anyFire = false;
+    for (const [bx, by] of pick) { const r = Powers.strikeOne(sim, bx, by, { mode: "barrage" }); bolts.push(r.effect); if (r.fire) anyFire = true; }
+    const place = Powers.place(sim, x, y, R), e = { id: S.next++, k: "lightning", x, y, r: R, t: sim.tick, place, mode: "barrage", bolts: bolts.map(b => [b.x, b.y]) };
+    return { ok: true, effect: e, fire: anyFire, bolts };
   };
   const Fire = () => G.Fire;
   // run from (fx, fy) to a tile tiles[0..1] away from it, roughly straight away; she stays put (idle) there until minutes are up. True = on her way.
@@ -204,7 +236,7 @@
     if (!G.World.walkable(sim.world, x, y)) return { ok: false, reason: "needs land" };
     if (!Powers.spawnRoom(sim, species)) return { ok: false, reason: "no room for more " + species + "s" };
     const q = Powers.spawnTile(sim, x, y); if (!q) return { ok: false, reason: "no free spot there" };
-    S.cd.spawn = sim.tick + Powers.cdTicks("spawn"); S.stats.casts.spawn = (S.stats.casts.spawn || 0) + 1;
+    S.stats.casts.spawn = (S.stats.casts.spawn || 0) + 1;
     let herd = null; if (species === "grazer") { let bd = Infinity; for (const h of sim.herds || []) { const d = Math.hypot(h.x - q.x, h.y - q.y); if (d < bd) { bd = d; herd = h.id; } }
       if (herd == null) { sim.herds = sim.herds || []; herd = sim.herds.length; sim.herds.push({ id: herd, x: q.x, y: q.y, next: sim.tick + mins(60) }); } }
     const r = new G.RNG(S.rs), c = G.Animal.create(sim, species, q.x, q.y, herd, r); S.rs = r.s; c.spawned = sim.tick;
@@ -213,13 +245,20 @@
     sim.fx.push({ k: "shimmer", x: q.x, y: q.y, t: sim.tick, id: e.id });
     G.Sim.log(sim, "A " + species + " appears near " + place, c);
     for (const a of sim.agents) { if (a.act.type === "sleep" || Math.hypot(a.pos.x - q.x, a.pos.y - q.y) > SP.watchTiles) continue;
-      a.traits.curiosity = Math.min(100, (a.traits.curiosity || 0) + SP.curiosityAdd); S.stats.spawns.watched++;
+      const add = Math.max(0, Math.min(100, (a.traits.curiosity || 0) + SP.curiosityAdd) - (a.traits.curiosity || 0)); a.traits.curiosity += add; S.stats.spawns.watched++;
+      Powers.curioBoost(sim, a, add);
       const P = SP.predator, scared = kind === "predator" && P && Powers.roll(sim) < Math.max(0, Math.min(1, P.fearChance * (1.5 - a.traits.curiosity / 100)));
       if (scared) { frighten(sim, a, P.fearAdd, P.fearMinutes); Powers.run(sim, a, q.x, q.y, P.runTiles, P.runMinutes); S.stats.spawns.backedAway++; G.Sim.log(sim, a.name + " stares at the new " + species + " and backs away", [a, c]); }
       else G.Sim.log(sim, a.name + " stares at the new " + species, [a, c]); }
     Powers.answer(sim, q.x, q.y);
     return { ok: true, effect: e, animal: c };
   };
+  // ---- step 24 (v19, Director): the spawn watcher's curiosity bump fades back, 1 point at a time, evenly over fadeMinutes after the latest watch.
+  // a.curioFade = { left: points still to take off, step: ticks between points, next: tick of the next one } (saved with the person; no random draws)
+  Powers.curioBoost = function (sim, a, add) { if (!(add > 0)) return; const f = a.curioFade || { left: 0 }, left = f.left + add, T = mins(PC().spawn.curiosityFadeMinutes);
+    const step = Math.max(1, Math.floor(T / left)); a.curioFade = { left, step, next: sim.tick + step }; };
+  Powers.curioStep = function (sim) { for (const a of sim.agents) { const f = a.curioFade; if (!f || sim.tick < f.next) continue;
+    a.traits.curiosity = Math.max(0, a.traits.curiosity - 1); f.left--; f.next = sim.tick + f.step; if (f.left <= 0) a.curioFade = null; } };
   // ---- step 23: a strike or a new animal soon after a prayer (within faithMinutes, by someone within faithTiles) reinforces that prayer
   Powers.answer = function (sim, x, y) { if (!G.Faith || !G.Faith.answer) return 0; const C = PC(); let n = 0;
     for (const a of sim.agents) if (Math.hypot(a.pos.x - x, a.pos.y - y) <= C.faithTiles && G.Faith.answer(sim, a, mins(C.faithMinutes))) n++;
