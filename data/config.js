@@ -2,7 +2,7 @@
 (function (G) {
   G.data = G.data || {};
   G.data.config = {
-    saveVersion: 24,                // v24: moods (happiness/sadness/anger 0–100, dominant ≥60 multipliers on invent/bind/ritual/hunt/banding); v23: animal labels (deer/wild dog/Wolves), per-piece material jitter + flex, terrain deposits (rocks slopes, sticks woods edges, flint river-bank clusters, reeds banks-only), one mountain peak + mountain_16 art, wild dogs hunt live deer, Wolves pack+den+territory (people threatened only inside), watch→hunt_score; v22: corpse choices (leave/drag/bury/burn/eat/ritual, corpseFear, burial/pyre/ash_bones art) + lightning aim (Barrage primary on tap, scatterTiles 4) + warmth equilibrium (eq = clamp(50+(feltC-neutralC)*eqPerC,0,100), move toward eq) + rain chillC per strength (L3/M6/H10 on feltC×exposure); v21: speech polish (People card + group line Speech label, Discoveries first spoken syllable, child copy x2, inventDiv tune, growth recheck); v20: local language (sim.speech, per-person a.words token→meaning scores, group speech locks, own stream wrng; gesture overlays until lock); v19: power rewrite (no cooldowns; Rain Light/Medium/Heavy; Lightning Single/Barrage), spawn-watch curiosity fades over 7 days (a.curioFade), a baby carried by someone struck dies too (strikes.babies), phone Powers row, Find button; v18: Lightning and Spawn powers (per-power cooldowns, strike / spawn stats, a.fright, bolt sticks); v17: god powers (sim.powers: active Rain / Warm / Cool effects, cooldowns, own stream), pairs man + woman only; v16: natural shelters (sim.shelters, per-person known shelters, den score); v15: faith trait, prayer forms, prayer spots, Prayers feed (own stream prng); v14: children / youths as people (stage by age, guardian, learned-from), name numbering; v13: sex, pairs, pregnancy, babies (own stream frng), burning sticks; v12: relations (familiarity, liking) and groups; v11: cooked meat (heat), grazer births (own stream), cook score; v10: hunting, carcasses, meat, lightning; v9: varied maps (spawn, hills, map info; no lake/source); v8: learning (experience scores, copying), seasonal food, per-person logs; v7: objects, physics + discoveries, temperature + warmth, fire (v6: aging, death, bodies, animals); older saves are rejected
+    saveVersion: 25,                // v25: disease + person-card Log tab (lasting sick from raw meat/corpse/spread/rot-seed; Energy×1.5 Fullness×1.25 1–3d; rare death if Fullness+Water<20; recover via sleep/drink/cooked/berries/fire → Discoveries); v24: moods
     saveKey: "godsim.save",
     map: {
       w: 60, h: 40, tilePx: 16,      // map is 960x640 art px, scaled to fit the screen
@@ -146,7 +146,8 @@
       causeVerb: { "struck by lightning": "was" },
       storyDeathLines: {
         cold: ["froze", "didn't wake from the cold"],
-        exhaustion: ["never woke", "worn down to nothing"]
+        exhaustion: ["never woke", "worn down to nothing"],
+        sickness: ["didn't recover", "wasted away"]
       }
     },
     // Animals (no names; grazers die only when hunted and are born in Greening, step 17). All count toward pop.maxAnimals (40). They flee people: when a person is within fleeWithin tiles
@@ -486,6 +487,28 @@
         { token: "stop+hand", col: "stop_hand", bias: ["stop"], action: "holds up a hand" },
         { token: "beckon+call", col: "beckon", bias: ["follow"], action: "beckons and calls" }
       ] },
+    // Step 28 Disease (v25): lasting sick state (Energy drain ×1.5, Fullness drain ×1.25) for 1–3 days.
+    // Seeded by raw meat / corpse eat, person-to-person spread within spreadTiles, or scavengers at rotting bodies (once/day).
+    // Recover score rises from sleep while sick, drink, cooked meat, berries, sitting by fire; at recoverAt → clear + Discoveries.
+    // Rare death while sick if Fullness and Water both under deathNeedBelow (own stream drng).
+    disease: {
+      durationDays: [1, 3],
+      energyDrainX: 1.5,
+      fullnessDrainX: 1.25,
+      deathNeedBelow: 20,
+      deathChancePerHour: 0.00008,
+      spreadTiles: 2,
+      spreadDiv: 800,
+      seedTiles: 2,
+      seedChance: 0.15,
+      recoverAt: 100,
+      recover: { sleepPerHour: 8, drink: 12, cookedMeat: 20, berries: 10, fireSit: 8 },
+      fireSitCoolMinutes: 60,
+      logCoolMinutes: 360,
+      acuteEnergy: 20,
+      dangerEnergyBelow: 30,
+      dangerChancePerHour: 0.25
+    },
     // Step 27 Moods (v24): happiness / sadness / anger 0–100 float toward baseline ∼40 when needs fine.
     // Dominant = highest ≥ dominantAt (else none). Multipliers on existing rolls only. Fear traits stay separate.
     moods: {
@@ -509,8 +532,8 @@
     ui: { prefsKey: "godsim.ui",
       powersTab: { label: "Powers", icon: "powers" },   // v19: portrait phones (< 700px): the bottom-bar tab that slides up the power row (CSS in index.html)
       find: { label: "Find", icon: "locate", pulseMs: 3000, zoom: 2, ringScale: 1.7 },   // v19 (step 24): the Find button on a person's card: centre the map on them (zoom at least 2), pulse their group ring brighter and bigger for pulseMs, follow until a pan or a tap elsewhere
-      personTabs: [   // 26b: person-card sections (header + Find + personal log stay outside)
-        { key: "needs", label: "Needs" }, { key: "mind", label: "Mind" }, { key: "kin", label: "Kin" }, { key: "knows", label: "Knows" }
+      personTabs: [   // v25: Needs / Mind / Kin / Knows / Log (personal events in Log tab only; header + Find outside; no under-card strip)
+        { key: "needs", label: "Needs" }, { key: "mind", label: "Mind" }, { key: "kin", label: "Kin" }, { key: "knows", label: "Knows" }, { key: "log", label: "Log" }
       ],
       panels: [{ key: "log", label: "Log", icon: "log", el: "logwrap", open: true },
                { key: "discoveries", label: "Discoveries", icon: "discoveries" },

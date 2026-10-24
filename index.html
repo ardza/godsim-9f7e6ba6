@@ -85,7 +85,7 @@
   .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
   .chip { display: inline-block; padding: 2px 10px; border-radius: 999px; background: var(--panel-raised); border: 1px solid var(--line); color: var(--wheat); }
   .exp-note { color: var(--dim); margin: 2px 0 0 calc(6.2em + 8px); }
-  #info[hidden], #plog-sec[hidden], #plog[hidden] { display: none !important; }
+  #info[hidden] { display: none !important; }
   .plog .empty { padding: 4px 0; }
   table.disc { width: 100%; border-collapse: collapse; font-size: 16px; } table.disc th { text-align: left; color: var(--wheat); font-weight: 650; padding: 4px; border-bottom: 1px solid var(--line); }
   .pfilt { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; } .pfilt button { min-height: 44px; min-width: 44px; padding: 0 12px; font-size: 16px; } .pfilt button.on { outline: 2px solid var(--wheat); }
@@ -116,7 +116,7 @@
   #info .findbtn { position: absolute; right: 64px; top: 12px; z-index: 1; min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; font-size: 16px; }
   #info .findbtn svg { width: 24px; height: 24px; flex: 0 0 auto; }
   #info h3.hasfind { margin-right: 172px; }
-  /* 26b: person-card tabs — match godsim-previews/card_tabs/mock.html; labels ≥16px, taps ≥44px; header+Find+plog outside */
+  /* v25: person-card tabs Needs/Mind/Kin/Knows/Log — labels ≥16px, taps ≥44px; header+Find outside; Log in tab only */
   #info .pcard-tabs { display: flex; gap: 4px; overflow-x: auto; padding: 4px 0 8px; margin: 8px 0 0; border-bottom: 1px solid rgba(241,230,207,.10); flex: 0 0 auto; }
   #info .pcard-tab { flex: 1; min-height: 44px; min-width: 44px; padding: 0 10px; font-size: 16px; border-radius: 999px; border: 0; background: transparent; color: var(--dim); cursor: pointer; }
   #info .pcard-tab.on { background: var(--on); color: var(--on-text); font-weight: 600; }
@@ -145,8 +145,7 @@
     #side { position: absolute; inset: 0; display: block; pointer-events: none; }
     #side > * { pointer-events: auto; }
     #info { position: absolute; left: var(--gap); top: 68px; width: 340px; max-height: calc(100% - 68px - var(--gap)); overflow: hidden; }
-    #info-body { flex: 1 1 auto; min-height: min(380px, 46vh); overflow-y: auto; }   /* card details scroll; its own log (max 40vh) stays at the bottom */
-    #plog-sec { flex: 0 0 auto; } #plog { flex: 0 1 auto; min-height: 96px; }
+    #info-body { flex: 1 1 auto; min-height: min(380px, 46vh); overflow-y: auto; }   /* card details scroll; personal log is a tab pane */
     #logwrap { position: absolute; right: var(--gap); bottom: var(--gap); width: 380px; height: min(320px, calc(100% - 68px - var(--gap))); }
     /* v19: People joins them on the right (it sat across the top, over the card and its Find button) */
     #panel-discoveries, #panel-prayers, #panel-people { position: absolute; right: var(--gap); bottom: var(--gap); width: min(620px, calc(100% - 340px - 3 * var(--gap))); max-height: calc(100% - 68px - var(--gap)); }
@@ -168,7 +167,7 @@
     /* the person card slides up over the map, at most 58% of the screen, just above the tab bar */
     #info { position: fixed; z-index: 15; left: 8px; right: 8px; bottom: calc(var(--bar) + 8px + env(safe-area-inset-bottom)); max-height: 58dvh; }
     #info:not([hidden]) { animation: card-up .2s cubic-bezier(.2,.8,.2,1); }
-    #info { overflow: hidden; } #info-body { flex: 1 1 auto; min-height: min(240px, 28dvh); overflow-y: auto; } #plog-sec { flex: 0 0 auto; } #plog { flex: 0 1 auto; min-height: 96px; }   /* details scroll; her log keeps >= 96px at the bottom */
+    #info { overflow: hidden; } #info-body { flex: 1 1 auto; min-height: min(240px, 28dvh); overflow-y: auto; }
     body.log-off #stage { flex: 1 1 0; } body.log-off #side { flex: 0 0 0; padding: 0; }
   }
   @keyframes card-up { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
@@ -191,7 +190,7 @@
     #info > * { flex-shrink: 0; }   /* the short card scrolls as a whole; her log follows the details */
   }
 </style>
-<link rel="stylesheet" href="data/ui/theme.css?v=24">
+<link rel="stylesheet" href="data/ui/theme.css?v=25">
 </head><body>
 <div id="top">
   <span class="grp"><button id="btn-menu" aria-expanded="false" aria-controls="files" title="World: save, load, new world"><span class="ico" data-icon="menu"></span><span class="wide">World</span></button></span>
@@ -205,41 +204,41 @@
     <div id="powers" role="group" aria-label="god powers"></div></div></div>
   <div id="side">
     <button id="sheet-handle" aria-expanded="false"><span class="grip"></span><span id="sheet-peek">Log</span><span id="sheet-arrow">▲</span></button>
-    <div id="info" hidden><button id="info-close" aria-label="close" title="Close"><span class="ico" data-icon="close"></span></button><div id="info-body"></div>
-      <div class="sec" id="plog-sec" hidden></div><div class="plog" id="plog" role="log" hidden></div></div>
+    <div id="info" hidden><button id="info-close" aria-label="close" title="Close"><span class="ico" data-icon="close"></span></button><div id="info-body"></div></div>
     <div id="logwrap"><div id="tabs" role="tablist"></div><div id="log" role="log"></div></div>
   </div>
 </div>
 <div id="panelbar" role="tablist" aria-label="panels"></div>
 <div id="toast"></div>
-<script src="data/config.js?v=24"></script>
-<script src="data/tiles.js?v=24"></script>
-<script src="data/names.js?v=24"></script>
-<script src="data/words.js?v=24"></script>
-<script src="data/art.js?v=24"></script>
-<script src="data/materials.js?v=24"></script>
-<script src="src/rng.js?v=24"></script>
-<script src="src/world.js?v=24"></script>
-<script src="src/climate.js?v=24"></script>
-<script src="src/agent.js?v=24"></script>
-<script src="src/animal.js?v=24"></script>
-<script src="src/objects.js?v=24"></script>
-<script src="src/fire.js?v=24"></script>
-<script src="src/learn.js?v=24"></script>
-<script src="src/hunt.js?v=24"></script>
-<script src="src/cook.js?v=24"></script>
-<script src="src/social.js?v=24"></script>
-<script src="src/family.js?v=24"></script>
-<script src="src/faith.js?v=24"></script>
-<script src="src/shelter.js?v=24"></script>
-<script src="src/powers.js?v=24"></script>
-<script src="src/speech.js?v=24"></script>
-<script src="src/corpse.js?v=24"></script>
-<script src="src/moods.js?v=24"></script>
-<script src="src/sim.js?v=24"></script>
-<script src="src/save.js?v=24"></script>
-<script src="src/icons.js?v=24"></script>
-<script src="src/render.js?v=24"></script>
-<script src="src/ui.js?v=24"></script>
-<script src="src/main.js?v=24"></script>
+<script src="data/config.js?v=25"></script>
+<script src="data/tiles.js?v=25"></script>
+<script src="data/names.js?v=25"></script>
+<script src="data/words.js?v=25"></script>
+<script src="data/art.js?v=25"></script>
+<script src="data/materials.js?v=25"></script>
+<script src="src/rng.js?v=25"></script>
+<script src="src/world.js?v=25"></script>
+<script src="src/climate.js?v=25"></script>
+<script src="src/agent.js?v=25"></script>
+<script src="src/animal.js?v=25"></script>
+<script src="src/objects.js?v=25"></script>
+<script src="src/fire.js?v=25"></script>
+<script src="src/learn.js?v=25"></script>
+<script src="src/hunt.js?v=25"></script>
+<script src="src/cook.js?v=25"></script>
+<script src="src/social.js?v=25"></script>
+<script src="src/family.js?v=25"></script>
+<script src="src/faith.js?v=25"></script>
+<script src="src/shelter.js?v=25"></script>
+<script src="src/powers.js?v=25"></script>
+<script src="src/speech.js?v=25"></script>
+<script src="src/corpse.js?v=25"></script>
+<script src="src/moods.js?v=25"></script>
+<script src="src/disease.js?v=25"></script>
+<script src="src/sim.js?v=25"></script>
+<script src="src/save.js?v=25"></script>
+<script src="src/icons.js?v=25"></script>
+<script src="src/render.js?v=25"></script>
+<script src="src/ui.js?v=25"></script>
+<script src="src/main.js?v=25"></script>
 </body></html>

@@ -17,13 +17,14 @@
       act: { type: "idle", until: 0 }, stats: { meals: 0, drinks: 0, sleeps: 0 }, carry: null,   // carry = id of the one thing in hand
       zero: { water: 0, fullness: 0, warmth: 0, energy: 0 },   // minutes in a row at 0 (water/fullness/warmth/energy clocks; warmth & energy kill only after full stage ladders)
       hypo: 0, rainExposedMinutes: 0,
-      moods: { happiness: 40, sadness: 40, anger: 40 }, moodClock: { hungryLow: 0, hapWas: 40, logAt: {} }
+      moods: { happiness: 40, sadness: 40, anger: 40 }, moodClock: { hungryLow: 0, hapWas: 40, logAt: {} },
+      sick: null
     };
   };
 
   // Derived values (all from traits; documented in data/config.js)
   // all needs: 100 = good, they drain down
-  Agent.fullnessDrainPerTick = a => { const f = P().fullness; return (f.mealFillTo - f.threshold) / f.minutesFullToHungry * G.data.config.time.tickGameMinutes * (0.5 + a.traits.appetite / 100) * (a.preg ? G.data.config.family.pregnancy.drain : 1) * Agent.childDrain(a); };   // step 19: x1.25 while with child; step 20: x0.7 for a child
+  Agent.fullnessDrainPerTick = a => { const f = P().fullness; return (f.mealFillTo - f.threshold) / f.minutesFullToHungry * G.data.config.time.tickGameMinutes * (0.5 + a.traits.appetite / 100) * (a.preg ? G.data.config.family.pregnancy.drain : 1) * Agent.childDrain(a) * (G.Disease ? G.Disease.fullnessX(a) : 1); };   // step 19/20 child; step 28 sick ×1.25
   Agent.fullnessThreshold = a => P().fullness.threshold;
   Agent.waterDrainPerTick = a => { const w = P().water; return (100 - w.threshold) / w.minutesFullToThirsty * G.data.config.time.tickGameMinutes * Agent.childDrain(a); };
   Agent.childDrain = a => G.Family && G.Family.isChild(a) ? G.data.config.child.drain : 1;
@@ -35,7 +36,7 @@
   // seeks shelter / company below this warmth (cold-fear trait)
   Agent.warmthSeekBelow = a => P().warmth.seekBelow + a.traits.coldFear * P().warmth.seekPerFear;
   Agent.waterWord = v => v <= 0 ? "dehydrated" : v < P().water.threshold ? "thirsty" : "watered";
-  Agent.energyDrainPerTick = a => 100 / P().energy.drainMinutes * G.data.config.time.tickGameMinutes;
+  Agent.energyDrainPerTick = a => 100 / P().energy.drainMinutes * G.data.config.time.tickGameMinutes * (G.Disease ? G.Disease.energyX(a) : 1);  // step 28 sick ×1.5
   Agent.energyRefillPerTick = a => 100 / P().energy.refillMinutes * G.data.config.time.tickGameMinutes;
   // after dusk = nightFrom .. dawnAt (minute of day)
   Agent.isNight = tick => { const E = P().energy, m = G.Time.at(tick).minuteOfDay; return m >= E.nightFrom || m < E.dawnAt; };
@@ -52,8 +53,10 @@
   };
   Agent.sight = a => P().sightTiles;
   Agent.tilePos = a => ({ x: Math.round(a.pos.x), y: Math.round(a.pos.y) });
-  Agent.doing = a => a.act.type === "pray" ? G.Faith.doing(a) : (a.act.type === "idle" || a.act.type === "sleep") && a.felt && a.felt.huddle && a.needs.warmth < 60 ? (a.act.type === "sleep" ? "asleep, huddled" : "huddling") :
+  Agent.doing = a => { const d = a.act.type === "pray" ? G.Faith.doing(a) : (a.act.type === "idle" || a.act.type === "sleep") && a.felt && a.felt.huddle && a.needs.warmth < 60 ? (a.act.type === "sleep" ? "asleep, huddled" : "huddling") :
     a.hypoUnconscious ? "unconscious from cold" : a.hypo >= 4 && a.needs.warmth <= 0 && a.act.type === "sleep" ? "asleep from cold" : ({ idle: "resting", try: ({ strike: "striking", rub: "rubbing", cut: "cutting" })[a.act.action] || "trying", eat: "eating a meal", eatMeat: "eating meat", eatCorpse: "eating from a body", dig: "digging", cook: "holding meat to the fire", drink: "drinking", sleep: "asleep" })[a.act.type] || ({ wander: "wandering", food: "going to a bush", explore: "looking for food", water: "going to the water", exploreWater: "looking for water", collapse: "stumbling to a stop", pickup: "going to pick something up", try: "going to try something", shelter: "seeking warmth", fleeFire: "moving away from flames", fireside: "going to sit by the fire", burnt: "jumping back from the flames", hunt: "going after a deer", meat: "going to a carcass", corpse: "going to a body", drag: "dragging a body", follow: "keeping close to someone", mate: "going to sleep beside a partner", keep: "keeping close to family", prayspot: "going to a prayer spot", beside: "going to sleep beside family", avoid: "keeping away from someone", scared: "running from the flash", fleeWolf: "running from the Wolves" })[a.act.goal] || a.act.type;
+    return (G.Disease && G.Disease.isSick(a) && d.indexOf("sick") < 0) ? d + ", sick" : d; };
+
 
   // Two people never end a move on the same tile: each person claims one tile (where they stand, or the end of their path),
   // and nobody picks a destination someone else has claimed. Passing through is fine.
@@ -164,7 +167,7 @@
   function drink(sim, a) {
     const act = a.act, n = P().drinkMinutes / G.data.config.time.tickGameMinutes;
     act.t++; a.needs.water = Math.min(100, Math.round((act.from + (100 - act.from) * act.t / n) * 1e9) / 1e9);
-    if (act.t >= n) { a.needs.water = 100; a.stats.drinks++; if (G.Speech) G.Speech.onDrink(sim, a); startIdle(sim, a); }
+    if (act.t >= n) { a.needs.water = 100; a.stats.drinks++; if (G.Speech) G.Speech.onDrink(sim, a); if (G.Disease) G.Disease.onDrink(sim, a); startIdle(sim, a); }
   }
   // Lies down after dusk when energy is under sleepBelow (or straight back down if a need woke her early tonight).
   function shouldSleep(sim, a) { return a.needs.energy <= 0 || (Agent.isNight(sim.tick) && (a.needs.energy < P().energy.sleepBelow || a.wokeEarly)); }
@@ -279,6 +282,7 @@
     if (o) G.Social.took(sim, a, o, "spot by the fire");   // step 18: someone sat down on the spot she was heading for
     if (sim.tick - (a.sitFireAt == null ? -1e9 : a.sitFireAt) >= 120) G.Sim.log(sim, a.name + " sits down near the " + (a.act.fire === "ember" ? "embers" : a.act.fire === "brand" ? "burning stick" : "fire"), a);
     a.sitFireAt = sim.tick; if (a.act.fire === "brand" && sim.fireStats) sim.fireStats.brandSits = (sim.fireStats.brandSits || 0) + 1;
+    if (G.Disease) G.Disease.onSitFire(sim, a);
   }
   // step 20: a child more than keepTiles from her guardian walks to a free tile 1-2 tiles from them
   function keepNear(sim, a) {
@@ -400,6 +404,7 @@
       a.needs.fullness = end; b.ripe = false; b.regrow = 0; b.ateBy = a.id; b.ateAt = sim.tick; a.knowledge.bushes[b.id].ripe = false; a.knowledge.bushes[b.id].emptySince = sim.tick;
       a.stats.meals++; G.Sim.log(sim, a.name + " ate berries (" + Agent.fullnessWord(end) + ")", a);
       if (G.Speech) G.Speech.onEat(sim, a);
+      if (G.Disease) G.Disease.onEatBerries(sim, a);
       startIdle(sim, a);
     }
   }

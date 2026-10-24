@@ -5,7 +5,7 @@ function load() {
   for (const f of ["data/config.js", "data/tiles.js", "data/names.js", "data/words.js", "data/art.js", "data/materials.js",
     "src/rng.js", "src/world.js", "src/climate.js", "src/agent.js", "src/animal.js", "src/objects.js", "src/fire.js",
     "src/learn.js", "src/hunt.js", "src/cook.js", "src/social.js", "src/family.js", "src/faith.js", "src/shelter.js",
-    "src/powers.js", "src/speech.js", "src/corpse.js", "src/moods.js", "src/sim.js"])
+    "src/powers.js", "src/speech.js", "src/corpse.js", "src/moods.js", "src/disease.js", "src/sim.js"])
     vm.runInContext(fs.readFileSync(path.join(root, f), "utf8"), ctx, { filename: f });
   return ctx.GS;
 }
@@ -13,11 +13,11 @@ const G = load(), C = G.data.config;
 let fails = 0;
 const ok = (c, msg, extra) => { console.log((c ? "PASS " : "FAIL ") + msg + (extra !== undefined ? "  " + extra : "")); if (!c) fails++; };
 
-ok(C.saveVersion === 24 && !!G.Moods, "saveVersion 24 + G.Moods loaded", C.saveVersion);
+ok(C.saveVersion === 25 && !!G.Moods, "saveVersion 24 + G.Moods loaded", C.saveVersion);
 { const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
   const refs = [...html.matchAll(/<(?:script[^>]*\ssrc|link[^>]*\shref)="([^"]+)"/g)].map(m => m[1]).filter(u => !/^(https?:|data:)/.test(u));
-  const bad = refs.filter(u => { const m = u.match(/[?&]v=(\d+)/); return !m || +m[1] !== 24; });
-  ok(refs.some(u => u.includes("moods.js")) && !bad.length, "index.html ?v=24 everywhere incl. moods.js", refs.length + " links"); }
+  const bad = refs.filter(u => { const m = u.match(/[?&]v=(\d+)/); return !m || +m[1] !== 25; });
+  ok(refs.some(u => u.includes("moods.js")) && !bad.length, "index.html ?v=25 everywhere incl. moods.js", refs.length + " links"); }
 
 // ---- Proof 1: liked death → sadness up + more prayer starts ----
 { const s = G.Sim.create(42);
@@ -125,9 +125,9 @@ ok(C.saveVersion === 24 && !!G.Moods, "saveVersion 24 + G.Moods loaded", C.saveV
   const raw = G.Sim.serialize(s); raw.version = 23;
   for (const a of raw.agents) { delete a.moods; delete a.moodClock; }
   const r = G.Sim.deserialize(raw);
-  ok(r.version === 24 && r.agents.every(a => a.moods && a.moods.happiness != null && a.moodClock), "migrate23→24 adds moods", r.agents[0].moods);
+  ok(r.version === 25 && r.agents.every(a => a.moods && a.moods.happiness != null && a.moodClock), "migrate23→25 adds moods (via 24)", r.agents[0].moods);
   const j = JSON.stringify(G.Sim.serialize(r));
-  ok(JSON.parse(j).version === 24, "save round-trip v24");
+  ok(JSON.parse(j).version === 25, "save round-trip v25");
 }
 
 console.log(fails ? "\n" + fails + " FAIL(S)" : "\nAll mood proofs passed.");

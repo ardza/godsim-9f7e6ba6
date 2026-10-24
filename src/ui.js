@@ -7,7 +7,7 @@
   const LC = () => G.data.config.log, ZC = () => G.data.config.render.zoom;
   const kindOf = text => { for (const k of LC().kinds || []) if (new RegExp(k.match, "i").test(text)) return k.kind; return "info"; };
   UI.tab = "all";
-  UI.personTab = "needs";   // 26b: person card tab (Needs / Mind / Kin / Knows); session only
+  UI.personTab = "needs";   // v25: person card tab (Needs / Mind / Kin / Knows / Log); session only
   const waterKnown = a => { const k = [...new Set(Object.values(a.knowledge.water || {}))].sort(); return k.length ? "the " + k.join(" and the ") : "no water yet"; };
   const inTab = text => { const T = LC().tabs || [], t = T.find(x => x.key === UI.tab); if (!t) return true;
     if (t.rest) return (t.also && new RegExp(t.also, "i").test(text)) || !T.some(x => x.match && new RegExp(x.match, "i").test(text)); // "rest" tab: lines no other tab claims
@@ -272,13 +272,19 @@
       return '<div class="row exp" data-exp="' + k + '" title="' + esc(G.Learn.label(k)) + ': rises when it warmed her, drops sharply on a burn; copied from a nearby success"><span>' + lbl + '</span>' + bar(v, 100, v < 30 ? "hot" : "trait") + '<b>' + Math.round(v) + '/100</b></div>' +
         (notes.length ? '<div class="exp-note">' + notes.join(" · ") + '</div>' : ''); }).join("");
   }
-  function plogRender(sim, id, name) {
-    const sec = $("plog-sec"), el = $("plog"), L = id == null ? [] : G.Sim.plogOf(sim, id), last = L[L.length - 1];
-    const key = id == null ? "" : id + "|" + L.length + "|" + (last ? last.t + last.text : "");
-    sec.hidden = el.hidden = id == null; if (UI._plogKey === key) return; UI._plogKey = key; if (id == null) { el.innerHTML = ""; return; }
-    sec.textContent = name + "'s log (" + L.length + ")";
-    el.innerHTML = L.length ? L.slice().reverse().map(e => '<div class="ev' + (e.k ? " " + e.k : "") + '"><time>' + G.Time.stamp(e.t) + '</time>' + esc(e.text) + '</div>').join("") : '<div class="empty">Nothing yet.</div>';
-    if (UI._plogId !== id) { el.scrollTop = 0; UI._plogId = id; }
+  // v25: personal log HTML for the Log tab (no under-card strip)
+  function plogHtml(sim, id) {
+    if (id == null) return '<div class="empty">Nothing yet.</div>';
+    const L = G.Sim.plogOf(sim, id);
+    return L.length
+      ? '<div class="plog in-tab" role="log">' + L.slice().reverse().map(e => '<div class="ev' + (e.k ? " " + e.k : "") + '"><time>' + G.Time.stamp(e.t) + '</time>' + esc(e.text) + '</div>').join("") + '</div>'
+      : '<div class="empty">Nothing yet.</div>';
+  }
+  function hidePlogStrip() {
+    const sec = $("plog-sec"), el = $("plog");
+    if (sec) { sec.hidden = true; sec.textContent = ""; }
+    if (el) { el.hidden = true; el.innerHTML = ""; }
+    UI._plogKey = ""; UI._plogId = null;
   }
   UI.fit = function () { // largest map-shaped (3:2) canvas that fits the stage; the canvas backing size stays fixed (crisp, pixelated)
     const st = $("stage"), cv = $("cv"), M = G.data.config.map, portrait = innerHeight > innerWidth, pad = 12;
@@ -354,12 +360,13 @@
     if (a) {
       const A = G.Agent, PC = G.data.config.person, known = Object.keys(a.knowledge.bushes).length, n = a.needs;
       const tabs = (UC().personTabs || [
-        { key: "needs", label: "Needs" }, { key: "mind", label: "Mind" }, { key: "kin", label: "Kin" }, { key: "knows", label: "Knows" }
+        { key: "needs", label: "Needs" }, { key: "mind", label: "Mind" }, { key: "kin", label: "Kin" }, { key: "knows", label: "Knows" }, { key: "log", label: "Log" }
       ]);
       if (!tabs.some(x => x.key === UI.personTab)) UI.personTab = "needs";
       const tabBar = '<div class="pcard-tabs" role="tablist" aria-label="person sections">' +
         tabs.map(x => '<button type="button" role="tab" class="pcard-tab' + (UI.personTab === x.key ? " on" : "") +
           '" data-ptab="' + x.key + '" aria-selected="' + (UI.personTab === x.key) + '" id="pcard-tab-' + x.key + '">' + esc(x.label) + '</button>').join("") + '</div>';
+      const sickLine = (G.Disease && G.Disease.isSick(a)) ? '<div class="sec">Sick</div><div class="sub">drains faster · recovering</div>' : '';
       const needsPane =
         '<div class="sec">Needs (0-100, full = good)</div>' +
         need("Fullness", n.fullness, n.fullness < A.fullnessThreshold(a) ? "hot" : "", A.fullnessWord(n.fullness), "100 = stuffed, " + PC.fullness.mealFillTo + " = full after a meal; eats below " + A.fullnessThreshold(a) + "; 0 = starving (food fills Fullness only)") +
@@ -368,14 +375,14 @@
         need("Warmth", n.warmth, n.warmth < 30 ? "hot" : "warm", A.warmthWord(n.warmth), "100 = warm; seeks shelter below " + Math.round(A.warmthSeekBelow(a)) + "; 0 = hypothermia (shivering→stumbling→moving slow→nodding off→collapsed; dies after 3 days at 0)" + (a.felt ?  " · feels like " + G.Time.tempF(a.felt.c) + (a.felt.sheltered ? ", under trees" : "") + (a.felt.huddle ? ", huddled with " + a.felt.huddle : "") + (a.felt.bond ? ", close to " + esc(a.felt.bond) : "") + (a.felt.heat ? ", fire nearby" : "") : "")) +
         (a.zero && (a.zero.water > 0 || a.zero.fullness > 0 || a.zero.warmth > 0 || a.zero.energy > 0) ? '<div class="sub hot">' + [a.zero.water > 0 ? 'no water for ' + (a.zero.water / 60).toFixed(1) + ' h' : '', a.zero.fullness > 0 ? 'no food for ' + (a.zero.fullness / 60).toFixed(1) + ' h' : '', a.zero.energy > 0 ? 'no sleep for ' + (a.zero.energy / 60).toFixed(1) + ' h' : '', a.zero.warmth > 0 ? 'hypothermia for ' + (a.zero.warmth / 60).toFixed(1) + ' h' + (a.hypo ? ' (stage ' + a.hypo + ')' : '') : ''].filter(Boolean).join(' · ') + '</div>' : '') +
         (a.act.type === "sleep" ? '<div class="sub">asleep since ' + G.Time.hhmm(G.Time.at(a.act.since)) + '</div>' : '') +
-        '<div class="sub">' + a.stats.meals + ' meal' + (a.stats.meals === 1 ? "" : "s") + ' · ' + (a.stats.drinks || 0) + ' drink' + (a.stats.drinks === 1 ? "" : "s") + ' · ' + (a.stats.sleeps || 0) + ' sleep' + (a.stats.sleeps === 1 ? "" : "s") + '</div>';
+        '<div class="sub">' + a.stats.meals + ' meal' + (a.stats.meals === 1 ? "" : "s") + ' · ' + (a.stats.drinks || 0) + ' drink' + (a.stats.drinks === 1 ? "" : "s") + ' · ' + (a.stats.sleeps || 0) + ' sleep' + (a.stats.sleeps === 1 ? "" : "s") + '</div>' + sickLine;
       const mm = a.moods || { happiness: 40, sadness: 40, anger: 40 }, md = G.Moods ? G.Moods.dominant(a) : null;
       const moodRow = '<div class="sec">Moods</div><div class="moods">' +
         '<span class="' + (md === "happiness" ? "dom" : "") + '">Hap ' + Math.round(mm.happiness) + '</span>' +
         '<span class="' + (md === "sadness" ? "dom" : "") + '">Sad ' + Math.round(mm.sadness) + '</span>' +
         '<span class="' + (md === "anger" ? "dom" : "") + '">Ang ' + Math.round(mm.anger) + '</span></div>';
       const mindPane =
-        moodRow +
+        sickLine + moodRow +
         '<div class="sec">Experience (0-100, ' + G.data.config.learn.start + ' = untried)</div>' + expRows(sim, a) + learnedRow(sim, a) +
         '<div class="sec">Traits (0-100, 50 = avg' + (a.inh ? '; ▲▼ vs parents' : '') + ')</div>' + traitRows(a) +
         speechRows(sim, a) + prayRows(a);
@@ -384,12 +391,13 @@
         '<div class="sec">Knows</div><div class="chips">' + chip(known + ' berry bush' + (known === 1 ? "" : "es")) + chip(waterKnown(a)) + chip('Known shelters: ' + (a.shelters || []).length) +
           chip('carrying ' + (G.Items.held(sim, a) ? esc(G.Items.label(G.Items.held(sim, a))) : 'nothing')) +
           (sim.discoveries || []).filter(d => d.who === a.name).map(d => chip(esc(d.action + " " + d.materials.slice(0, 2).join(" / ") + " → " + d.result), "disc")).join("") + '</div>';
-      const pane = UI.personTab === "mind" ? mindPane : UI.personTab === "kin" ? kinPane : UI.personTab === "knows" ? knowsPane : needsPane;
-      // header + Find always outside tabs; personal log stays under #info-body (plog siblings)
+      const logPane = '<div class="sec">' + esc(a.name) + "'s log</div>" + plogHtml(sim, a.id);
+      const pane = UI.personTab === "mind" ? mindPane : UI.personTab === "kin" ? kinPane : UI.personTab === "knows" ? knowsPane : UI.personTab === "log" ? logPane : needsPane;
+      // header + Find outside tabs; personal log only in Log tab (no under-card strip)
       $("info-body").innerHTML = findBtn(a) + '<h3 class="hasfind">' + esc(a.name) + '</h3><div class="sub">' + Math.floor(a.age) + ' years · <span class="stage">' + G.Family.stageWord(a) + '</span> · ' + A.doing(a) + '</div>' +
         tabBar + '<div class="pcard-pane" role="tabpanel" aria-labelledby="pcard-tab-' + UI.personTab + '">' + pane + '</div>';
     }
-    plogRender(sim, a ? a.id : bd ? bd.of : bb ? bb.id : null, a ? a.name : bd ? bd.name : bb ? bb.name : null);
+    hidePlogStrip();
     const last = sim.log[sim.log.length - 1], key = UI.tab + "|" + sim.log.length + "|" + (last && last.t) + "|" + (last && last.text);
     if (UI._logKey !== key) {
       UI._logKey = key;

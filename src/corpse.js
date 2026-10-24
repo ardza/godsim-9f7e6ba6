@@ -280,10 +280,11 @@
     watchersFear(sim, a, b);
     const sickP = act.cooked ? (C().sickChance.cooked || 0.15) : (C().sickChance.raw || 0.4);
     if (sim.orng.chance(sickP)) {
-      a.needs.energy = r9(Math.max(0, a.needs.energy - (C().sickEnergy || 20)));
       stats(sim).sick++;
       G.Learn.add(a, "eat", -(C().sickDrop || 5));
-      G.Sim.log(sim, a.name + " feels sick after eating from the body", a);
+      if (G.Disease) G.Disease.infect(sim, a, "corpse");
+      else { a.needs.energy = r9(Math.max(0, a.needs.energy - (C().sickEnergy || 20)));
+        G.Sim.log(sim, a.name + " doubles over after eating from the body", a); }
     }
     G.Agent.startIdle(sim, a, 0.5);
   };

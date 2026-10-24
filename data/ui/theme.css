@@ -72,6 +72,7 @@ input { font: 16px var(--font); color: var(--text); background: rgba(0,0,0,.25);
 .ev { padding: var(--s2) 0; border-bottom: 1px solid var(--line); animation: ev-in var(--t-med) var(--ease); }
 .ev time { color: var(--dim); margin-right: var(--s2); font-variant-numeric: tabular-nums; }
 .plog { max-height: 40vh; overflow-y: auto; margin-top: var(--s2); padding-right: var(--s1); }
+.plog.in-tab { max-height: none; margin-top: 0; }  /* v25: Log tab scrolls with the card pane */
 .plog .ev.death { color: var(--warn); } .plog .ev.birth { color: var(--on); } .plog .ev.disc { color: var(--wheat); }
 #toast { border-radius: var(--r-pill); padding: var(--s2) var(--s4); box-shadow: var(--shadow); }
 

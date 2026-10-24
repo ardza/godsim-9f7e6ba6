@@ -70,7 +70,7 @@
   // after a meal of meat: cooked is a success others may copy; charred lowers the score (raw changes nothing here)
   Cook.ate = function (sim, a, it) {
     const s = Cook.of(it); stats(sim).eaten[s]++;
-    if (s === "cooked") { const e = G.Learn.add(a, "cook", K().gain); e.n++; G.Discoveries.note(sim, a, "eat", ["cooked meat"], "fullness up, not sick"); G.Learn.success(sim, a, "cook"); }
+    if (s === "cooked") { const e = G.Learn.add(a, "cook", K().gain); e.n++; G.Discoveries.note(sim, a, "eat", ["cooked meat"], "fullness up, not sick"); G.Learn.success(sim, a, "cook"); if (G.Disease) G.Disease.onEatCooked(sim, a); }
     else if (s === "charred") { G.Learn.add(a, "cook", -K().charDrop); G.Discoveries.note(sim, a, "eat", ["charred meat"], "little fullness"); }
   };
 

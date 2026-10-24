@@ -48,6 +48,7 @@
     G.Powers.init(sim);   // step 22: god powers (own stream, drawn only while one is active)
     G.Speech.init(sim);   // step 25: local language (own stream wrng)
     G.Corpse.init(sim);   // step 26: corpseFear (own stream crng), corpse choices
+    G.Disease.init(sim);   // step 28: lasting sickness (own stream drng)
     return sim;
   };
   // Seeded names with no repeats until the list is used up, then a fresh shuffle (reuse is fine past the list).
@@ -156,6 +157,14 @@
     }
     s.version = 24; return s;
   };
+  // v24 -> v25 (step 28): disease stream + stats; per-person sick stays null until infected
+  Sim.migrate25 = function (o) {
+    if (!o || o.version !== 24) return o; const s = JSON.parse(JSON.stringify(o));
+    s.drng = ((s.seed ^ 0xD15EA5E) >>> 0);
+    s.diseaseStats = G.Disease.newStats();
+    for (const a of s.agents || []) { if (a.sick === undefined) a.sick = null; }
+    s.version = 25; return s;
+  };
   // One log line. who = the person(s) involved (person/body objects or ids): the line is tagged with their ids and also goes into each one's own
   // log (sim.plog[id], last log.personMax kept, saved). k = an optional kind for the personal log ("death", "birth", "disc").
   Sim.ids = who => (who == null ? [] : Array.isArray(who) ? who : [who]).map(w => w == null ? null : typeof w === "number" ? w : w.kind === "body" ? w.of : w.id).filter((v, i, a) => v != null && a.indexOf(v) === i);
@@ -188,6 +197,7 @@
     G.Cook.step(sim);   // step 17: meat close to an ember / fire heats (cooked, then charred)
     G.Corpse.step(sim);   // step 26: burial / pyre stage advances
     if (G.Moods) G.Moods.step(sim);   // step 27: happiness / sadness / anger drift + banding
+    if (G.Disease) G.Disease.step(sim);   // step 28: spread / recover / rare sickness death
     G.Fire.lightning(sim);
     G.Fire.step(sim);
   };
@@ -227,7 +237,8 @@
       shelters: sim.shelters || [], shelterStats: sim.shelterStats || null, shelterFirst: sim.shelterFirst || null, srng: sim.srng ? sim.srng.s : null,
       powers: sim.powers || null,
       wrng: sim.wrng ? sim.wrng.s : null, speech: sim.speech || null,
-      crng: sim.crng ? sim.crng.s : null, corpseStats: sim.corpseStats || null };
+      crng: sim.crng ? sim.crng.s : null, corpseStats: sim.corpseStats || null,
+      drng: sim.drng ? sim.drng.s : null, diseaseStats: sim.diseaseStats || null };
   };
   Sim.deserialize = function (o) {
     if (o && o.version === 13) o = Sim.migrate(o);
@@ -241,6 +252,7 @@
     if (o && o.version === 21) o = Sim.migrate22(o);
     if (o && o.version === 22) o = Sim.migrate23(o);
     if (o && o.version === 23) o = Sim.migrate24(o);
+    if (o && o.version === 24) o = Sim.migrate25(o);
     if (!o || o.version !== CFG().saveVersion) throw new Error("unsupported save version " + (o && o.version));
     const s = JSON.parse(JSON.stringify(o));
     const world = { w: s.world.w, h: s.world.h, seed: s.seed, attempt: s.world.attempt, spawn: s.world.spawn, hills: s.world.hills, mountain: s.world.mountain || "0".repeat(s.world.w * s.world.h), info: s.world.info, tiles: s.world.tiles.split("").map(c => TILE_CH.indexOf(c)) };
@@ -256,7 +268,8 @@
       shelters: s.shelters || [], shelterStats: s.shelterStats || G.Shelter.newStats(), shelterFirst: s.shelterFirst || null, srng: s.srng != null ? new G.RNG(s.srng) : undefined,
       powers: s.powers || Object.assign(G.Powers.newState(), { rs: (s.seed ^ 0x5A1D0F22) >>> 0 }),
       wrng: new G.RNG(s.wrng != null ? s.wrng : (s.seed ^ 0x5FEE7C11) >>> 0), speech: s.speech || G.Speech.newState(),
-      crng: new G.RNG(s.crng != null ? s.crng : (s.seed ^ 0xC0B5E26F) >>> 0), corpseStats: s.corpseStats || G.Corpse.newStats() };
+      crng: new G.RNG(s.crng != null ? s.crng : (s.seed ^ 0xC0B5E26F) >>> 0), corpseStats: s.corpseStats || G.Corpse.newStats(),
+      drng: new G.RNG(s.drng != null ? s.drng : (s.seed ^ 0xD15EA5E) >>> 0), diseaseStats: s.diseaseStats || G.Disease.newStats() };
   };
 
   G.Time = Time; G.Sim = Sim;
