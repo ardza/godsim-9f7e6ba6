@@ -16,7 +16,8 @@
       traits, knowledge: { bushes: {}, water: {} }, relations: {}, exp: {},   // exp: step 13-14 experience scores per action (see learn.js)
       act: { type: "idle", until: 0 }, stats: { meals: 0, drinks: 0, sleeps: 0 }, carry: null,   // carry = id of the one thing in hand
       zero: { water: 0, fullness: 0, warmth: 0, energy: 0 },   // minutes in a row at 0 (water/fullness/warmth/energy clocks; warmth & energy kill only after full stage ladders)
-      hypo: 0, rainExposedMinutes: 0
+      hypo: 0, rainExposedMinutes: 0,
+      moods: { happiness: 40, sadness: 40, anger: 40 }, moodClock: { hungryLow: 0, hapWas: 40, logAt: {} }
     };
   };
 
@@ -52,7 +53,7 @@
   Agent.sight = a => P().sightTiles;
   Agent.tilePos = a => ({ x: Math.round(a.pos.x), y: Math.round(a.pos.y) });
   Agent.doing = a => a.act.type === "pray" ? G.Faith.doing(a) : (a.act.type === "idle" || a.act.type === "sleep") && a.felt && a.felt.huddle && a.needs.warmth < 60 ? (a.act.type === "sleep" ? "asleep, huddled" : "huddling") :
-    a.hypoUnconscious ? "unconscious from cold" : a.hypo >= 4 && a.needs.warmth <= 0 && a.act.type === "sleep" ? "asleep from cold" : ({ idle: "resting", try: ({ strike: "striking", rub: "rubbing", cut: "cutting" })[a.act.action] || "trying", eat: "eating a meal", eatMeat: "eating meat", eatCorpse: "eating from a body", dig: "digging", cook: "holding meat to the fire", drink: "drinking", sleep: "asleep" })[a.act.type] || ({ wander: "wandering", food: "going to a bush", explore: "looking for food", water: "going to the water", exploreWater: "looking for water", collapse: "stumbling to a stop", pickup: "going to pick something up", try: "going to try something", shelter: "seeking warmth", fleeFire: "moving away from flames", fireside: "going to sit by the fire", burnt: "jumping back from the flames", hunt: "going after a deer", meat: "going to a carcass", corpse: "going to a body", drag: "dragging a body", follow: "keeping close to someone", mate: "going to sleep beside a partner", keep: "keeping close to family", prayspot: "going to a prayer spot", beside: "going to sleep beside family", avoid: "keeping away from someone", scared: "running from the flash" })[a.act.goal] || a.act.type;
+    a.hypoUnconscious ? "unconscious from cold" : a.hypo >= 4 && a.needs.warmth <= 0 && a.act.type === "sleep" ? "asleep from cold" : ({ idle: "resting", try: ({ strike: "striking", rub: "rubbing", cut: "cutting" })[a.act.action] || "trying", eat: "eating a meal", eatMeat: "eating meat", eatCorpse: "eating from a body", dig: "digging", cook: "holding meat to the fire", drink: "drinking", sleep: "asleep" })[a.act.type] || ({ wander: "wandering", food: "going to a bush", explore: "looking for food", water: "going to the water", exploreWater: "looking for water", collapse: "stumbling to a stop", pickup: "going to pick something up", try: "going to try something", shelter: "seeking warmth", fleeFire: "moving away from flames", fireside: "going to sit by the fire", burnt: "jumping back from the flames", hunt: "going after a deer", meat: "going to a carcass", corpse: "going to a body", drag: "dragging a body", follow: "keeping close to someone", mate: "going to sleep beside a partner", keep: "keeping close to family", prayspot: "going to a prayer spot", beside: "going to sleep beside family", avoid: "keeping away from someone", scared: "running from the flash", fleeWolf: "running from the Wolves" })[a.act.goal] || a.act.type;
 
   // Two people never end a move on the same tile: each person claims one tile (where they stand, or the end of their path),
   // and nobody picks a destination someone else has claimed. Passing through is fine.
@@ -196,7 +197,7 @@
     const thirsty = n.water < E.wakeIfNeedBelow;
     if (hungry || thirsty) { const why = thirsty && (n.water <= n.fullness || !hungry) ? "thirsty" : "hungry"; if (why === "hungry") a.hungerWokeNight = hNight; G.Sim.log(sim, a.name + " woke up " + why, a); startIdle(sim, a, 0); a.act.until = sim.tick; a.wokeEarly = true; return; }
     if (n.energy >= 100 && !Agent.isNight(sim.tick)) { const m = G.Time.at(sim.tick).minuteOfDay;
-      G.Sim.log(sim, a.name + (m >= E.dawnAt && m < E.dawnAt + 120 ? " woke at dawn" : " woke up rested"), a); startIdle(sim, a, 0.3); a.wokeEarly = false; }
+      G.Sim.log(sim, a.name + (m >= E.dawnAt && m < E.dawnAt + 120 ? " woke at dawn" : " woke up rested"), a); if (G.Moods) G.Moods.onSleepDone(sim, a); startIdle(sim, a, 0.3); a.wokeEarly = false; }
   }
 
   // ---- warmth (step 11): a spot under trees next to others is warmest; with no woods near, next to someone ----

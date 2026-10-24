@@ -89,7 +89,7 @@
       const kin = G.Family && G.Family.isChild(b) && ((b.parents && b.parents.indexOf(a.id) >= 0) || b.guard === a.id || (a.group != null && a.group === b.group));
       if (sa - own < C.copyMargin) { if (kin) seep(sim, b, a, key, sa, SS); continue; }
       const prev = b.exp && b.exp[key] && b.exp[key].copied; if (prev && prev.from === a.id && sim.tick - prev.t < 1440) { if (kin) seep(sim, b, a, key, sa, SS); continue; }   // one copy of the same person per day
-      const p = clamp(Learn.copyChance(b, key) * (G.Social ? G.Social.copyFactor(a, b) : 1) * Learn.stageX(b, a), 0, 1);   // step 18: x1.25 group / x0.85 others; step 20: x2 child / x1.5 youth
+      const p = clamp(Learn.copyChance(b, key) * (G.Social ? G.Social.copyFactor(a, b) : 1) * Learn.stageX(b, a) * (G.Moods ? G.Moods.copyMult(b, a) : 1), 0, 1);   // step 18/20/27
       SS.seen++; SS.p = r2(SS.p + p);
       if (!sim.lrng.chance(p)) { if (kin) seep(sim, b, a, key, sa, SS); continue; }
       const e = Learn.rec(b, key); e.score = r2(own + (sa - own) * C.copyShare); e.copied = { from: a.id, name: a.name, t: sim.tick };

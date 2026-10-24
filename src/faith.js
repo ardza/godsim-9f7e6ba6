@@ -124,7 +124,7 @@
       const why = Faith.trigger(sim, a); if (!why || a.needs.energy <= 0) { a.prayDue = 0; continue; }
       // the hourly roll runs every awake minute; the bout starts the next time she is free on a whole tile (within an hour)
       if (a.prayDue && sim.tick > a.prayDue) a.prayDue = 0;
-      if (!a.prayDue && a.act.type !== "sleep" && sim.prng.chance(clamp(a.traits.faith / C.hourDiv * tm / 60, 0, 1))) { a.prayDue = sim.tick + Math.round(60 / tm); sim.faith.stats.rolls = (sim.faith.stats.rolls || 0) + 1; }
+      if (!a.prayDue && a.act.type !== "sleep" && sim.prng.chance(clamp(a.traits.faith / C.hourDiv * tm / 60 * (G.Moods ? G.Moods.prayerMult(a) : 1), 0, 1))) { a.prayDue = sim.tick + Math.round(60 / tm); sim.faith.stats.rolls = (sim.faith.stats.rolls || 0) + 1; }
       if (!a.prayDue || !Faith.free(a) || !G.Agent.whole(a)) continue; a.prayDue = 0;
       if (Faith.sourceClose(sim, a)) { sim.faith.stats.skippedSource++; continue; }
       Faith.start(sim, a, why);
@@ -171,7 +171,7 @@
     for (const b of sim.agents) {
       if (b === a || b.act.type === "sleep" || Math.hypot(b.pos.x - a.pos.x, b.pos.y - a.pos.y) > C.copyTiles) continue;
       if (b.prayForms && b.prayForms[form]) continue;
-      const p = clamp(L.copyChance * b.traits.curiosity / 50 * (G.Social ? G.Social.copyFactor(a, b) : 1) * G.Learn.stageX(b, a), 0, 1);
+      const p = clamp(L.copyChance * b.traits.curiosity / 50 * (G.Social ? G.Social.copyFactor(a, b) : 1) * G.Learn.stageX(b, a) * (G.Moods ? G.Moods.copyMult(b, a) : 1), 0, 1);
       if (!sim.prng.chance(p)) continue;
       const e = rec(b, form); e.from = a.name; e.fromId = a.id; e.t = sim.tick; e.gen = (src.gen || 0) + 1; sim.faith.stats.copies++;
       const R = reg(sim, form); R.copies++; R.holders[b.id] = e.gen;

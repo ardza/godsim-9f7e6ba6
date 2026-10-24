@@ -102,7 +102,7 @@
     }
     const form = knownForm(a);
     if ((a.traits.faith || 0) >= Cc.ritualFaithMin && form)
-      W.push({ k: "ritual", w: (0.2 + (a.traits.faith || 0) / 200) * brave * (0.5 + Corpse.pull(a, "ritual")) * (Cc.ritualChance || 0.55) });
+      W.push({ k: "ritual", w: (0.2 + (a.traits.faith || 0) / 200) * brave * (0.5 + Corpse.pull(a, "ritual")) * (Cc.ritualChance || 0.55) * (G.Moods ? G.Moods.ritualBindMult(a) : 1) });
     return W;
   };
   Corpse.pick = function (sim, a, b) {
@@ -299,6 +299,7 @@
     succeed(sim, a, "ritual");
     a.traits.faith = clamp((a.traits.faith || 0) + (C().ritualFaithGain || 3), 0, 100);
     a.traits.corpseFear = clamp((a.traits.corpseFear || 50) - (C().ritualFearDrop || 5), 0, 100);
+    if (G.Moods) G.Moods.onRitual(sim, a);
   }
 
   // Burial / pyre stage advances; light unlit pyres that sit on fire.

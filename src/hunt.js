@@ -47,12 +47,12 @@
     // a fresh carcass with meat in sight: go and take some (scavenging, or back to her own kill)
     let cb = null;
     for (const b of sim.bodies) if (Hunt.carcassMeat(b)) { const d = dist(a, b.x, b.y); if (d <= Hc.sightTiles && (!cb || d < cb.d)) cb = { b, d }; }
-    if (cb && sim.lrng.chance(clamp(Hc.scavengeChance * Hunt.pull(a), 0, 1)) && goMeat(sim, a, cb.b)) { stats(sim).scavenge++; return true; }
+    if (cb && sim.lrng.chance(clamp(Hc.scavengeChance * Hunt.pull(a) * (G.Moods ? G.Moods.shareBias(a) : 1), 0, 1)) && goMeat(sim, a, cb.b)) { stats(sim).scavenge++; return true; }
     // holding something hard and a grazer in sight: go after it
     // Director (call 1 on 18): only real cold (warmth under hunt.coldBelow, 30) stops a hunt (step 17 used her warmth-seeking level)
     if (Hunt.weapon(it) && sim.tick - (a.huntAt == null ? -1e9 : a.huntAt) >= Hc.cooldownMinutes && a.needs.warmth >= Hc.coldBelow) {
       let g = null; for (const q of sim.animals) if (q.species === "grazer") { const d = dist(a, q.pos.x, q.pos.y); if (d <= Hc.sightTiles && (!g || d < g.d)) g = { q, d }; }
-      if (g && sim.lrng.chance(clamp(Hc.approachChance * Hunt.pull(a), 0, 1))) { a.huntAt = sim.tick;
+      if (g && sim.lrng.chance(clamp(Hc.approachChance * Hunt.pull(a) * (G.Moods ? G.Moods.huntMult(a) : 1), 0, 1))) { a.huntAt = sim.tick;
         if (stalkTo(sim, a, g.q, sim.tick)) { stats(sim).stalks++; G.Learn.bump(sim, "approaches", "hunt"); return true; } }
     }
     return false;
@@ -84,6 +84,7 @@
       const e = G.Learn.add(a, "hunt", H().gain); e.n++; a.stats.kills = (a.stats.kills || 0) + 1;
       G.Discoveries.note(sim, a, "strike", [base, "grazer"], "deer falls");
       G.Learn.success(sim, a, "hunt");
+      if (G.Moods) G.Moods.onHuntKill(sim, a);
       if (!goMeat(sim, a, b)) G.Agent.startIdle(sim, a, 0.3);
     } else {
       S.misses++; G.Learn.add(a, "hunt", -H().missDrop);

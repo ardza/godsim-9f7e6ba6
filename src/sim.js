@@ -145,6 +145,17 @@
     }
     s.version = 23; return s;
   };
+  // v23 -> v24 (step 27): per-person moods + moodClock
+  Sim.migrate24 = function (o) {
+    if (!o || o.version !== 23) return o; const s = JSON.parse(JSON.stringify(o));
+    const B = (G.data.config.moods && G.data.config.moods.baseline) || 40;
+    for (const a of s.agents || []) {
+      if (!a.moods) a.moods = { happiness: B, sadness: B, anger: B };
+      else { if (a.moods.happiness == null) a.moods.happiness = B; if (a.moods.sadness == null) a.moods.sadness = B; if (a.moods.anger == null) a.moods.anger = B; }
+      if (!a.moodClock) a.moodClock = { hungryLow: 0, hapWas: a.moods.happiness, logAt: {} };
+    }
+    s.version = 24; return s;
+  };
   // One log line. who = the person(s) involved (person/body objects or ids): the line is tagged with their ids and also goes into each one's own
   // log (sim.plog[id], last log.personMax kept, saved). k = an optional kind for the personal log ("death", "birth", "disc").
   Sim.ids = who => (who == null ? [] : Array.isArray(who) ? who : [who]).map(w => w == null ? null : typeof w === "number" ? w : w.kind === "body" ? w.of : w.id).filter((v, i, a) => v != null && a.indexOf(v) === i);
@@ -176,6 +187,7 @@
     G.Hunt.step(sim);
     G.Cook.step(sim);   // step 17: meat close to an ember / fire heats (cooked, then charred)
     G.Corpse.step(sim);   // step 26: burial / pyre stage advances
+    if (G.Moods) G.Moods.step(sim);   // step 27: happiness / sadness / anger drift + banding
     G.Fire.lightning(sim);
     G.Fire.step(sim);
   };
@@ -195,6 +207,7 @@
     if (a.carry != null) G.Items.drop(sim, a);
     G.Family.onDeath(sim, a);
     G.Faith.onDeath(sim, a);   // step 21: those awake close by saw it
+    if (G.Moods) G.Moods.onDeath(sim, a);   // step 27: liked death → sadness
     sim.agents.splice(sim.agents.indexOf(a), 1); delete sim.prev[a.id];
     const b = G.Body.create(sim, a, cause); sim.bodies.push(b); return b;
   };
@@ -227,6 +240,7 @@
     if (o && o.version === 20) o = Sim.migrate21(o);
     if (o && o.version === 21) o = Sim.migrate22(o);
     if (o && o.version === 22) o = Sim.migrate23(o);
+    if (o && o.version === 23) o = Sim.migrate24(o);
     if (!o || o.version !== CFG().saveVersion) throw new Error("unsupported save version " + (o && o.version));
     const s = JSON.parse(JSON.stringify(o));
     const world = { w: s.world.w, h: s.world.h, seed: s.seed, attempt: s.world.attempt, spawn: s.world.spawn, hills: s.world.hills, mountain: s.world.mountain || "0".repeat(s.world.w * s.world.h), info: s.world.info, tiles: s.world.tiles.split("").map(c => TILE_CH.indexOf(c)) };

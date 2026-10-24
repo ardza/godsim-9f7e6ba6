@@ -15,7 +15,7 @@
   Social.fam = (a, b) => { const r = Social.rel(a, b); return r ? r.f : 0; };
   const entry = (a, b) => { const R = a.rel || (a.rel = {}); return R[b.id] || (R[b.id] = { f: 0, l: S().like.start, m: 0, d: 0 }); };
   Social.addFam = (a, b, d) => { const e = entry(a, b); e.f = r6(clamp(e.f + d, 0, 100)); return e; };   // 21b: a cold loner joining someone
-  Social.addLike = (a, b, d) => { const e = entry(a, b); e.l = r6(clamp(e.l + d, 0, 100)); return e; };
+  Social.addLike = (a, b, d) => { const e = entry(a, b); e.l = r6(clamp(e.l + d, 0, 100)); if (d < 0 && G.Moods) G.Moods.onLikeDelta(a, d); return e; };
 
   // did one of her needs rise this minute in a way company shares (eating, drinking, warmed by fire or huddling)?
   function rising(a) {
@@ -35,7 +35,7 @@
       if (d > near) continue;
       for (const [p, q] of [[a, b], [b, a]]) { const e = entry(p, q); e.d = 0; e.nt = sim.tick;
         if ((e.m += tm) >= 60) { e.m -= 60; e.f = Math.min(100, e.f + C.famPerHour); }
-        if (p.soc.up && p.soc.ep && p.soc.ep.indexOf(q.id) < 0) { p.soc.ep.push(q.id); Social.addLike(p, q, C.like.shared); } }
+        if (p.soc.up && p.soc.ep && p.soc.ep.indexOf(q.id) < 0) { p.soc.ep.push(q.id); Social.addLike(p, q, C.like.shared); if (G.Moods && p.group != null && p.group === q.group) G.Moods.onShare(sim, p); } }
     }
     for (const a of A) { a.soc.n = [a.needs.fullness, a.needs.water, a.needs.warmth];
       if (!a.rel) continue;
@@ -50,6 +50,7 @@
   Social.took = function (sim, a, taker, what) {
     if (!taker || taker === a || !a.rel || !a.rel[taker.id]) return;   // only someone she knows by sight
     Social.addLike(a, taker, S().like.took); (sim.socStats || (sim.socStats = { took: 0 })).took++;
+    if (G.Moods) { const m = G.Moods.ensure(a), bump = (G.data.config.moods && G.data.config.moods.angContestBump) || 12; m.anger = Math.min(100, m.anger + bump); }
     G.Sim.log(sim, a.name + " finds " + taker.name + " took the " + what, [a, taker]);
   };
 

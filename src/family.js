@@ -133,7 +133,8 @@
       needs: { fullness: n.fullness != null ? n.fullness : 70, water: n.water != null ? n.water : 70, energy: n.energy != null ? n.energy : 80, warmth: n.warmth != null ? n.warmth : 70 },
       traits, inh: b.inh, knowledge: c ? JSON.parse(JSON.stringify(c.knowledge)) : { bushes: {}, water: {} }, relations: {}, exp: {},
       act: { type: "idle", until: sim.tick + 1 }, stats: { meals: 0, drinks: 0, sleeps: 0 }, carry: null, zero: Object.assign({ water: 0, fullness: 0, warmth: 0 }, b.zero || {}),
-      sex: b.sex, children: [], parents: b.parents, parentNames: b.parentNames, group: b.group != null ? b.group : null, bornAt: b.bornAt, stage: "child", guard: c ? c.id : null, rel: {} };
+      sex: b.sex, children: [], parents: b.parents, parentNames: b.parentNames, group: b.group != null ? b.group : null, bornAt: b.bornAt, stage: "child", guard: c ? c.id : null, rel: {},
+      moods: { happiness: 40, sadness: 40, anger: 40 }, moodClock: { hungryLow: 0, hapWas: 40, logAt: {} } };
     if (c) { const SB = K.startBond; a.rel[c.id] = { f: SB.f, l: SB.l, m: 0, d: 0 }; c.rel = c.rel || {}; c.rel[a.id] = Object.assign({ m: 0, d: 0 }, c.rel[a.id] || {}, { f: SB.f, l: SB.l }); }
     sim.babies.splice(sim.babies.indexOf(b), 1); sim.agents.push(a); sim.famStats.children = (sim.famStats.children || 0) + 1;
     G.Sim.log(sim, a.name + " walks on " + Family.poss(a) + " own now" + (c ? ", close to " + c.name : ""), c ? [a, c] : a, "birth");

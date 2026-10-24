@@ -155,10 +155,13 @@
   // An idle holder with nothing pressing may try an action on a thing lying within reach (walks there first). ~once per person per game day.
   Items.maybeTry = function (sim, a) {
     const O = OC(), it = Items.held(sim, a);
-    if (!it || it.material === "meat" || sim.tick - (a.lastTry == null ? -1e9 : a.lastTry) < O.tryCooldown || !sim.orng.chance(O.tryChance)) return false;
+    if (!it || it.material === "meat" || sim.tick - (a.lastTry == null ? -1e9 : a.lastTry) < O.tryCooldown) return false;
     const c = sim.items.filter(i => !i.heldBy && Math.hypot(i.x - a.pos.x, i.y - a.pos.y) <= O.tryReach).sort((p, q) => Math.hypot(p.x - a.pos.x, p.y - a.pos.y) - Math.hypot(q.x - a.pos.x, q.y - a.pos.y) || p.id - q.id)[0];
     if (!c) return false;
-    a.lastTry = sim.tick; const action = sim.orng.pick(PH().actions);
+    const action = sim.orng.pick(PH().actions);
+    const tryP = O.tryChance * (G.Moods ? G.Moods.inventMult(a, action) : 1);
+    if (!sim.orng.chance(clamp(tryP, 0, 1))) return false;
+    a.lastTry = sim.tick;
     if (Math.round(a.pos.x) === c.x && Math.round(a.pos.y) === c.y && G.Agent.whole(a)) { startTry(sim, a, c, action); return true; }
     // stand on the thing's tile or next to it
     const spots = [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => [c.x + dx, c.y + dy]).filter(([x, y]) => W.walkable(sim.world, x, y) && !G.Agent.claimed(sim, a, x, y));
@@ -188,7 +191,10 @@
       bwords.forEach(w => Discoveries.note(sim, a, act.action, [bh, bt], w));
       for (const w of words) { st.results[act.action + " " + hl + " / " + tl + ": " + w] = (st.results[act.action + " " + hl + " / " + tl + ": " + w] || 0) + 1; }
       if (o.spark) { st.sparks++; G.Fire.spark(sim, t.x, t.y, a, { action: act.action, held: bh, target: bt }); }
-      if (o.broke) { st.breaks++; if ((o.broke === "held" ? it : t).props.sharpness >= PH().sharpAt) st.shards++; }
+      if (o.broke) { st.breaks++; if ((o.broke === "held" ? it : t).props.sharpness >= PH().sharpAt) st.shards++;
+        if (G.Moods && G.Moods.dominant(a) === "anger") { const br = G.Moods.breakMult(a), piece = o.broke === "held" ? it : t;
+          if (piece.props.sharpness > 0) piece.props.sharpness = Math.min(100, Math.round(piece.props.sharpness * br)); }
+      }
     } else st.results[act.action + " " + hl + " / " + tl + ": nothing"] = (st.results[act.action + " " + hl + " / " + tl + ": nothing"] || 0) + 1;
     return false;
   };

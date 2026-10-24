@@ -158,7 +158,7 @@
     // v21: children/youths copy speech tokens at family.child.copyX (x2 / x1.5), same as skills
     const stageX = G.Learn && G.Learn.stageX ? G.Learn.stageX(b, a) : 1;
     const base = speechTok && a.group != null && a.group === b.group ? C.copyX : (G.Social ? G.Social.copyFactor(a, b) : 1);
-    const p = clamp(C.copyChance * b.traits.curiosity / 50 * base * stageX, 0, 1);
+    const p = clamp(C.copyChance * b.traits.curiosity / 50 * base * stageX * (G.Moods ? G.Moods.copyMult(b, a) : 1), 0, 1);
     if (!sim.wrng.chance(p)) return;
     const e = rec(b, token); e.meaning = ma; e.score = r2(own + (sa - own) * C.copyShare); e.from = a.name; e.t = sim.tick;
     sim.speech.stats.copies++;
@@ -172,7 +172,7 @@
     const whole = !G.Agent.whole || G.Agent.whole(a);
     // v21: invent roll → emit now if free; else keep a longer due window (was 60 min, often expired busy → invents>>emits)
     if (a.speechDue && sim.tick > a.speechDue) a.speechDue = 0;
-    if (!a.speechDue && sim.wrng.chance(clamp(a.traits.curiosity / C.inventDiv * TM() / 60, 0, 1))) {
+    if (!a.speechDue && sim.wrng.chance(clamp(a.traits.curiosity / C.inventDiv * TM() / 60 * (G.Moods ? G.Moods.inventMult(a) : 1), 0, 1))) {
       sim.speech.stats.invents++;
       if (free && whole) {
         const token = Speech.pickToken(sim, a, need);
@@ -192,7 +192,8 @@
     const C = SC(), e = rec(hearer, token);
     const first = !e.meaning;
     if (e.meaning && e.meaning !== meaning) return false; // already bound differently; keep first meaning
-    e.meaning = meaning; e.n++; e.score = r2(clamp((e.score || C.start) + (first ? C.bindGain : C.reuseGain), 0, 100)); e.t = sim.tick;
+    const gain = (first ? C.bindGain : C.reuseGain) * (G.Moods ? G.Moods.bindMult(hearer) : 1);
+    e.meaning = meaning; e.n++; e.score = r2(clamp((e.score || C.start) + gain, 0, 100)); e.t = sim.tick;
     if (first) sim.speech.stats.binds++;
     hearer.speechWatch = null;
     Speech.recheckLocks(sim);

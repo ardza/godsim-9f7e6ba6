@@ -369,7 +369,13 @@
         (a.zero && (a.zero.water > 0 || a.zero.fullness > 0 || a.zero.warmth > 0 || a.zero.energy > 0) ? '<div class="sub hot">' + [a.zero.water > 0 ? 'no water for ' + (a.zero.water / 60).toFixed(1) + ' h' : '', a.zero.fullness > 0 ? 'no food for ' + (a.zero.fullness / 60).toFixed(1) + ' h' : '', a.zero.energy > 0 ? 'no sleep for ' + (a.zero.energy / 60).toFixed(1) + ' h' : '', a.zero.warmth > 0 ? 'hypothermia for ' + (a.zero.warmth / 60).toFixed(1) + ' h' + (a.hypo ? ' (stage ' + a.hypo + ')' : '') : ''].filter(Boolean).join(' · ') + '</div>' : '') +
         (a.act.type === "sleep" ? '<div class="sub">asleep since ' + G.Time.hhmm(G.Time.at(a.act.since)) + '</div>' : '') +
         '<div class="sub">' + a.stats.meals + ' meal' + (a.stats.meals === 1 ? "" : "s") + ' · ' + (a.stats.drinks || 0) + ' drink' + (a.stats.drinks === 1 ? "" : "s") + ' · ' + (a.stats.sleeps || 0) + ' sleep' + (a.stats.sleeps === 1 ? "" : "s") + '</div>';
+      const mm = a.moods || { happiness: 40, sadness: 40, anger: 40 }, md = G.Moods ? G.Moods.dominant(a) : null;
+      const moodRow = '<div class="sec">Moods</div><div class="moods">' +
+        '<span class="' + (md === "happiness" ? "dom" : "") + '">Hap ' + Math.round(mm.happiness) + '</span>' +
+        '<span class="' + (md === "sadness" ? "dom" : "") + '">Sad ' + Math.round(mm.sadness) + '</span>' +
+        '<span class="' + (md === "anger" ? "dom" : "") + '">Ang ' + Math.round(mm.anger) + '</span></div>';
       const mindPane =
+        moodRow +
         '<div class="sec">Experience (0-100, ' + G.data.config.learn.start + ' = untried)</div>' + expRows(sim, a) + learnedRow(sim, a) +
         '<div class="sec">Traits (0-100, 50 = avg' + (a.inh ? '; ▲▼ vs parents' : '') + ')</div>' + traitRows(a) +
         speechRows(sim, a) + prayRows(a);

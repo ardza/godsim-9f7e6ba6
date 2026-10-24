@@ -129,6 +129,7 @@
       pack.chaseLog = sim.tick;
       G.Sim.log(sim, Animal.name(a) + " chases " + p.name + " near the den", p);
     }
+    if (G.Moods) G.Moods.onWolfChase(sim, p, pack);
   }
   function tryThreaten(sim, a, p) {
     const S = AC().wolves, T = S.threaten, pack = packOf(sim, a); if (!p || !pack) { idle(sim, a); return; }
