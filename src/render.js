@@ -11,7 +11,7 @@
     if (A.person && A.person.src) loadImg(A.person.src, im => art.person = im);
     if (A.founders && A.founders.src) loadImg(A.founders.src, im => art.founders = im);
     loadImg(A.bush, im => art.bush = im); loadImg(A.bushEmpty, im => art.bushEmpty = im);
-    for (const k of ["body", "grazer", "scavenger", "wolves", "items", "fx", "food", "carcass", "smoke", "baby", "child", "pray", "childPray", "gesture", "childGesture", "spot", "shelter", "rain", "rainLight", "rainHeavy", "lightning", "burial", "pyre", "ashBones", "reed", "reedBank", "mountain", "flake", "axe", "spear", "tools"]) if (A[k] && A[k].src) loadImg(A[k].src, im => art[k] = im);
+    for (const k of ["body", "grazer", "scavenger", "wolves", "items", "fx", "food", "carcass", "smoke", "baby", "child", "pray", "childPray", "gesture", "childGesture", "spot", "shelter", "rain", "rainLight", "rainHeavy", "lightning", "burial", "pyre", "ashBones", "reed", "reedBank", "mountain", "flake", "axe", "spear", "tools", "hide", "hideWorn"]) if (A[k] && A[k].src) loadImg(A[k].src, im => art[k] = im);
   };
   R.art = () => art;
 

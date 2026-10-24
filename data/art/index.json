@@ -297,5 +297,22 @@
    "up"
   ],
   "note": "\u00a729 / v26 hand overlay \u2014 long stick reach/poke (not thrown). Same origin as person; transparent."
+ },
+ "hide_16.png": {
+  "frame": 16,
+  "cols": [
+   "hide"
+  ],
+  "note": "\u00a731 / v28 \u2014 grazer hide ground/carried item (soft mass)"
+ },
+ "hide_worn_16.png": {
+  "frame": 16,
+  "rows": [
+   "down",
+   "left",
+   "right",
+   "up"
+  ],
+  "note": "\u00a731 / v28 \u2014 worn hide cloak/drape overlay at person origin"
  }
 }

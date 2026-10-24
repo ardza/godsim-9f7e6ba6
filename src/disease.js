@@ -59,6 +59,7 @@
       const line = source === "corpse" ? a.name + " doubles over after eating from the body"
         : source === "spread" ? a.name + " doubles over, catching what the others have"
         : source === "rot" ? a.name + " retches near the rotting body"
+        : source === "plague" ? a.name + " doubles over as the air turns foul"
         : a.name + " retches after the meat";
       G.Sim.log(sim, line, a);
     }
@@ -72,6 +73,14 @@
     Disease.log(sim, a, "recover", a.name + " stands straighter, the sickness past");
     const d = G.Discoveries.note(sim, a, "recover", ["sickness"], how || "recovered");
     if (d) d.title = "First recovery";
+    return true;
+  };
+  // v27 Cure power: clear without Discoveries / per-person recover log (Powers.cure logs the place line)
+  Disease.clearPower = function (sim, a) {
+    if (!Disease.isSick(a)) return false;
+    a.sick = null;
+    sim.diseaseStats.recovered++;
+    a.stats = a.stats || {}; a.stats.cured = (a.stats.cured || 0) + 1;
     return true;
   };
 

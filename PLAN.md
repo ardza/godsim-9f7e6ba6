@@ -160,6 +160,12 @@ Starts as soon as 13-15 and the new UI are frozen to godsim-rc, without waiting 
 ## 28. Disease (save v25) — shipped Oct 24
 - Sick state, spread, cure; person-card Log tab. Live commit 1877ae1.
 
-## 29. Tools from cut and strike (save v26) — build now
-- Lock strike/cut/rub into carried tools (flake, axe/hoe, long stick). Spec: specs/15b-17.md §29.
-- Artist: axe_16, flake_16, spear_16 overlays.
+## 29. Tools from cut and strike (save v26) — shipped Oct 24
+- Flake / axe / long stick. Live commit 4aed9eb.
+
+## 30. Disease powers (save v27) — build now
+- Cure + Plague circle powers. Spec: specs/15b-17.md §30.
+
+## 31. Hides and warmth (save v28) — after v27 freeze (parallel OK)
+- Grazer hide; wear / sleep-under; warmth bonus. Spec: specs/15b-17.md §31.
+- Artist: hide_16 + worn overlay; Cure/Plague icons if needed.

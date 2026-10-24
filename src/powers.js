@@ -1,4 +1,4 @@
-// Step 22 / 24 god powers: Rain (Light/Medium/Heavy), Warm, Cool, Lightning (Single/Barrage), Spawn.
+// Step 22 / 24 / 30 god powers: Rain, Warm, Cool, Lightning, Spawn, Cure, Plague (v27).
 // State (saved): sim.powers = { effects: [...], cd: {} (unused since v19), rs: stream state, stats, next }.
 // Own seeded stream (rs), drawn only while an effect is active, so a run where no power is used matches one without this module.
 // Nothing here is scripted: rain changes the ground, the bushes, warmth loss and water; people react through their own rules and traits.
@@ -7,9 +7,9 @@
   const Powers = {};
   const PC = () => G.data.config.powers, TM = () => G.data.config.time.tickGameMinutes, mins = m => Math.max(1, Math.round(m / TM()));
   const fToC = f => f * 5 / 9;
-  Powers.KINDS = ["rain", "warm", "cool", "lightning", "spawn"];
+  Powers.KINDS = ["rain", "warm", "cool", "lightning", "spawn", "cure", "plague"];
   // step 23 stats: strikes (fires lit, killed, scared), spawned animals by species, prayers answered by a strike / spawn
-  Powers.newStats = () => ({ casts: { rain: 0, warm: 0, cool: 0, lightning: 0, spawn: 0 }, putOut: 0, sticksOut: 0, covers: 0, faces: 0, puddleDrinks: 0,
+  Powers.newStats = () => ({ casts: { rain: 0, warm: 0, cool: 0, lightning: 0, spawn: 0, cure: 0, plague: 0 }, putOut: 0, sticksOut: 0, covers: 0, faces: 0, puddleDrinks: 0,
     strikes: { fires: 0, scorched: 0, killed: 0, scared: 0, babies: 0 }, spawns: { grazer: 0, scavenger: 0, wolves: 0, watched: 0, backedAway: 0 }, answered: 0 });
   Powers.newState = () => ({ effects: [], cd: {}, rs: 0, next: 1, stats: Powers.newStats() });
   Powers.init = function (sim) { sim.powers = Powers.newState(); sim.powers.rs = (sim.seed ^ 0x5A1D0F22) >>> 0; };
@@ -37,6 +37,8 @@
     x = Math.round(x); y = Math.round(y); if (!G.World.inb(sim.world, x, y)) return { ok: false, reason: "off the map" };
     if (k === "lightning") return Powers.strike(sim, x, y, opt || "single");
     if (k === "spawn") return Powers.spawn(sim, x, y, opt || "grazer");
+    if (k === "cure") return Powers.cure(sim, x, y);
+    if (k === "plague") return Powers.plague(sim, x, y);
     const r = C.radiusTiles, place = Powers.place(sim, x, y, r), e = { id: S.next++, k, x, y, r, t: sim.tick, place };
     S.stats.casts[k] = (S.stats.casts[k] || 0) + 1;
     if (k === "rain") { const str = (opt && C.rain.strengths[opt]) ? opt : "medium", R = C.rain.strengths[str];
@@ -47,6 +49,41 @@
     else { const W = C[k]; e.end = sim.tick + mins(W.minutes); e.fade = mins(W.fadeMinutes); e.dC = fToC(W.deltaF);
       G.Sim.log(sim, "The air grows " + (k === "warm" ? "warm" : "cool") + " near " + place); }
     S.effects.push(e); return { ok: true, effect: e };
+  };
+
+  // v27: Cure — clear sick on every living person in the circle (instant, no cooldown)
+  Powers.cure = function (sim, x, y) {
+    const C = PC(), S = st(sim), r = C.radiusTiles, place = Powers.place(sim, x, y, r);
+    const e = { id: S.next++, k: "cure", x, y, r, t: sim.tick, place, end: sim.tick, done: true };
+    S.stats.casts.cure = (S.stats.casts.cure || 0) + 1;
+    let n = 0;
+    for (const a of sim.agents) {
+      if (!a || !G.Disease || !G.Disease.isSick(a)) continue;
+      if ((a.pos.x - x) * (a.pos.x - x) + (a.pos.y - y) * (a.pos.y - y) > r * r + 1e-9) continue;
+      if (G.Disease.clearPower(sim, a)) n++;
+    }
+    e.cleared = n;
+    G.Sim.log(sim, "The sickness lifts near " + place);
+    Powers.answer(sim, x, y);
+    S.effects.push(e);
+    return { ok: true, effect: e, cleared: n };
+  };
+  // v27: Plague — seed v25 sick on living people in the circle (instant, no cooldown)
+  Powers.plague = function (sim, x, y) {
+    const C = PC(), S = st(sim), r = C.radiusTiles, place = Powers.place(sim, x, y, r);
+    const e = { id: S.next++, k: "plague", x, y, r, t: sim.tick, place, end: sim.tick, done: true };
+    S.stats.casts.plague = (S.stats.casts.plague || 0) + 1;
+    let n = 0;
+    for (const a of sim.agents) {
+      if (!a || !G.Disease) continue;
+      if ((a.pos.x - x) * (a.pos.x - x) + (a.pos.y - y) * (a.pos.y - y) > r * r + 1e-9) continue;
+      if (G.Disease.infect(sim, a, "plague")) n++;
+    }
+    e.seeded = n;
+    G.Sim.log(sim, "Sickness settles near " + place);
+    Powers.answer(sim, x, y);
+    S.effects.push(e);
+    return { ok: true, effect: e, seeded: n };
   };
 
   // the lowest dry walkable tiles in the circle hold puddles (data only; no tile art)
@@ -284,7 +321,7 @@
     const step = Math.max(1, Math.floor(T / left)); a.curioFade = { left, step, next: sim.tick + step }; };
   Powers.curioStep = function (sim) { for (const a of sim.agents) { const f = a.curioFade; if (!f || sim.tick < f.next) continue;
     a.traits.curiosity = Math.max(0, a.traits.curiosity - 1); f.left--; f.next = sim.tick + f.step; if (f.left <= 0) a.curioFade = null; } };
-  // ---- step 23: a strike or a new animal soon after a prayer (within faithMinutes, by someone within faithTiles) reinforces that prayer
+  // ---- step 23 / 30: a strike, spawn, cure or plague soon after a prayer (within faithMinutes, by someone within faithTiles) reinforces that prayer
   Powers.answer = function (sim, x, y) { if (!G.Faith || !G.Faith.answer) return 0; const C = PC(); let n = 0;
     for (const a of sim.agents) if (Math.hypot(a.pos.x - x, a.pos.y - y) <= C.faithTiles && G.Faith.answer(sim, a, mins(C.faithMinutes))) n++;
     st(sim).stats.answered += n; return n; };

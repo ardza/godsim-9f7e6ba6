@@ -65,7 +65,10 @@
     flake: { src: "data/art/flake_16.png", frame: 16, rows: ["down", "left", "right", "up"] },   // 16x64
     axe: { src: "data/art/axe_16.png", frame: 16, rows: ["down", "left", "right", "up"] },   // 16x64
     spear: { src: "data/art/spear_16.png", frame: 16, rows: ["down", "left", "right", "up"] },   // 16x64 long-stick reach/poke
-    tools: { src: "data/art/tools_16.png", frame: 16, cols: ["flake", "axe", "spear"], rows: ["down", "left", "right", "up"] }   // 48x64 convenience sheet
+    tools: { src: "data/art/tools_16.png", frame: 16, cols: ["flake", "axe", "spear"], rows: ["down", "left", "right", "up"] },   // 48x64 convenience sheet
+    // §31 / v28 (Artist): grazer hide item + worn cloak overlay
+    hide: { src: "data/art/hide_16.png", frame: 16, cols: ["hide"] },   // 16x16 ground/carried
+    hideWorn: { src: "data/art/hide_worn_16.png", frame: 16, rows: ["down", "left", "right", "up"] }   // 16x64 worn drape
   };
   G.data.artItems = G.data.art.items.cols;   // which item frames exist (a sharp bone uses bone_shard; other shards use their material)
 })(this.GS = this.GS || {});

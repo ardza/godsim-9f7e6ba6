@@ -2,7 +2,7 @@
 (function (G) {
   G.data = G.data || {};
   G.data.config = {
-    saveVersion: 26,                // v26: tools from strike/cut/rub/bind (flake, crude axe/hoe, long stick; score≥45; durability; Discoveries); v25: disease + Log tab; v24: moods
+    saveVersion: 27,                // v27: Cure + Plague god powers (circle clear/seed sick; no cooldown; prayer reinforce); v26: tools; v25: disease + Log
     saveKey: "godsim.save",
     map: {
       w: 60, h: 40, tilePx: 16,      // map is 960x640 art px, scaled to fit the screen
@@ -427,7 +427,8 @@
     //   warm / cool: shift the air by deltaF (°F) inside the circle for minutes, fading out over the last fadeMinutes; overlapping effects add,
     //     capped at +/- maxShiftF. tint = the overlay colour (view only); rainFrameMs = rain art frame time (view only).
     //   Lightning modes: single = one tile at the tap; barrage = one bolt on the tap plus count-1 more on random land tiles within scatterTiles (no water, at most one per tile; v22 scatterTiles 4, primary always on tap).
-    //   Spawn: one animal (picker), under the usual caps. Faith: a strike / spawn within faithTiles / faithMinutes answers a recent prayer.
+    //   Spawn: one animal (picker), under the usual caps. Faith: a strike / spawn / cure / plague within faithTiles / faithMinutes answers a recent prayer.
+    //   v27: Cure clears sick in the circle; Plague seeds sick (v25 rules). Instant, no cooldown (same tap-then-map as Warm/Cool).
     // Step 26 corpse choices. People no longer ignore bodies. Choices emerge from curiosity vs corpseFear (founders 40-70 via crng)
     // and learned scores (leave/drag/bury/burn/eat/ritual); copying uses group rules. Soft ground = walkable non-hill non-water.
     // Burial: digMaterials into soft ground → dug (brief) → mound_fresh → mound_settled → cairn (burial_16). Bones locked under the mound.
@@ -448,7 +449,7 @@
       foundersFear: [40, 70],
       gain: { leave: 8, drag: 12, bury: 18, burn: 18, eat: 15, ritual: 12 }
     },
-    powers: { radiusTiles: 8, order: ["rain", "warm", "cool", "lightning", "spawn"], labels: { rain: "Rain", warm: "Warm", cool: "Cool", lightning: "Lightning", spawn: "Spawn" },
+    powers: { radiusTiles: 8, order: ["rain", "warm", "cool", "lightning", "spawn", "cure", "plague"], labels: { rain: "Rain", warm: "Warm", cool: "Cool", lightning: "Lightning", spawn: "Spawn", cure: "Cure", plague: "Plague" },
       lightning: { modes: { single: { label: "Single bolt", count: [1, 1], scatterTiles: 0 }, barrage: { label: "Barrage", count: [2, 3], scatterTiles: 4 } },
                    modeOrder: ["single", "barrage"],
                    fire: { dry: 0.6, rain: 0.4, deepCold: 0.2, deepColdSeason: 3 }, cause: "struck by lightning", scareTiles: 6, fearAdd: 20, fearMinutes: 1440,
@@ -474,7 +475,7 @@
                 medium: { label: "Medium", minutes: 360, bushX: 3,   bushMinutes: 4320, chillC: 6,  lossX: 1.5,  wetMinutes: 1440, holdOutMinutes: 60,   douse: "fires", puddles: { count: 6,   minutes: 1440 } },
                 heavy:  { label: "Heavy",  minutes: 720, bushX: 5,   bushMinutes: 7200, chillC: 10, lossX: 2,    wetMinutes: 2880, holdOutMinutes: 0,    douse: "all",   puddles: { count: 200, minutes: 2880 } } } },
       warm: { deltaF: 15, minutes: 1440, fadeMinutes: 120 }, cool: { deltaF: -15, minutes: 1440, fadeMinutes: 120 }, maxShiftF: 30,
-      tint: { warm: "rgba(255,150,60,0.13)", cool: "rgba(90,170,255,0.15)", rain: "rgba(60,80,110,0.12)", lightning: "rgba(255,250,210,0.6)" }, rainFrameMs: 150 },
+      tint: { warm: "rgba(255,150,60,0.13)", cool: "rgba(90,170,255,0.15)", rain: "rgba(60,80,110,0.12)", lightning: "rgba(255,250,210,0.6)", cure: "rgba(120,220,160,0.18)", plague: "rgba(140,60,100,0.18)" }, rainFrameMs: 150 },
     // Step 25 local language (src/speech.js; own seeded stream wrng). Tokens are gesture+sound strings.
     //   Invent when a need is under needBelow and someone is within nearTiles: chance = curiosity/inventDiv per hour (v21: 200 after the 4x2y silent-world run; was 300).
     //   Hearers within hearTiles watch meanMinutes for a matching outcome (seeTiles) and bind token→meaning with bindGain.
