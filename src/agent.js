@@ -188,7 +188,7 @@
       const p = W.findPath(sim.world, t.x, t.y, k.x, k.y); if (p && p.length && W.pathLength(p) <= max && (!best || W.pathLength(p) < best.len)) best = { id, p, len: W.pathLength(p) }; }
     return best;
   }
-  function startSleep(sim, a, again) { a.topUp = null; a.act = { type: "sleep", since: sim.tick }; if (!again) a.stats.sleeps++; G.Sim.log(sim, a.name + " lies down to sleep", a); }
+  function startSleep(sim, a, again) { a.topUp = null; a.act = { type: "sleep", since: sim.tick }; if (!again) a.stats.sleeps++; G.Sim.log(sim, a.name + " lies down to sleep", a); if (G.Hides) G.Hides.onSleep(sim, a); }
   function sleep(sim, a) {
     const E = P().energy, n = a.needs;
     const night = G.Time.at(sim.tick + 720).day;
@@ -309,6 +309,7 @@
     if (G.Social.idleMove(sim, a, (x, y, g, ex) => walkTo(sim, a, x, y, g, ex), (x, y) => W.walkable(sim.world, x, y) && !Agent.claimed(sim, a, x, y) && near(x, y))) return;
     if (G.Corpse && G.Corpse.maybe(sim, a)) return;   // step 26: corpse choices (leave/drag/bury/burn/eat/ritual)
     if (G.Tools && G.Tools.maybe(sim, a)) return;   // step 29: bind / chop / poke / ready long stick
+    if (G.Hides && G.Hides.maybe(sim, a)) return;   // v28: wear / sleep-under hide when cold
     if (G.Items.maybeTry(sim, a) || G.Items.maybePickUp(sim, a)) return;   // idle curiosity (step 9-10)
     const w = P().wander, r = w.radius, g = G.Family.guardian(sim, a), K = G.data.config.child.keepTiles,
       t = randomTarget(sim, a, 2, r, (x, y) => G.Social.wanderOk(sim, a, x, y) && (!g || Math.hypot(g.pos.x - x, g.pos.y - y) <= K));

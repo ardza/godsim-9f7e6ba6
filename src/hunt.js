@@ -107,6 +107,7 @@
     b.meat--; b.tookBy = a.id; b.tookAt = sim.tick; b.eaten = r9((b.eaten || 0) + M.fleshPerPiece); b.flesh = r9(Math.max(0, b.flesh - M.fleshPerPiece)); stats(sim).taken++;
     if (usedCut) G.Sim.log(sim, a.name + " cuts meat from " + b.name + "'s carcass", a);
     else G.Sim.log(sim, a.name + " takes meat from " + b.name + "'s carcass", a);
+    if (G.Hides && b.species === "grazer") G.Hides.maybeSpawn(sim, b);   // v28: one hide per grazer carcass on first take
     if (G.Agent.want(a) === "food") Hunt.seekFood(sim, a); else G.Agent.startIdle(sim, a, 0.5);
   };
 

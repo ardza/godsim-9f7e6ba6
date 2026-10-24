@@ -50,6 +50,7 @@
     G.Corpse.init(sim);   // step 26: corpseFear (own stream crng), corpse choices
     G.Disease.init(sim);   // step 28: lasting sickness (own stream drng)
     G.Tools.init(sim);     // step 29: carried tools (flake / axe / long stick)
+    G.Hides.init(sim);     // §31 / v28: grazer hides
     return sim;
   };
   // Seeded names with no repeats until the list is used up, then a fresh shuffle (reuse is fine past the list).
@@ -181,6 +182,12 @@
     }
     s.version = 27; return s;
   };
+  // v27 -> v28 (§31): grazer hides. Bodies may gain hideSpawned; people may wear/sleep under.
+  Sim.migrate28 = function (o) {
+    if (!o || o.version !== 27) return o; const s = JSON.parse(JSON.stringify(o));
+    s.hideStats = G.Hides.newStats();
+    s.version = 28; return s;
+  };
   // One log line. who = the person(s) involved (person/body objects or ids): the line is tagged with their ids and also goes into each one's own
   // log (sim.plog[id], last log.personMax kept, saved). k = an optional kind for the personal log ("death", "birth", "disc").
   Sim.ids = who => (who == null ? [] : Array.isArray(who) ? who : [who]).map(w => w == null ? null : typeof w === "number" ? w : w.kind === "body" ? w.of : w.id).filter((v, i, a) => v != null && a.indexOf(v) === i);
@@ -214,6 +221,7 @@
     G.Corpse.step(sim);   // step 26: burial / pyre stage advances
     if (G.Moods) G.Moods.step(sim);   // step 27: happiness / sadness / anger drift + banding
     if (G.Disease) G.Disease.step(sim);   // step 28: spread / recover / rare sickness death
+    if (G.Hides) G.Hides.step(sim);   // v28: worn hide follows; clear sleep-under on wake
     G.Fire.lightning(sim);
     G.Fire.step(sim);
   };
@@ -255,7 +263,7 @@
       wrng: sim.wrng ? sim.wrng.s : null, speech: sim.speech || null,
       crng: sim.crng ? sim.crng.s : null, corpseStats: sim.corpseStats || null,
       drng: sim.drng ? sim.drng.s : null, diseaseStats: sim.diseaseStats || null,
-      toolStats: sim.toolStats || null };
+      toolStats: sim.toolStats || null, hideStats: sim.hideStats || null };
   };
   Sim.deserialize = function (o) {
     if (o && o.version === 13) o = Sim.migrate(o);
@@ -272,6 +280,7 @@
     if (o && o.version === 24) o = Sim.migrate25(o);
     if (o && o.version === 25) o = Sim.migrate26(o);
     if (o && o.version === 26) o = Sim.migrate27(o);
+    if (o && o.version === 27) o = Sim.migrate28(o);
     if (!o || o.version !== CFG().saveVersion) throw new Error("unsupported save version " + (o && o.version));
     const s = JSON.parse(JSON.stringify(o));
     const world = { w: s.world.w, h: s.world.h, seed: s.seed, attempt: s.world.attempt, spawn: s.world.spawn, hills: s.world.hills, mountain: s.world.mountain || "0".repeat(s.world.w * s.world.h), info: s.world.info, tiles: s.world.tiles.split("").map(c => TILE_CH.indexOf(c)) };
@@ -289,7 +298,7 @@
       wrng: new G.RNG(s.wrng != null ? s.wrng : (s.seed ^ 0x5FEE7C11) >>> 0), speech: s.speech || G.Speech.newState(),
       crng: new G.RNG(s.crng != null ? s.crng : (s.seed ^ 0xC0B5E26F) >>> 0), corpseStats: s.corpseStats || G.Corpse.newStats(),
       drng: new G.RNG(s.drng != null ? s.drng : (s.seed ^ 0xD15EA5E) >>> 0), diseaseStats: s.diseaseStats || G.Disease.newStats(),
-      toolStats: s.toolStats || G.Tools.newStats() };
+      toolStats: s.toolStats || G.Tools.newStats(), hideStats: s.hideStats || (G.Hides ? G.Hides.newStats() : null) };
   };
 
   G.Time = Time; G.Sim = Sim;

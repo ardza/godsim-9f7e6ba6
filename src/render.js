@@ -283,10 +283,13 @@
     if (it.material === "reed") { const c2 = sheetCol("reed", it.form === "shard" ? "reed" : "reed");
       if (c2 >= 0) { cx.drawImage(art.reed, c2 * 16, 0, 16, 16, px, py, size, size); return; }
       const f2 = size / 16; cx.fillStyle = "#5a7a3a"; cx.fillRect(px + 7 * f2, py + 3 * f2, 2 * f2, 11 * f2); cx.fillRect(px + 5 * f2, py + 5 * f2, 2 * f2, 2 * f2); return; }
+    if (it.material === "hide") { const c2 = sheetCol("hide", "hide");
+      if (c2 >= 0) { cx.drawImage(art.hide, c2 * 16, 0, 16, 16, px, py, size, size); return; }
+      const f2 = size / 16; cx.fillStyle = "#8a6a48"; cx.fillRect(px + 3 * f2, py + 5 * f2, 10 * f2, 8 * f2); cx.fillStyle = "#6e5238"; cx.fillRect(px + 4 * f2, py + 6 * f2, 8 * f2, 2 * f2); return; }
     const c = sheetCol("items", G.Items.frame(it)), f = size / 16;
     if (c >= 0) { cx.drawImage(art.items, c * 16, 0, 16, 16, px, py, size, size); return; }
     const m = it.material, sh = it.form === "shard";   // code fallback: small shapes in earthy colours
-    cx.fillStyle = { rock: "#7d766b", stick: "#7a5230", flint: "#3f4652", bone: "#e8e0c8", reed: "#5a7a3a" }[m] || "#999";
+    cx.fillStyle = { rock: "#7d766b", stick: "#7a5230", flint: "#3f4652", bone: "#e8e0c8", reed: "#5a7a3a", hide: "#8a6a48" }[m] || "#999";
     const R2 = (x, y, w, h) => cx.fillRect(px + x * f, py + y * f, Math.max(1, w * f), Math.max(1, h * f));
     if (m === "stick") { if (sh) R2(5, 9, 6, 2); else { R2(2, 10, 12, 2); R2(9, 8, 2, 2); } }
     else if (m === "bone") { if (sh) { R2(6, 7, 2, 6); R2(7, 5, 1, 2); } else { R2(3, 9, 10, 2); R2(2, 8, 2, 4); R2(12, 8, 2, 4); } }
@@ -310,6 +313,13 @@
       if (c >= 0 && r >= 0) { cx.drawImage(art.tools, c * 16, r * 16, 16, 16, px, py, 8, 8); return true; }
     }
     return false;
+  }
+  // v28: worn hide cloak overlay (16×64 facing rows). Returns true if drawn.
+  function drawHideWorn(a, px, py, facing) {
+    if (!a || a.wearingHide == null || !art.hideWorn) return false;
+    const A = G.data.art.hideWorn; if (!A || !A.rows) return false;
+    const face = facing || "down", r = A.rows.indexOf(face); if (r < 0) return false;
+    cx.drawImage(art.hideWorn, 0, r * 16, 16, 16, px, py, tp, tp); return true;
   }
   // step 19: a burning stick = the stick plus a small flickering flame (the fire fx at half size) at its tip
   function drawBrand(it, px, py, size, time) {
@@ -367,7 +377,7 @@
       cx.fillStyle = "#6e6558"; cx.fillRect(px + 1, py + 2, tp - 2, tp - 4); cx.fillStyle = "#1c1814"; cx.fillRect(px + 4, py + (q.type === "cave" ? 6 : 9), tp - 8, tp - (q.type === "cave" ? 8 : 11)); }
   }
   function drawItems(sim, selectedId) {
-    for (const it of sim.items || []) { if (it.heldBy != null) continue;
+    for (const it of sim.items || []) { if (it.heldBy != null || it.wornBy != null) continue;   // v28: worn hide is person overlay
       if (it.id === selectedId) { cx.strokeStyle = "#fff6b0"; cx.lineWidth = 1.5; cx.strokeRect(it.x * tp + 0.5, it.y * tp + 0.5, tp - 1, tp - 1); cx.lineWidth = 1; }
       drawBrand(it, it.x * tp, it.y * tp, 16, R.time || 0); }
   }
@@ -414,6 +424,7 @@
       // shivering: a 1 px shake while cold and awake (render only)
       const shiver = a.needs.warmth != null && a.needs.warmth < 30 && a.act.type !== "sleep" ? (Math.floor(time * 18 + a.id) % 2 ? 1 : -1) / tp : 0;
       drawPerson(a, x + shiver, y, st.frame, st.facing, time);
+      if (a.wearingHide != null) drawHideWorn(a, Math.round((x + shiver) * tp), Math.round(y * tp), st.facing);
       const held = G.Items && G.Items.held(sim, a);
       if (held && a.act.type !== "sleep") {
         const hx = Math.round((x + shiver) * tp + (st.facing === "left" ? 0 : 8)), hy = Math.round(y * tp + 5);

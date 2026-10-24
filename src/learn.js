@@ -45,6 +45,7 @@
     if (felt.huddle) parts.push(["huddle", felt.huddle * Wm.huddleC, C.huddle.warmGain]);
     if (felt.sheltered) parts.push(["shelter", Wm.shelterC, C.shelter.warmGain]);
     if (felt.den > 0 && C.den) parts.push(["den", felt.den, C.den.warmGain]);   // step 21b: warmed inside a cave / overhang / thicket
+    if (felt.hide > 0 && C.hide) parts.push(["hide", felt.hide, C.hide.warmGain]);   // v28: worn / sleep-under hide
     for (const [key, dC, gain, src] of parts) {
       const got = (rate(felt.c, w0) - rate(felt.c - dC, w0)) * TM(); if (got <= 0) continue;
       const e = Learn.add(a, key, got * gain), ep = a.learnEp || (a.learnEp = {});

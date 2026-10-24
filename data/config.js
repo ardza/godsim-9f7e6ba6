@@ -2,7 +2,7 @@
 (function (G) {
   G.data = G.data || {};
   G.data.config = {
-    saveVersion: 27,                // v27: Cure + Plague god powers (circle clear/seed sick; no cooldown; prayer reinforce); v26: tools; v25: disease + Log
+    saveVersion: 28,                // v28: grazer hides (wear / sleep-under warmth under fire+shelter cap; Discoveries first wear); v27: Cure/Plague; v26: tools
     saveKey: "godsim.save",
     map: {
       w: 60, h: 40, tilePx: 16,      // map is 960x640 art px, scaled to fit the screen
@@ -344,7 +344,8 @@
         approachChance: 0.5, sitTiles: [1, 2], fireSitTiles: 3, stayMin: 30 },   // stays sitting near it while her score is >= stayMin
       // huddle / shelter: warmth felt from others close by / from the trees raises those scores the same way (warmGain per warmth point);
       // the score scales the pull of company / trees when seeking warmth: weight x (0.5 + score/100)  (= the old weights at 50)
-      huddle: { warmGain: 1 }, shelter: { warmGain: 1 }, den: { warmGain: 3 },   // 21b: den = warmed inside a cave / overhang / thicket
+      huddle: { warmGain: 1 }, shelter: { warmGain: 1 }, den: { warmGain: 3 }, hide: { warmGain: 1 },   // 21b: den = warmed inside a cave / overhang / thicket
+      // v28: hide wear / sleep-under raises Learn "hide" via warmGain when cold
       successWarmth: 3, fireSuccessGain: 10,   // Director (call 11 on 19): each warming success at a fire also raises the fire score by 10
                    // every 3 warmth points gained this way is one visible "success" others nearby can see
       // Step 14 copying (generic, any action key): an awake person within copyTiles who sees a success may copy it if the other's score is
@@ -353,6 +354,7 @@
       copyTiles: 5, copyMargin: 10, copyChance: 0.35, copyShare: 0.5,
       actions: { fire: { label: "sitting by the fire", short: "fire", fear: "fireFear" }, huddle: { label: "huddling up", short: "huddling", fear: null }, shelter: { label: "sheltering under the trees", short: "shelter", fear: null },
         den: { label: "sleeping in a cave, overhang or thicket", short: "shelters", fear: null },
+        hide: { label: "wearing a hide", short: "hide", fear: null },
         hunt: { label: "going after deer", short: "hunting", fear: null },
         cook: { label: "holding meat to the fire", short: "cooking", fear: "fireFear" },
         leave: { label: "leaving a body where it lies", short: "leaving bodies", fear: "corpseFear" },
@@ -390,6 +392,18 @@
     cook: { emberTiles: 1.5, fireTiles: 3, cookedAt: 30, charredAt: 120, fullness: { cooked: 70, charred: 20 }, sickChance: { cooked: 0, charred: 0 },
       sightTiles: 15, holdChance: 0.15, waitMinutes: 60, coldGiveUp: 10, gain: 20, charDrop: 10 },
     meat: { pieces: { grazer: 4 }, fleshPerPiece: 20, takeMinutes: 10, fullness: 60, eatMinutes: 15, sickChance: 0.25, sickEnergy: 20 },
+    // §31 / v28: grazer hide — soft mass item; worn / sleep-under felt °C stacks with fire+shelter under shelter.capX × fire.heatC
+    hides: {
+      wornC: 8, sleepC: 6,           // felt °C while wearing / sleeping under (trimmed by shared warmth cap)
+      reachTiles: 1.5,               // ground hide in reach to wear or sleep under
+      tryEveryMinutes: 30,
+      tryChance: 0.4,                // × curiosity/50 × (0.5 + coldFear/100) when cold (warmth < seek or hypo)
+      scoreLock: 45,                 // Learn "hide" score to lock wear (start 50 so often met)
+      gainWear: 10, gainSleep: 6,
+      logWear: "pulls the hide about her shoulders",
+      logSleep: "curls up under the hide",
+      logDrop: "lets the hide fall from her shoulders"
+    },
     bushes: { count: 60, minCount: 15, moistBase: 0.5, dry: { below: -0.1, at: -0.3, fewer: [0.3, 0.5] }, regrowMinutes: 1440, startRipe: 0.85, minSpacing: 4,   // eaten bush is ripe again 1 game day later (Greening; see season)
       // Step 15 seasons (Greening, High Sun, Leaffall, Deep Cold): a meal gives mealAdds x yield; an eaten bush ripens again after regrowMinutes
       // (people still expect it back after the base regrowMinutes, so in winter they find more bushes bare)
