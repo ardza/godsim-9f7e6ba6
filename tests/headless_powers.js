@@ -12,7 +12,8 @@ module.exports = function (G, C, ok, h) {
   const RM = PC.rain.strengths.medium;
   ok(PC.radiusTiles === 8 && !("cooldownMinutes" in PC) && PC.rain.strengthOrder.join() === "light,medium,heavy" && RM.minutes === 360 && RM.wetMinutes === 1440 && RM.bushX === 3 && RM.bushMinutes === 3 * MD && RM.lossX === 1.5 &&
     RM.holdOutMinutes === 60 && RM.puddles.minutes === MD && PC.warm.deltaF === 15 && PC.cool.deltaF === -15 && PC.warm.minutes === MD && PC.warm.fadeMinutes === 120 && PC.maxShiftF === 30 &&
-    G.data.art.rain && G.data.art.rain.src === "data/art/rain_16.png" && G.data.art.rain.cols.length === 4 && PC.rainFrameMs === 150,
+    G.data.art.rain && G.data.art.rain.src === "data/art/rain_16.png" && G.data.art.rain.cols.length === 4 && PC.rainFrameMs === 150 &&
+    G.data.art.rainLight && G.data.art.rainLight.src === "data/art/rain_light_16.png" && G.data.art.rainHeavy && G.data.art.rainHeavy.src === "data/art/rain_heavy_16.png",
     "22/24 config: radius 8 tiles, no cooldown; Medium rain 6 h, wet 1 day, bushes x3 for 3 days, warmth loss x1.5, smouldering tree out within 1 h, puddles 1 day; warm/cool +-15 F for 1 day, fade 2 h, stack to +-30 F; rain art 4 frames x 150 ms");
 
   // Rain: burning tiles, embers, lit sticks out at once; a smouldering tree within holdOutMinutes; the ground stays wet (no fire starts) for a day

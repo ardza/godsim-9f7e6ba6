@@ -17,8 +17,8 @@ module.exports = function (G, C, ok, h) {
     const idx = JSON.parse(fs.readFileSync(path.join(root, "data/art/index.json"), "utf8")), rsrc = fs.readFileSync(path.join(root, "src/render.js"), "utf8"), A = G.data.art.lightning;
     ok(PC.order.join() === "rain,warm,cool,lightning,spawn" && !("cooldownMinutes" in L) && !("cooldownMinutes" in SP) && L.modes.single.count.join() === "1,1" && L.modes.barrage.count.join() === "2,3" && L.modes.barrage.scatterTiles === 8 && L.modeOrder.join() === "single,barrage" && L.fire.dry === 0.6 && L.fire.rain === 0.4 && L.fire.deepCold === 0.2 && L.scareTiles === 6 && L.fearAdd === 20 && L.fearMinutes === MD && L.runMinutes === 60 &&
       SP.watchTiles === 6 && SP.curiosityAdd === 5 && C.animals.grazer.births.cap === 40 && A && A.src === "data/art/lightning_16.png" && A.frame === 16 && A.frameH === 48 && A.cols.join() === "strike,strike_fade,ground_flash" && wd === 48 && ht === 48 && png[25] === 6 &&
-      L.frameMs.join() === "80,80,150" && JSON.stringify(idx).indexOf("lightning_16.png") >= 0 && /"rain", "lightning"\]/.test(rsrc) && /lightning/.test(icons) && /spawn/.test(icons) && C.saveVersion === 19,
-      "23/24 config: no cooldowns; Lightning Single/Barrage (2-3 in r8); fire 60% dry / 40% rain / 20% Deep Cold, scare 6 tiles +20 fear 1 day, run 1 h; Spawn watchers 6 tiles +5 curiosity, grazer cap 40; art 48x48; save v19"); }
+      L.frameMs.join() === "80,80,150" && JSON.stringify(idx).indexOf("lightning_16.png") >= 0 && /"rain".*"lightning"\]/.test(rsrc) && /lightning/.test(icons) && /spawn/.test(icons) && C.saveVersion === 20,
+      "23/24 config: no cooldowns; Lightning Single/Barrage (2-3 in r8); fire 60% dry / 40% rain / 20% Deep Cold, scare 6 tiles +20 fear 1 day, run 1 h; Spawn watchers 6 tiles +5 curiosity, grazer cap 40; art 48x48; save v20"); }
 
   // fire chance by ground: ~60% on dry grass / forest; 0 (and no draw) on bare ground, rock, water; 40% with rain; 20% in Deep Cold
   withCfg(NO_LIGHTNING, () => { const s = G.Sim.create(5); s.agents.length = 0; s.animals = [];
@@ -122,8 +122,8 @@ module.exports = function (G, C, ok, h) {
     const j = sig(s), r = G.Sim.deserialize(JSON.parse(j)); for (let i = 0; i < 1500; i++) { G.Sim.step(s); G.Sim.step(r); }
     const o = JSON.parse(j); o.version = 17; delete o.powers.stats.strikes; delete o.powers.stats.spawns; delete o.powers.stats.answered; o.powers.cd = { rain: 999999 };
     const m = G.Sim.deserialize(o), back = G.Sim.deserialize(JSON.parse(sig(m)));
-    ok(JSON.parse(j).version === 19 && sig(s) === sig(r) && m.version === C.saveVersion && m.powers.stats.strikes && m.powers.stats.strikes.fires === 0 && m.powers.stats.spawns.grazer === 0 && m.powers.stats.answered === 0 && m.powers.cd.rain === 999999 &&
-      sig(back) === sig(m), "23 save: v19 round-trips a strike, its fire and fright, and a spawned animal (a resumed run matches); a v17 save loads as v18 then v19 (new strike / spawn stats, cooldowns kept)"); }
+    ok(JSON.parse(j).version === 20 && sig(s) === sig(r) && m.version === C.saveVersion && m.powers.stats.strikes && m.powers.stats.strikes.fires === 0 && m.powers.stats.spawns.grazer === 0 && m.powers.stats.answered === 0 && m.powers.cd.rain === 999999 &&
+      sig(back) === sig(m), "23 save: v20 round-trips a strike, its fire and fright, and a spawned animal (a resumed run matches); a v17 save loads as v18..v20 (new strike / spawn stats, cooldowns kept)"); }
 
   // no power used: the powers stream is never drawn (lightning / spawn add nothing to a quiet run)
   { const s = G.Sim.create(11), rs = s.powers.rs; for (let i = 0; i < 3 * MD; i++) G.Sim.step(s); ok(s.powers.rs === rs && !s.animals.some(o => o.spawned != null) && !s.agents.some(a => a.fright), "23 determinism: with no power used the powers stream is untouched, no animal is spawned and nobody is frightened"); }

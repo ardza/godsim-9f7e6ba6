@@ -46,6 +46,7 @@
     G.Faith.init(sim);    // step 21: faith per founder, prayers - its own stream (prng)
     G.Shelter.init(sim);  // step 21b: natural shelters from the terrain (own hash-seeded stream); nobody knows any yet
     G.Powers.init(sim);   // step 22: god powers (own stream, drawn only while one is active)
+    G.Speech.init(sim);   // step 25: local language (own stream wrng)
     return sim;
   };
   // Seeded names with no repeats until the list is used up, then a fresh shuffle (reuse is fine past the list).
@@ -101,6 +102,14 @@
     if (s.powers && s.powers.stats && s.powers.stats.strikes) s.powers.stats.strikes.babies = s.powers.stats.strikes.babies || 0;
     s.version = 19; return s;
   };
+  // v19 -> v20 (step 25): empty speech state, own wrng; nobody has words / watches / gestures yet.
+  Sim.migrate20 = function (o) {
+    if (!o || o.version !== 19) return o; const s = JSON.parse(JSON.stringify(o));
+    s.wrng = (s.seed ^ 0x5FEE7C11 ^ (s.tick || 0)) >>> 0;
+    s.speech = G.Speech.newState();
+    for (const a of s.agents || []) { delete a.words; delete a.speechWatch; delete a.speechDue; delete a.gesture; }
+    s.version = 20; return s;
+  };
   // One log line. who = the person(s) involved (person/body objects or ids): the line is tagged with their ids and also goes into each one's own
   // log (sim.plog[id], last log.personMax kept, saved). k = an optional kind for the personal log ("death", "birth", "disc").
   Sim.ids = who => (who == null ? [] : Array.isArray(who) ? who : [who]).map(w => w == null ? null : typeof w === "number" ? w : w.kind === "body" ? w.of : w.id).filter((v, i, a) => v != null && a.indexOf(v) === i);
@@ -125,6 +134,7 @@
     for (const a of sim.agents.slice()) { const c = G.Agent.deathCause(a); if (c) Sim.die(sim, a, c); }
     G.Faith.step(sim);   // step 21: prayer bouts (own stream prng)
     G.Social.step(sim);   // step 18: familiarity, liking, daily groups
+    G.Speech.step(sim);   // step 25: invent tokens, bind meanings, lock group speech
     G.Family.step(sim);   // step 19: pairs (daily), conception (2 AM), births, carried babies
     G.Animal.stepAll(sim);
     G.Body.stepAll(sim);
@@ -159,7 +169,8 @@
       frng: sim.frng.s, babies: sim.babies, famStats: sim.famStats,
       prng: sim.prng.s, faith: sim.faith, prayers: sim.prayers || [],
       shelters: sim.shelters || [], shelterStats: sim.shelterStats || null, shelterFirst: sim.shelterFirst || null, srng: sim.srng ? sim.srng.s : null,
-      powers: sim.powers || null };
+      powers: sim.powers || null,
+      wrng: sim.wrng ? sim.wrng.s : null, speech: sim.speech || null };
   };
   Sim.deserialize = function (o) {
     if (o && o.version === 13) o = Sim.migrate(o);
@@ -168,6 +179,7 @@
     if (o && o.version === 16) o = Sim.migrate17(o);
     if (o && o.version === 17) o = Sim.migrate18(o);
     if (o && o.version === 18) o = Sim.migrate19(o);
+    if (o && o.version === 19) o = Sim.migrate20(o);
     if (!o || o.version !== CFG().saveVersion) throw new Error("unsupported save version " + (o && o.version));
     const s = JSON.parse(JSON.stringify(o));
     const world = { w: s.world.w, h: s.world.h, seed: s.seed, attempt: s.world.attempt, spawn: s.world.spawn, hills: s.world.hills, info: s.world.info, tiles: s.world.tiles.split("").map(c => TILE_CH.indexOf(c)) };
@@ -181,7 +193,8 @@
       frng: new G.RNG(s.frng), babies: s.babies || [], famStats: s.famStats,
       prng: new G.RNG(s.prng), faith: s.faith || G.Faith.newState(), prayers: s.prayers || [],
       shelters: s.shelters || [], shelterStats: s.shelterStats || G.Shelter.newStats(), shelterFirst: s.shelterFirst || null, srng: s.srng != null ? new G.RNG(s.srng) : undefined,
-      powers: s.powers || Object.assign(G.Powers.newState(), { rs: (s.seed ^ 0x5A1D0F22) >>> 0 }) };
+      powers: s.powers || Object.assign(G.Powers.newState(), { rs: (s.seed ^ 0x5A1D0F22) >>> 0 }),
+      wrng: new G.RNG(s.wrng != null ? s.wrng : (s.seed ^ 0x5FEE7C11) >>> 0), speech: s.speech || G.Speech.newState() };
   };
 
   G.Time = Time; G.Sim = Sim;

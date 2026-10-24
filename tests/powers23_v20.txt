@@ -1,0 +1,12 @@
+PASS 23/24 config: no cooldowns; Lightning Single/Barrage (2-3 in r8); fire 60% dry / 40% rain / 20% Deep Cold, scare 6 tiles +20 fear 1 day, run 1 h; Spawn watchers 6 tiles +5 curiosity, grazer cap 40; art 48x48; save v20
+PASS 23 lightning: fire chance 60% on dry grass / forest, 40% in rain, 20% in Deep Cold, 0% on bare ground / rock / water (no roll drawn)  248/400 fires; rock/water/bare 3 strikes, no fire
+PASS 23 lightning: a strike with no fire leaves a 1-tile scorch; the one on the tile dies (struck by lightning); within 6 tiles +20 fear for 1 day and running for 1 h (a sleeper wakes); farther away untouched; action lines only  body Tull; n1 ran, 6.9 tiles off after a day
+PASS v19 no cooldown: Lightning / Spawn / Rain cast again at once  lightning casts 2, spawn 2
+PASS 23 spawn: one grazer by the tapped tile (joins the nearest herd, a shimmer); watchers within 6 tiles +5 curiosity; a predator (scavenger) may send them backing away; refused on water and at the grazer cap (40), no cooldown spent  herd 2; refusals: needs land / no room for more grazers
+PASS 23 lit stick: a stick within 1 tile of a lightning fire smoulders as a lit stick; a curious adult (curiosity - fear roll) creeps over and carries it; the first carry is a Discoveries entry  walk at +149 min, carried at +158 min; discovery {"n":1,"key":"carried|burning stick|fire in hand","action":"carried","materials"
+PASS 23 lit stick: the walk to a lightning-lit stick is not turned back by the flee rule (it passes within 2.5 tiles of live flames) and goes round the burning tiles  carried at +55 min, closest 0.7 tiles from the flames
+PASS 23 lit stick: the roll is curiosity minus fear (fireFear + fright): a fearful adult leaves it  5 rolls, 0 walks
+PASS 23 faith: a prayer followed within a day by a spawn (or strike) close by reinforces that ritual, once per prayer; far away or too late counts nothing  like 50 -> 75
+PASS 23 save: v20 round-trips a strike, its fire and fright, and a spawned animal (a resumed run matches); a v17 save loads as v18..v20 (new strike / spawn stats, cooldowns kept)
+PASS 23 determinism: with no power used the powers stream is untouched, no animal is spawned and nobody is frightened
+POWERS23 PASSED

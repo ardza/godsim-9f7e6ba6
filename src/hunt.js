@@ -119,6 +119,7 @@
     G.Sim.log(sim, a.name + " eats the " + lab + " (" + G.Agent.fullnessWord(end) + ")", a);
     if (raw) G.Discoveries.note(sim, a, "eat", ["raw meat"], "fullness up");
     G.Cook.ate(sim, a, it);
+    if (G.Speech) G.Speech.onEat(sim, a);
     const pS = G.Cook.sickChance(it); if (pS > 0 && sim.orng.chance(pS)) { stats(sim).sick++; a.stats.sick = (a.stats.sick || 0) + 1;
       a.needs.energy = r9(Math.max(0, a.needs.energy - M.sickEnergy)); G.Learn.add(a, "hunt", -H().sickDrop);
       G.Sim.log(sim, a.name + " retches and is sick after the " + lab, a);

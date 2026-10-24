@@ -11,7 +11,7 @@
     if (A.person && A.person.src) loadImg(A.person.src, im => art.person = im);
     if (A.founders && A.founders.src) loadImg(A.founders.src, im => art.founders = im);
     loadImg(A.bush, im => art.bush = im); loadImg(A.bushEmpty, im => art.bushEmpty = im);
-    for (const k of ["body", "grazer", "scavenger", "items", "fx", "food", "carcass", "smoke", "baby", "child", "pray", "childPray", "spot", "shelter", "rain", "lightning"]) if (A[k] && A[k].src) loadImg(A[k].src, im => art[k] = im);
+    for (const k of ["body", "grazer", "scavenger", "items", "fx", "food", "carcass", "smoke", "baby", "child", "pray", "childPray", "gesture", "childGesture", "spot", "shelter", "rain", "rainLight", "rainHeavy", "lightning"]) if (A[k] && A[k].src) loadImg(A[k].src, im => art[k] = im);
   };
   R.art = () => art;
 
@@ -134,7 +134,19 @@
       cx.strokeStyle = G.Social.color(R.sim, grp); cx.lineWidth = 2; cx.beginPath(); cx.ellipse(px + 8, py + 14, rx, ry, 0, 0, 7); cx.stroke(); cx.lineWidth = 1; }
     R.groupDot = grp && view.z === 1 ? G.Social.color(R.sim, grp) : null;   // zoom 1 only: a 3x3 dot above the head (drawn after the sprite)
     drawPersonBody(a, px, py, frame, facing, time, asleep, F, A);
+    drawGestureOverlay(a, px, py);   // step 25: transparent gesture on the down-facing frame until the token is group speech
     if (R.groupDot) { const X = px + 6, Y = py - (asleep ? 0 : 6); cx.fillStyle = "rgba(0,0,0,.8)"; cx.fillRect(X, Y, 5, 5); cx.fillStyle = R.groupDot; cx.fillRect(X + 1, Y + 1, 3, 3); }
+  }
+  // step 25: Artist gesture_16 / child_gesture_16 — same origin as the person, one column per token; skip once group speech locks that token
+  function drawGestureOverlay(a, px, py) {
+    if (!G.Speech || !R.sim) return;
+    const g = G.Speech.gestureNow(R.sim, a); if (!g) return;
+    const kid = G.Family && G.Family.isChild(a), GA = G.data.art.gesture, im = kid ? art.childGesture : art.gesture;
+    if (!im || !GA) return;
+    const c = GA.cols.indexOf(g.col); if (c < 0) return;
+    const row = (a.look || 0) % (GA.variants || 8);
+    cx.drawImage(im, c * GA.frame, row * GA.frame, GA.frame, GA.frame, px, py - 2, tp, tp);
+    R.lastGesture = g.col;
   }
   // step 21: the pose for the prayer action being done now (data/art.js pray.poses); null = not praying
   R.prayPose = function (a, time) {
@@ -372,7 +384,7 @@
     const P = G.data.config.powers, list = G.Powers ? G.Powers.active(sim) : [], disc = (x, y, r) => { cx.beginPath(); cx.arc((x + 0.5) * tp, (y + 0.5) * tp, (r + 0.5) * tp, 0, 7); };
     for (const e of list) { const on = e.k === "rain" ? e.on && sim.tick < e.end : sim.tick < e.end; if (!on) continue;
       const fade = e.fade ? Math.min(1, (e.end - sim.tick) / e.fade) : 1; cx.save(); cx.globalAlpha = fade; cx.fillStyle = P.tint[e.k]; disc(e.x, e.y, e.r); cx.fill();
-      if (e.k === "rain") { const im = art.rain, f = Math.floor(time * 1000 / P.rainFrameMs) % 4;
+      if (e.k === "rain") { const im = e.str === "light" ? (art.rainLight || art.rain) : e.str === "heavy" ? (art.rainHeavy || art.rain) : art.rain, f = Math.floor(time * 1000 / P.rainFrameMs) % 4;
         for (let y = Math.ceil(e.y - e.r); y <= e.y + e.r; y++) for (let x = Math.ceil(e.x - e.r); x <= e.x + e.r; x++) {
           if (x < 0 || y < 0 || x >= G.data.config.map.w || y >= G.data.config.map.h || (x - e.x) * (x - e.x) + (y - e.y) * (y - e.y) > e.r * e.r) continue;
           if (im) cx.drawImage(im, f * 16, 0, 16, 16, x * tp, y * tp, tp, tp);

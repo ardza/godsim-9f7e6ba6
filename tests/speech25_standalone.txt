@@ -1,0 +1,10 @@
+PASS 25 config: save v20; speech tokens/meanings; words.js synced from words.json; gesture art cols  point+grunt, point+call, pat+chest, stop+hand, beckon+call
+PASS 25 invent: low need + neighbour → gesture emit (action log, no quotes); hearer watch; gesture overlay active  point+grunt watch=true line=Teva points and grunts
+PASS 25 bind setup: hearer has watch after emit
+PASS 25 bind: hearer seeing speaker eat binds token→food (bindGain); reuse raises score  score 25 → 33 binds 6
+PASS 25 group: 3+ at scoreAt+ lock token as speech; syllable from words.js; quoted log; gesture overlay stops  word=Isha label=Speech: 1 shared word said=Vesk says "Isha!"
+PASS 25 group: under groupMin does not lock  holders 2 < 3
+PASS 25 save: v20 keeps speech locks + wrng (resumed run matches); a v19 save loads as v20 (empty speech, no words)  locks 1 → after v19 migrate 0
+PASS 25 pickWord: stable per (seed, group, meaning), from words.js  Pli / group2 Yas
+PASS 25 card: loner / no locks → Speech: none
+SPEECH25 PASSED

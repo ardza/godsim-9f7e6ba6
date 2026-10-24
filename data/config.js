@@ -2,7 +2,7 @@
 (function (G) {
   G.data = G.data || {};
   G.data.config = {
-    saveVersion: 19,                // v19: power rewrite (no cooldowns; Rain Light/Medium/Heavy; Lightning Single/Barrage), spawn-watch curiosity fades over 7 days (a.curioFade), a baby carried by someone struck dies too (strikes.babies), phone Powers row, Find button; v18: Lightning and Spawn powers (per-power cooldowns, strike / spawn stats, a.fright, bolt sticks); v17: god powers (sim.powers: active Rain / Warm / Cool effects, cooldowns, own stream), pairs man + woman only; v16: natural shelters (sim.shelters, per-person known shelters, den score); v15: faith trait, prayer forms, prayer spots, Prayers feed (own stream prng); v14: children / youths as people (stage by age, guardian, learned-from), name numbering; v13: sex, pairs, pregnancy, babies (own stream frng), burning sticks; v12: relations (familiarity, liking) and groups; v11: cooked meat (heat), grazer births (own stream), cook score; v10: hunting, carcasses, meat, lightning; v9: varied maps (spawn, hills, map info; no lake/source); v8: learning (experience scores, copying), seasonal food, per-person logs; v7: objects, physics + discoveries, temperature + warmth, fire (v6: aging, death, bodies, animals); older saves are rejected
+    saveVersion: 20,                // v20: local language (sim.speech, per-person a.words token→meaning scores, group speech locks, own stream wrng; gesture overlays until lock); v19: power rewrite (no cooldowns; Rain Light/Medium/Heavy; Lightning Single/Barrage), spawn-watch curiosity fades over 7 days (a.curioFade), a baby carried by someone struck dies too (strikes.babies), phone Powers row, Find button; v18: Lightning and Spawn powers (per-power cooldowns, strike / spawn stats, a.fright, bolt sticks); v17: god powers (sim.powers: active Rain / Warm / Cool effects, cooldowns, own stream), pairs man + woman only; v16: natural shelters (sim.shelters, per-person known shelters, den score); v15: faith trait, prayer forms, prayer spots, Prayers feed (own stream prng); v14: children / youths as people (stage by age, guardian, learned-from), name numbering; v13: sex, pairs, pregnancy, babies (own stream frng), burning sticks; v12: relations (familiarity, liking) and groups; v11: cooked meat (heat), grazer births (own stream), cook score; v10: hunting, carcasses, meat, lightning; v9: varied maps (spawn, hills, map info; no lake/source); v8: learning (experience scores, copying), seasonal food, per-person logs; v7: objects, physics + discoveries, temperature + warmth, fire (v6: aging, death, bodies, animals); older saves are rejected
     saveKey: "godsim.save",
     map: {
       w: 60, h: 40, tilePx: 16,      // map is 960x640 art px, scaled to fit the screen
@@ -386,6 +386,22 @@
                 heavy:  { label: "Heavy",  minutes: 720, bushX: 5,   bushMinutes: 7200, lossX: 2,    wetMinutes: 2880, holdOutMinutes: 0,    douse: "all",   puddles: { count: 200, minutes: 2880 } } } },
       warm: { deltaF: 15, minutes: 1440, fadeMinutes: 120 }, cool: { deltaF: -15, minutes: 1440, fadeMinutes: 120 }, maxShiftF: 30,
       tint: { warm: "rgba(255,150,60,0.13)", cool: "rgba(90,170,255,0.15)", rain: "rgba(60,80,110,0.12)", lightning: "rgba(255,250,210,0.6)" }, rainFrameMs: 150 },
+    // Step 25 local language (src/speech.js; own seeded stream wrng). Tokens are gesture+sound strings.
+    //   Invent when a need is under needBelow and someone is within nearTiles: chance = curiosity/inventDiv per hour.
+    //   Hearers within hearTiles watch meanMinutes for a matching outcome (seeTiles) and bind token→meaning with bindGain.
+    //   When groupMin people in a group share the same token→meaning at scoreAt+, that token is group speech (one syllable
+    //   from data/words.js). Copying of bound tokens uses copyChance x curiosity/50, x copyX inside the group once it is speech.
+    //   Gesture overlays (Artist gesture_16) show gestureMinutes while the token is not yet group speech for her group.
+    speech: { needBelow: 30, nearTiles: 4, hearTiles: 6, seeTiles: 8, inventDiv: 300, meanMinutes: 60, gestureMinutes: 3,
+      start: 0, bindGain: 25, reuseGain: 8, scoreAt: 40, groupMin: 3, copyMinScore: 20, copyChance: 0.35, copyShare: 0.5, copyX: 1.5,
+      meanings: ["food", "water", "warm", "danger", "follow", "stop"],
+      tokens: [
+        { token: "point+grunt", col: "point_right", bias: ["food", "water", "danger"], action: "points and grunts" },
+        { token: "point+call", col: "point_left", bias: ["food", "water"], action: "points and calls out" },
+        { token: "pat+chest", col: "pat_chest", bias: ["follow", "warm"], action: "pats her chest" },
+        { token: "stop+hand", col: "stop_hand", bias: ["stop"], action: "holds up a hand" },
+        { token: "beckon+call", col: "beckon", bias: ["follow"], action: "beckons and calls" }
+      ] },
     ui: { prefsKey: "godsim.ui",
       powersTab: { label: "Powers", icon: "powers" },   // v19: portrait phones (< 700px): the bottom-bar tab that slides up the power row (CSS in index.html)
       find: { label: "Find", icon: "locate", pulseMs: 3000, zoom: 2, ringScale: 1.7 },   // v19 (step 24): the Find button on a person's card: centre the map on them (zoom at least 2), pulse their group ring brighter and bigger for pulseMs, follow until a pan or a tap elsewhere

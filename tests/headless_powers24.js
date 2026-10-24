@@ -15,10 +15,10 @@ module.exports = function (G, C, ok, h) {
 
   // config
   const R = C.powers.rain, RL = R.strengths.light, RH = R.strengths.heavy, RM = R.strengths.medium;
-  ok(C.saveVersion === 19 && SP.curiosityAdd === 5 && SP.curiosityFadeMinutes === 7 * MD && R.strengthOrder.join() === "light,medium,heavy" &&
+  ok(C.saveVersion === 20 && SP.curiosityAdd === 5 && SP.curiosityFadeMinutes === 7 * MD && R.strengthOrder.join() === "light,medium,heavy" &&
     RL.minutes === 180 && RL.bushX === 1.5 && RL.lossX === 1.25 && RL.douse === "small" && RH.minutes === 720 && RH.bushX === 5 && RH.lossX === 2 && RH.douse === "all" && RH.wetMinutes === 2 * MD &&
     L.modes.barrage.count.join() === "2,3" && L.modes.barrage.scatterTiles === 8 && !("cooldownMinutes" in C.powers) && !("cooldownMinutes" in L) && !("cooldownMinutes" in SP),
-    "24 config: save v19; spawn curiosity fade 7 d; Rain Light/Medium/Heavy scales; Lightning Barrage 2-3 in r8; no cooldowns");
+    "24 config: save v20; spawn curiosity fade 7 d; Rain Light/Medium/Heavy scales; Lightning Barrage 2-3 in r8; no cooldowns");
 
   // curiosity fade: +5 now, about half gone after 3.5 days, back to normal after 7; a second watch restarts the 7 days for what is left; capped at 100
   withCfg(Object.assign({}, NO_LIGHTNING, NO_THIRST_SLEEP), () => {
@@ -52,8 +52,8 @@ module.exports = function (G, C, ok, h) {
     for (let i = 0; i < 6 * MD * TPM; i++) { G.Sim.step(s); G.Sim.step(r); }
     const o = JSON.parse(j); o.version = 18; delete o.powers.stats.strikes.babies; for (const p of o.agents) delete p.curioFade;
     const m = G.Sim.deserialize(o), back = G.Sim.deserialize(JSON.parse(sig(m)));
-    ok(JSON.parse(j).version === 19 && fadeSaved && sig(s) === sig(r) && m.version === 19 && m.powers.stats.strikes.babies === 0 && m.agents.every(p => p.curioFade == null) && sig(back) === sig(m),
-      "24 save: v19 keeps a fading curiosity bump (a resumed run matches); a v18 save loads as v19 (strikes.babies 0; earlier bumps are not tracked and stay)", "left " + leftAt + " at save");
+    ok(JSON.parse(j).version === 20 && fadeSaved && sig(s) === sig(r) && m.version === 20 && m.powers.stats.strikes.babies === 0 && m.agents.every(p => p.curioFade == null) && sig(back) === sig(m),
+      "24 save: v19 keeps a fading curiosity bump (a resumed run matches); a v18 save loads as v20 (strikes.babies 0; earlier bumps are not tracked and stay)", "left " + leftAt + " at save");
   });
 
   // Rain strengths: Light leaves burning tiles (sticks + non-hold embers out); Heavy kills all fires + hold trees at once, wet 2 days, many puddles

@@ -1,0 +1,11 @@
+{
+  "note": "Local-language syllables for godsim step 25. Six meanings, eight short original syllables each. Programmer picks one syllable per meaning when a group locks that token. Never freeform dialogue.",
+  "meanings": {
+    "food": ["Ber", "Nok", "Saff", "Meb", "Gorr", "Pli", "Yas", "Keth"],
+    "water": ["Lir", "Wesh", "Oba", "Drin", "Sulk", "Nai", "Fesh", "Umb"],
+    "warm": ["Rosh", "Kal", "Hett", "Vum", "Sora", "Gleb", "Ank", "Toru"],
+    "danger": ["Kresh", "Vok", "Spet", "Jarr", "Huln", "Zek", "Braq", "Orsk"],
+    "follow": ["Teb", "Murr", "Isha", "Genn", "Pol", "Yem", "Rufa", "Skel"],
+    "stop": ["Dak", "Tepp", "Olm", "Brin", "Zaff", "Kur", "Ness", "Upt"]
+  }
+}

@@ -186,5 +186,15 @@
    "fall_3"
   ],
   "note": "Heavy rain overlay"
+ },
+ "gesture_16.png": {
+  "frame": 16,
+  "layout": "8 rows (founder variants); cols: point_right, point_left, pat_chest, stop_hand, beckon. Transparent overlays drawn on the down-facing frame at the same origin.",
+  "note": "step 25 speech gestures; pair with action log until the group locks the token"
+ },
+ "child_gesture_16.png": {
+  "frame": 16,
+  "layout": "8 rows (founder variants); cols: point_right, point_left, pat_chest, stop_hand, beckon. Transparent overlays drawn on the down-facing frame at the same origin.",
+  "note": "75% child version"
  }
 }

@@ -66,6 +66,7 @@
     bump(sim, "successes", key);
     if (key === "fire" && sim.tick - (a.warmLogAt == null ? -1e9 : a.warmLogAt) >= 120) { a.warmLogAt = sim.tick;
       G.Sim.log(sim, a.name + " warms up by the " + (src && src.s === "ember" ? "embers" : "fire"), a); }
+    if (key === "fire" && G.Speech) G.Speech.onWarm(sim, a);
     Learn.watch(sim, a, key);
   };
   // copy odds for observer b (before the step-18 group factor applied in watch)

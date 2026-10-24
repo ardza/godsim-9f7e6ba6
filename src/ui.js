@@ -149,10 +149,12 @@
       Object.keys(SP.kinds).forEach(k => { const b = document.createElement("button"), L = SP.kindLabels[k] || k; b.id = "spawn-" + k; b.dataset.kind = k; b.textContent = L; b.setAttribute("aria-label", "Spawn a " + L.toLowerCase());
         b.onclick = () => UI.pickSpawn(app, k); pk.appendChild(b); }); }
     else if (kind === "rain") { const R = PW().rain; pk.setAttribute("aria-label", "rain strength");
-      (R.strengthOrder || Object.keys(R.strengths)).forEach(k => { const S = R.strengths[k], b = document.createElement("button"); b.id = "rain-" + k; b.dataset.str = k; b.textContent = S.label; b.setAttribute("aria-label", "Rain: " + S.label);
+      (R.strengthOrder || Object.keys(R.strengths)).forEach(k => { const S = R.strengths[k], b = document.createElement("button"); b.id = "rain-" + k; b.dataset.str = k;
+        b.innerHTML = UI.icon("rain_" + k) + '<span class="lbl">' + S.label + '</span>'; b.setAttribute("aria-label", "Rain: " + S.label);
         b.onclick = () => UI.pickRain(app, k); pk.appendChild(b); }); }
     else if (kind === "lightning") { const L = PW().lightning; pk.setAttribute("aria-label", "lightning mode");
-      (L.modeOrder || Object.keys(L.modes)).forEach(k => { const M = L.modes[k], b = document.createElement("button"); b.id = "bolt-" + k; b.dataset.mode = k; b.textContent = M.label; b.setAttribute("aria-label", "Lightning: " + M.label);
+      (L.modeOrder || Object.keys(L.modes)).forEach(k => { const M = L.modes[k], b = document.createElement("button"); b.id = "bolt-" + k; b.dataset.mode = k;
+        b.innerHTML = UI.icon("bolt_" + k) + '<span class="lbl">' + M.label + '</span>'; b.setAttribute("aria-label", "Lightning: " + M.label);
         b.onclick = () => UI.pickBolt(app, k); pk.appendChild(b); }); }
     pk.hidden = false;
   }
@@ -351,7 +353,7 @@
         (a.act.type === "sleep" ? '<div class="sub">asleep since ' + G.Time.hhmm(G.Time.at(a.act.since)) + '</div>' : '') +
         '<div class="sec">Experience (0-100, ' + G.data.config.learn.start + ' = untried)</div>' + expRows(sim, a) + learnedRow(sim, a) +
         '<div class="sec">Traits (0-100, 50 = avg' + (a.inh ? '; ▲▼ vs parents' : '') + ')</div>' + traitRows(a) +
-        prayRows(a) + familyRows(sim, a) + relRows(sim, a) +
+        prayRows(a) + speechRows(sim, a) + familyRows(sim, a) + relRows(sim, a) +
         '<div class="sec">Knows</div><div class="chips">' + chip(known + ' berry bush' + (known === 1 ? "" : "es")) + chip(waterKnown(a)) + chip('Known shelters: ' + (a.shelters || []).length) +
           chip('carrying ' + (G.Items.held(sim, a) ? esc(G.Items.label(G.Items.held(sim, a))) : 'nothing')) +
           (sim.discoveries || []).filter(d => d.who === a.name).map(d => chip(esc(d.action + " " + d.materials.slice(0, 2).join(" / ") + " → " + d.result), "disc")).join("") + '</div>' +
@@ -368,6 +370,17 @@
     if (UI.zoomUI) UI.zoomUI();
     UI.layout();
   };
+  // ---- step 25: Speech card line — none, or N shared words for her group (token syllables from words.js)
+  function speechRows(sim, a) {
+    if (!G.Speech) return '';
+    const g = G.Social && G.Social.group(sim, a), words = g ? G.Speech.groupWords(sim, g) : [];
+    const own = a.words ? Object.keys(a.words).filter(t => a.words[t].meaning).length : 0;
+    if (!words.length && !own) return '<div class="sec">' + esc(G.Speech.cardLabel(sim, a)) + '</div>';
+    const chips = words.map(w => chip(esc(w.word + " (" + w.meaning + ")"), "speech")).join("");
+    return '<div class="sec">' + esc(G.Speech.cardLabel(sim, a)) + '</div>' +
+      (chips ? '<div class="chips">' + chips + '</div>' : '') +
+      (own ? '<div class="sub">knows ' + own + ' token' + (own === 1 ? "" : "s") + ' herself</div>' : '');
+  }
   // ---- step 21: the prayer forms she has used, with counts (* = liked: a need rose after it) and where a copied one came from ----
   function prayRows(a) {
     const P = a.prayForms || {}, ks = Object.keys(P).filter(f => P[f].n > 0 || P[f].from).sort((p, q) => P[q].n - P[p].n || (p < q ? -1 : 1));

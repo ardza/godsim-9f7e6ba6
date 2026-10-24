@@ -1,0 +1,314 @@
+PASS data/names.js matches data/names.json  70 names
+PASS names: seeded pick, no repeats until all 70 are used  Sef, Lom, Golla, Quo, Abet...
+PASS names: same seed -> same order
+PASS seed 1: map deterministic  attempt 0
+PASS seed 1: has meadow and water  1628/447/196/20/109 {"lakes":2,"lakeSizes":[50,59],"rivers":1,"waterPct":5.4,"forestDensity":0.2,"moistureBias":-0.19,"hillPct":14.3,"woodsPct":18.6,"attempt":0}
+PASS seed 1: land connected
+PASS seed 2: map deterministic  attempt 0
+PASS seed 2: has meadow and water  1114/1069/85/17/115 {"lakes":2,"lakeSizes":[54,61],"rivers":1,"waterPct":5.5,"forestDensity":0.48,"moistureBias":0.2,"hillPct":10.9,"woodsPct":44.5,"attempt":0}
+PASS seed 2: land connected
+PASS seed 3: map deterministic  attempt 0
+PASS seed 3: has meadow and water  1506/662/101/30/101 {"lakes":4,"lakeSizes":[33,22,27,19],"rivers":2,"waterPct":5.5,"forestDensity":0.31,"moistureBias":0.05,"hillPct":10.8,"woodsPct":27.6,"attempt":0}
+PASS seed 3: land connected
+PASS seed 7: map deterministic  attempt 0
+PASS seed 7: has meadow and water  1301/864/76/0/159 {"lakes":2,"lakeSizes":[97,62],"rivers":0,"waterPct":6.6,"forestDensity":0.4,"moistureBias":0.06,"hillPct":13.9,"woodsPct":36,"attempt":0}
+PASS seed 7: land connected
+PASS seed 42: map deterministic  attempt 1
+PASS seed 42: has meadow and water  816/373/1031/38/142 {"lakes":3,"lakeSizes":[39,56,47],"rivers":2,"waterPct":7.5,"forestDensity":0.17,"moistureBias":-0.26,"hillPct":10.4,"woodsPct":15.5,"attempt":1}
+PASS seed 42: land connected
+PASS seed 99: map deterministic  attempt 0
+PASS seed 99: has meadow and water  1590/527/115/0/168 {"lakes":1,"lakeSizes":[168],"rivers":0,"waterPct":7,"forestDensity":0.27,"moistureBias":-0.02,"hillPct":11.5,"woodsPct":22,"attempt":0}
+PASS seed 99: land connected
+PASS seed 1234: map deterministic  attempt 0
+PASS seed 1234: has meadow and water  1489/681/110/0/120 {"lakes":4,"lakeSizes":[19,46,42,13],"rivers":0,"waterPct":5,"forestDensity":0.32,"moistureBias":0.03,"hillPct":11.4,"woodsPct":28.4,"attempt":0}
+PASS seed 1234: land connected
+PASS seed 12345: map deterministic  attempt 0
+PASS seed 12345: has meadow and water  915/406/893/29/157 {"lakes":1,"lakeSizes":[157],"rivers":1,"waterPct":7.8,"forestDensity":0.19,"moistureBias":-0.22,"hillPct":11.6,"woodsPct":16.9,"attempt":0}
+PASS seed 12345: land connected
+PASS seed 777777: map deterministic  attempt 0
+PASS seed 777777: has meadow and water  1176/990/53/0/181 {"lakes":1,"lakeSizes":[181],"rivers":0,"waterPct":7.5,"forestDensity":0.45,"moistureBias":0.11,"hillPct":12.5,"woodsPct":41.3,"attempt":0}
+PASS seed 777777: land connected
+PASS seed 4000000000: map deterministic  attempt 0
+PASS seed 4000000000: has meadow and water  1396/652/180/0/172 {"lakes":2,"lakeSizes":[83,89],"rivers":0,"waterPct":7.2,"forestDensity":0.31,"moistureBias":-0.03,"hillPct":12.2,"woodsPct":27.2,"attempt":0}
+PASS seed 4000000000: land connected
+PASS 15b 150 seeds: every founder has water within 12 tiles  worst 10.0 tiles; bad none
+PASS 15b 150 seeds: at least 15 bushes  min 30; bad none
+PASS 15b 150 seeds: all walkable land reachable (one component)  bad none
+PASS 15b 150 seeds: water 3-12% of tiles (matches seedInfo)  bad none
+PASS 15b 150 seeds: lakes 0-4, rivers 0-2, never no water  lake counts seen 0,1,2,3,4, river counts 0,1,2
+PASS 15b 150 seeds: every river starts higher than it ends and ends in a lake or at the edge  bad none
+PASS 15b: same seed -> same map; seeds range dry..lush  43 dry, 37 lush of 150
+PASS 15b: dry seeds get fewer bushes (30-50% cut), never under 15  dry avg 32, lush avg 60
+PASS 15b: hills carry rock clusters; seedInfo has lakes/rivers/water%/forest density/moisture bias  71 hill rocks; {"seed":42,"bushes":32,"lakes":3,"lakeSizes":[39,56,47],"rivers":2,"waterPct":7.5,"forestDensity":0.17,"moistureBias":-0.26,"hillPct":10.4,"woodsPct":15.5,"attempt":1}
+PASS different seeds give different maps
+PASS UI kit: src/icons.js matches data/ui/icons (re-run node tools/sync_icons.js), speed icons pause/play/fast/superfast  26 icons
+PASS A*: 600 paths, none cross water or cut a water corner, all reachable  bad 0, unreachable 0
+PASS crossing 60 tiles takes ~1/3 day  8.00 game h (40.0 real min at 1x), row 0
+PASS walk time = path length x 8 min (detour around lake)  8.2 game h
+PASS speed trait: 8 min/tile at 50, 16 at 0, 5.33 at 100
+PASS traits are speed, appetite, curiosity, coldFear, fireFear, faith (ints 0-100)  {"speed":100,"appetite":37,"curiosity":47,"coldFear":45,"fireFear":41,"faith":38}
+PASS founders: the seed picks 5-8 people  {"5":56,"6":57,"7":42,"8":45} over 200 seeds
+PASS founders: ages 16-40, distinct names from names.json, look = index mod 8
+PASS founders: each on their own land tile
+PASS founders: start clustered  max 2.9 tiles from the group centre
+PASS founders: same seed -> same people  Ilo 36, Jessa 28, Haru 16, Leva 29, Cosk 22, Beso 29, Yari 22, Zol 21
+PASS fullness: full (85) to hungry (below 50) in ~6 game h at appetite 50  361 min (drain 5.83/h)
+PASS logs 'is hungry' once when fullness drops below 50
+PASS appetite scales the fullness drain  4 h at 100, 12 h at 0
+PASS rolled traits average ~50, ints in 0-100  mean 49.8, min 1, max 100, n 11574
+PASS meal: +40, a hungry meal stops at 85, overeating caps at 100  0->40 30->70 49->85 10+snack->50 50+snack->90 70+snack->100 95+snack->100
+PASS state words: starving/hungry/fed/full/overfull and parched/thirsty/watered
+PASS starving: fullness holds at 0, logged once, no death  fullness 0 after 10 h with no food, starving logged 1x
+PASS starving: stays at 0 until she eats; one meal brings her to ~40  ate after 46 min, fullness now 40.00, log 'Inn ate berries (hungry)'
+PASS starving logs again on a new episode  2 total
+PASS hungry person finds a bush, eats one meal: fullness 85, logs 'ate berries (full)'  meal done after 33 min, fullness 85.00, knows 5 bushes
+PASS that bush is now empty (whole bush eaten in one sitting)  b17
+PASS event log has entries  Day 1 6:01 AM Inn found 5 berry bushes | Day 1 6:01 AM Inn found water at the lake | Day 1 6:32 AM Inn ate berries (full)
+PASS empty bush is ripe again after ~1 game day  24.0 game h
+PASS snack above 50: +40 capped at 100, logs 'ate berries (overfull)'  fullness 100.0 after 33 min
+PASS snacking is off by default (snackAbove null): no meal above 50
+PASS water: 100 to thirsty (below 50) in ~4 game h, logs 'is thirsty' once  241 min, drain 12.500/h
+PASS water drain is not scaled by any trait
+PASS parched: water holds at 0, logged once, no death  water 0, logged 1x
+PASS shore tiles: land next to the lake and the river  148 tiles
+PASS thirsty on a shore tile drinks where she stands  drink
+PASS a drink takes 10 game min and sets water to 100  10 min, water 100
+PASS logs 'found water at the lake' and 'drinks at the lake'
+PASS a thirsty founder walks to a shore tile and drinks  after 73 min at 29,15 (river)
+PASS decision: act on the lower need below 50; a tie goes to water  30/30->water 30/40->food 40/30->water 50/50->null 45/60->food 60/49->water 49.5/49.5->water 80/90->null
+PASS energy drains 100 over 16 waking h, refills 100 over 8 h asleep
+PASS no sleep by day while energy > 0  Day 1 12:30 PM idle
+PASS after dusk with energy < 50 she lies down  Day 1 6:31 PM
+PASS sleeps through the night, full energy, wakes at dawn  Day 2 6:00 AM, slept 11.5 h, fullness 85 water 64
+PASS a sleeper wakes when water drops below 10  after 2 min, water 10.00
+PASS a sleeper wakes when fullness drops below 10 (or at dawn)  Kog woke up hungry at Day 1 11:59 PM
+PASS exhausted: energy 0 logs once and she lies down, day or night  Day 1 10:03 AM
+PASS needs stay inside 0-100 (2 days, all founders)
+  seed       n minF minW minE avg f/w/e  at 0 s/p/e meals/d drinks/d sleeps/d asleep0-4h shared
+  1          5    3    1    0 61/66/68   0/0/2         2.30     3.06     1.00       100% 0 ok (dry -0.19, 37 bushes)
+  2          7    0    0    0 60/67/67   2/4/3         2.10     2.91     1.00        99% 0 ok
+  3          5   26    8    6 63/68/68   0/0/0         2.22     3.12     1.00       100% 0 ok
+  7          5   22    0    0 64/66/69   0/1/1         2.00     2.96     1.00       100% 0 ok
+  42         5   16    0    0 61/67/66   0/2/4         1.86     3.04     1.00        99% 0 ok (dry -0.26, 32 bushes)
+  99         6   25    0    0 61/67/68   0/1/1         2.17     3.07     1.00       100% 0 ok
+  1234       6    0    0    0 60/67/68   2/3/1         2.13     2.93     1.00       100% 0 ok
+  12345      5    0    0    0 61/65/66   1/1/4         2.18     2.88     1.00        99% 0 ok (dry -0.22, 35 bushes)
+  777777     7    0    0    0 59/65/66   3/5/5         2.19     2.87     1.01        98% 0 ok
+  4000000000 7    5    0    0 60/66/67   0/3/2         2.07     2.91     1.00       100% 0 ok
+PASS balance: 10 seeds x 10 days, 5-8 founders, needs balanced (all seeds <= 0.15 zero-need hits/person-day; one seed up to 0.2, dry seeds up to 0.7), nobody shares an end tile  580 person-days; any need at 0: 51x (0.088/person-day: starving 8, parched 20, exhausted 23); woke early 1; overfull meals 0; per person-day: meals 2.12, drinks 2.97, sleeps 1.00; 175 us/tick
+PASS save round-trip gives the same state (v20)  80.7 KB, 5 people, 20 animals, 2 bodies (rotting, fresh, incl. a grazer carcass and a piece of cooked meat; 2 grazer births so far)
+PASS loaded sim continues identically (2000 more ticks, incl. a night)
+PASS old (v6-v10) and unknown save versions are rejected
+PASS aging: +1/28 year per game day (year = 28 days); lifespans seeded, 60-100 years  lifespans 60.0-100.0 over 58 founders
+PASS old age: dies on reaching her lifespan; logs one action line; leaves a fresh body  after 31 min: 'Inn lies still. Inn has died of old age.', body at 28,22
+PASS thirst: dies after exactly 1 full game day at water 0  1440 min, 'Inn lies still. Inn has died of thirst.'
+PASS hunger: dies after exactly 7 game days at fullness 0  7 days, 'Inn lies still. Inn has died of hunger.'
+PASS the water-0 clock restarts after a drink (1400 min + 1439 min at 0: still alive)
+PASS energy 0 never kills (14 game days held at 0)
+PASS body: fresh for 1 day, rotting for 7, then bones tagged material 'bone'  rotting at 24 h, bones at 8 days
+PASS bones are still on the map a game year later (condition 95.00/100)
+PASS bones weather away after ~20 game years  20.000 years as bones
+PASS stage changes are logged as states
+PASS people ignore bodies (founders' day is identical with a body lying among them)
+PASS scavengers find the body, cut the rotting stage to ~2 days, and leave the bones  10 seeds: rotting 1.3 1.3 0.7 2.5 1.3 0.4 3.6 0.8 1.7 0.4 days (mean 1.40)
+PASS a scavenger notices a body 12 tiles off and goes to feed on it  feeding after 67 min
+PASS start: 15 grazers in 3 herds, 4 scavengers, all on land
+PASS grazers graze only on meadow tiles and keep themselves fed (3 days)  meals per grazer 4-6
+PASS animals keep away from people: a person is within 2 tiles of an animal in 0.006% of animal-minutes  32 flights over 3 seeds x 3 days
+PASS a person walking into a herd: the grazers run off (never closer than 4.0 tiles; 4.5 tiles once she stops)
+PASS pop caps hold: 60 people, 40 animals (asked for 70 and 70)  60 people, 40 animals
+PASS need choice: nobody is heading for food while water is the lower need under 50  0 of 250560 person-minutes
+PASS energy word: rested at 80+, fine 50-79, tired under 50, exhausted at 0
+PASS no language: all 84 log calls describe actions/states (no speech words, no quotes)
+PASS objects: 40 rocks + hill rock clusters, 40 sticks by the woods, 15 flint by a river or lake; seeded, on land, one per tile  130/40/15 102/40/15 117/40/15 129/40/15 109/40/15
+PASS carrying: one thing at a time, picked up and put down again; holder and item always agree  102 pick-ups, 36 put-downs logged, 3 seeds x 3 days
+PASS bones count as things: 4 bones can be picked up from a skeleton, then it is gone; a fresh body cannot be picked up
+PASS physics: flint on rock sparks, rock on rock does not, bone on rock can break into a sharp shard  [spark, @target breaks: sharp shard] [] [@held breaks: sharp shard]
+PASS physics is data-driven: a keener rock sparks on rock, a softer flint does not; damp sticks do not grow warm when rubbed
+PASS spark and shard rates per strike  flint on rock: spark 61.0%; bone on rock: sharp shard 23.3%
+PASS Discoveries: a combination is recorded once (first only; rock on flint = flint on rock), with who, game time and a blank group
+PASS people strike, rub and cut things they carry (~once per person-day); Discoveries fill from what happens  0.66 tries per person-day, 16 firsts over 3 seeds x 4 days
+PASS warmth: under trees and huddled with others the night-time loss is slower  Deep Cold 02:00, air 1.7 C: open -4.5/h, under trees -2.8/h, + 3 huddled 13.1/h
+PASS cold: a full game day at 0 warmth kills (cause 'cold')  died 23.983333333333334 h after warmth hit 0
+PASS fire: spark on dry ground -> ember -> fire that spreads, burns out to ash, scorched ground, grass back within ~a season  Highsun, driest tile, 6 seeds: 2 tiles 1.5 h, regrown 7.1 d; 2 tiles 1.2 h, regrown 7.0 d; 1 tiles 0.8 h, regrown 7.0 d; 2 tiles 1.5 h, regrown 7.1 d; 118 tiles 16.1 h, regrown 7.7 d; 32 tiles 6.9 h, regrown 7.3 d
+PASS fire burns bushes bare, turns a dry stick into a burning stick, leaves the rock, burns flesh down to bones that stay
+PASS a person beside a fire moves away and takes no damage  now 3.3 tiles from the nearest flame
+PASS a year on 12 seeds (8 without fire): careful bands come through Deep Cold without fire (bar 75%, Director: stays; step 17 call 2: cold people see to warmth before hunting or wandering); living balance holds  winter survival without fire 48/49 (98%); deaths {"cold":2}; per person-day 2.26 meals, 3.00 drinks, 1.01 sleeps, warmth avg 88, 31 min at 0; 0.61 tries, 0.015 sparks, 5 shards, 27 embers, 19 fires (4 fire-on years) [1: 5->4, 2: 7->7, 3: 5->5, 7: 5->5, 42*: 5->4, 99*: 6->6, 1234*: 6->6, 12345*: 5->5, 5*: 5->5, 6*: 8->8, 8*: 6->6, 9*: 8->8]
+PASS learning: cold + warmed by an ember 1 tile away raises the fire score; warm (80) or 3 tiles away does not  ember heat 6.3 C; score 50 -> 81 in 60 cold minutes; 1 successes
+PASS burn: fire score -35, one log line, she jumps back off the embers, not hurt  score 50 -> 15, 'Kog steps on the embers and jumps back, burned', now 1.8 tiles away
+PASS approach odds: higher score, bolder (low fireFear) and colder -> more often  base 50%, hi 100%, lo 8%, burnt 4%, fearful 26%, bold 72%, colder 71%
+PASS copying: odds from curiosity and fear, only within 5 tiles, tagged with who, logged 'watched X and copied', once per source per day  curiousBold 68%, plain 28%, dullFearful 7%, huddle 30%; 'Oska watched Kog and copied: sitting by the fire'
+PASS seasons: Greening normal, High Sun/Leaffall fuller meals and faster regrowth, Deep Cold smaller meals and slow regrowth  meal yield 1/1.25/1.25/0.8; regrow 24 h/18 h/18 h/36 h
+PASS grazers: greenness score picks grassy damp ground; herds weigh 6 spots; graze longer in Deep Cold  20.13 vs 0
+PASS personal log: only that person's events (by id), deaths classed, last 200 kept, same after save/load  452 entries over 4 people, 0 mis-tagged; 200 for Inn
+PASS discoveries: flint on rock = rock on flint; a broken stick counts as a stick; trivial firsts ('wears down') kept; firsts go in her own log  (no result this roll)
+PASS held water at 0 (test mode): 'is parched' logged once, 'is thirsty' not repeated  is parched 1x, is thirsty 0x over 1200 ticks, 103 drinks undone by the hold
+PASS held fullness at 0 (test mode): 'is starving' logged once, 'is hungry' not repeated  is starving 1x, is hungry 0x over 2400 ticks, 10 meals undone by the hold
+PASS hunt: a rock, stick, flint or bone is hard enough (hardness >= 20); meat is not
+PASS hunt: kill odds base 10%, +30% sharp (flint / bone shard), +20% learned (score >= 60)  0.10 / 0.40 / 0.30 / 0.60
+PASS hunt: strikes kill at about those odds (400 strikes each)  rock 10%, flint 37%
+PASS hunt: a kill leaves a fresh carcass with 4 pieces of meat, logs the act, raises her hunt score, notes a first  Grazer 7, score 70, misses before: 0
+PASS carcass art: untouched -> 'fresh'
+PASS meat: taken from a fresh carcass (spoils when it would rot), a hungry taker starts eating; art -> 'picked'
+PASS meat: eating raw meat takes 15 min and adds 60 fullness  20 -> 80
+PASS carcass: fresh -> rotting -> bones like a body; no meat once rotting; art -> 'bones'
+PASS meat: raw meat makes her sick about 25% of the time (energy -20)  25.7% of 2000
+PASS meat: edible only while fresh, then it rots away (even in hand)
+PASS hunt: a hungry person keeps a hard thing in hand (to hunt with); a fed one does not
+PASS hunt: a kill seen within 5 tiles can be copied  Ahna 70
+PASS art: food_16.png and grazer_carcass_16.png are 48x16 and registered
+PASS cook: states by heat minutes - raw < 30 <= cooked <= 120 < charred; cooked +70 fullness, no sickness; charred +20
+PASS cook: meat held next to an ember is cooked after 30 min and chars past 120 (it does not burn away); 6 tiles off it stays raw  cooked at minute 30, heat 125
+PASS cook: a fire cooks meat within 3 tiles (people keep 2.5 from flames), not at 4  on the ground
+PASS cook: eating cooked meat gives +70 fullness, logs it, notes a first (cooked meat) and raises her cook score by 20  70
+PASS cook: cooked meat never makes anyone sick (raw: 25%)  0 of 300 sick (raw rate measured above)
+PASS cook: charred meat gives only +20 fullness and lowers her cook score by 10
+PASS cook: p(hold raw meat to a fire in sight) = 0.15 x (score/50)^2 x (1.5 - fireFear/100)  score 50: 14.1%, score 70: 28.6%
+PASS cook: she walks to a free tile next to the embers (not onto them)  27,22
+PASS cook: holding it there until it is cooked, then eating it (30 min, unscripted chain)  heat 30, fullness 20 -> 90
+PASS cook: a cooked meal seen within 5 tiles can be copied  Ahna 70
+PASS cook: a carcass next to a fire roasts; meat taken from it is cooked
+PASS sharpness: one threshold (physics.sharpAt 45) for hunting and the sharp-shard rule
+PASS births: grazer calves are born in Greening (about 0.35 per grazer with a mate near), none in High Sun  6 in Greening from 15, 0 in High Sun
+PASS births: none at pop.maxAnimals (40)
+PASS births: a herd hunted down to 3 still grows back over 3 years with hunting on (slower at 0.35, Director step 17 call 3)  grazers 3 -> 3 -> 6 -> 8, births 6, kills 1
+PASS lightning: natural fire starts about 1 per seed per season (16 seeds x 1 year)  1.13 per season (by season 0.50 / 0.88 / 3.13 / 0.00; 54.9 strikes per year, config 56)
+PASS fire: someone is warmed by a fire within the first year on most seeds  11 of 16 seeds
+PASS hunt: hungry people with a hard thing in hand kill grazers and eat the meat, unscripted  kills 11 of 53 strikes on 7/16 seeds, 20 pieces eaten, 3 sick; 188 s
+PASS cook / births: how often it happens in a year (16 seeds; reported, not a bar)  holds to a fire 0, meat cooked 0 / charred 0 (0 carcasses heated), cooked meals 0 / charred 0 on 0/16 seeds; grazer births 93
+PASS display: °F (rounded) and 12-hour AM/PM times everywhere shown; no °C or 24-hour time in UI source, log lines or discoveries  6:05 AM, 13:30 -> 1:30 PM, 0 C -> 32°F, 200 log lines checked
+PASS call 1: a wildfire over a fresh carcass roasts it instead of burning it to bones (heat 40 min: cooked); a hungry person with meat looks 15 tiles for a fire  cooked after 30 min, 4 pieces left
+PASS call 2: cold and idle, she goes for warmth (fire in sight, else trees / company) before any early trip or wander  first move: fireside
+PASS call 3: grazer births 0.35 per grazer with a mate near, per Greening
+PASS art: smoke_16.png (64x16: wisp_0/1, smoulder_0/1) is registered and drawn over smouldering trees and burning woods (base tiles unchanged)
+PASS relations: constants per spec (near 4 tiles, +1 fam/h, -1/day apart; like 50 start, +2 shared, -3 took, drift 1 per 3 days; follow 60+ within 15; avoid < 25; groups 60/60; copy x1.25 / x0.85)
+PASS familiarity: +1 per game hour within 4 tiles, -1 per game day apart  3 h near: 3/3; 2 days apart: 1
+PASS liking: +2 once per stretch of eating / drinking / warming near them (only for the one whose need rose), -3 when they took the bush, meat or fire spot she was heading for, drifts toward 50 at 1 per 3 days  one meal: 52.00 (other 50); next meal: 53.99; took: 47; 3 days later: 48.00
+PASS groups: daily clusters of mutual familiarity and liking >= 60 (2+); id and colour stay while most members stay; form / join / leave / split are action lines  day 1: 3 (colour 1), +1 joins: 4, 1 leaves: 3, split: 0 groups
+PASS group knowledge: copy odds x1.25 from a group member, x0.85 from anyone else; a group knows the union of its members' scores >= 40  member 0.295 (base 0.236), other 0.233 (base 0.274); skills: fire, huddle
+PASS Discoveries: the Group column is filled with the finder's group (blank for a loner)  Group 2
+PASS idle: drifts to 1-3 tiles off the most-liked person within 15 tiles (liking 60+); keeps 3+ tiles from someone liked under 25  follow ends 3.0 tiles off; avoid ends 4.0 tiles off
+PASS card: Relations lists the top 5 by familiarity with warm 70+ / neutral 40-69 / wary under 40 and both numbers  Quo warm 40/70, Abet wary 30/30, Kog neutral 20/55, Cosk warm 10/80
+PASS save v16+: relations, groups and their colours round-trip; a resumed run matches a straight run a day later  42 pair records, 0 groups
+PASS a year on 6 seeds: groups form from who knows and likes whom (nothing scripted)  groups formed 6, avg 0.47 groups a day, avg size 3.2 [1: 0 formed, max 0 at once, end none of 4; 2: 1 formed, max 1 at once, end 5 of 7; 3: 1 formed, max 1 at once, end 3 of 5; 4: 1 formed, max 1 at once, end 2 of 5; 5: 1 formed, max 1 at once, end 2 of 5; 6: 2 formed, max 2 at once, end 4+2 of 7] 72 s
+PASS fire: a stick in the flames becomes a burning stick (not fuel, not a plain pickable)  lit for 400 min from now (burning + carry 360)
+PASS fire: a burning stick is carried until it burns out, then it is gone (logged)  carried 6.7 h
+PASS fire: a burning stick laid on dry ground sets it smouldering (ember physics, credited to who carried it)  after 3 min, fuel dry grass
+PASS fire (Director, call 11 on 19): each hour by a fire with a burning stick within 3 tiles: p = 5% + grabChance x (fire score/50)^2 x (1.5 - fireFear/100); out of reach: none  p(score 0) 0.05, p(avg) 0.15, p(score 80, fear 20) 0.38, p(fear 80) 0.12; 2000 hourly rolls at score 0: 116 grabs (5.8%)
+PASS hunt: only Warmth under 30 stops a hunt (Director call 1)
+PASS social: following is off in Deep Cold and whenever a need is under 50 (Director call 2)
+PASS groups: 6 saturated ring colours clear of meadow, sand and water, distinct for 6 groups; dark under-ring in render.js  closest to a ground colour 110
+PASS family: adults 16-45 with mutual liking >= 65 and familiarity >= 60 (21b Director: 65 / 60) pair once (logged once); one point short of the liking: no pair; liking under 40 breaks it
+PASS family (Director, call 1 on 19): conception needs both asleep within 1 tile, fullness/water >= 35, warmth >= 30 and population under 60; 20% a night (21b Director)  draws 19.8%
+PASS family: pregnancy drains fullness x1.25  90 min: 7.35 vs 9.19 (x1.250)
+PASS family: after 7 days she gives birth; the baby (seeded name, her group) is beside her, its traits the parents' average +-5%, no learned scores  Mott {"speed":55,"appetite":55,"curiosity":60,"coldFear":52,"fireFear":68,"faith":51}
+PASS family: inheritance is the average +-5% with a rare (2%) +-20% mutation  mutations 2.2% of 5000
+PASS family: a baby is carried on her tile and its needs follow hers
+PASS family: when the carrier dies an adult of the group within 2 tiles picks the baby up (logged)
+PASS family: with nobody to take it up, a baby left alone dies after 2 days (Director 21; a small body stays)  2881 min
+PASS family: if she dies while with child, nothing is born
+PASS save v16+: pairs, a pregnancy and a baby round-trip; a resumed run matches a straight run a day later  43.8 KB
+PASS family: the population cap holds at 60 (people + babies + pregnancies): 24 founders, every pair conceiving every night  max 60 over 20 nights, 36 births, 164 pair-nights refused at the cap, 0.1 s
+PASS family: trait drift table for 10 babies (parents' average -> baby, * = mutation)  max non-mutated drift 6.7% | Ilo: speed 40->40, appetite 70->67, curiosity 44->44, coldFear 61.5->63, fireFear 38.5->38, faith 58->59, lifespan 70.44->69.82 | Beso: speed 71.5->73, appetite 54->54, curiosity 42->42, coldFear 53->51, fireFear 36.5->35, faith 52.5->52, lifespan 73.79->70.56 | Cael: speed 56->56, appetite 59.5->58, curiosity 42->43, coldFear 38->37, fireFear 68->70, faith 43.5->42, lifespan 76.09->78.56 | Oti: speed 53->51, appetite 43.5->46, curiosity 44.5->45, coldFear 54->56, fireFear 31->31, faith 50.5->49, lifespan 78.01->74.45 | Lusa: speed 45->45, appetite 38->38, curiosity 53.5->55, coldFear 29.5->31, fireFear 47.5->46, faith 53.5->56, lifespan 90.91->88.96 | Ahna: speed 34.5->36, appetite 53.5->56, curiosity 32.5->32, coldFear 56.5->57, fireFear 51->52, faith 55->53, lifespan 75.13->73.28 | Sef: speed 71.5->71, appetite 64->64, curiosity 41->41, coldFear 46.5->46, fireFear 39->38, faith 74->71, lifespan 66.65->65.6 | Etta: speed 61.5->63, appetite 60.5->61, curiosity 71.5->70, coldFear 62.5->64, fireFear 39.5->40, faith 57.5->56, lifespan 69.81->69.91 | Holm: speed 62->64, appetite 45->46, curiosity 57->57, coldFear 50->52, fireFear 31.5->33, faith 33.5->35, lifespan 70.56->72.43 | Tesh: speed 22.5->24, appetite 47.5->46, curiosity 25->26, coldFear 62->62, fireFear 51->49, faith 42.5->51*, lifespan 89.95->92.56
+PASS family: a year on 8 seeds (natural rules: pairs form, the cap holds; births are reported, not required)  births 4, pairs 8 [1: 0 pairs, 0 fertile nights, 0 conceptions, 0 births; 2: 2 pairs, 6 fertile nights, 2 conceptions, 1 births; 3: 1 pairs, 2 fertile nights, 1 conceptions, 1 births; 4: 0 pairs, 0 fertile nights, 0 conceptions, 0 births; 5: 1 pairs, 0 fertile nights, 0 conceptions, 0 births; 6: 2 pairs, 9 fertile nights, 1 conceptions, 1 births; 7: 1 pairs, 3 fertile nights, 1 conceptions, 1 births; 8: 1 pairs, 0 fertile nights, 0 conceptions, 0 births] 96 s
+PASS family (Director, call 2 on 19): every seed starts with at least 2 founders of each sex (seeded)  60 seeds
+PASS names (Director, call 10 on 19): once all 70 are used, repeats get ' II', ' III', ' IV' (no two people share a name)  Aru II, Anku III, Jessa IV
+PASS learning (Director, call 11 on 19): each warming at a fire adds 10 to the fire score on top of the heat it gave  2 warmings: score 34.0 without, 54.0 with
+PASS childhood: baby 0-3 (carried), child 3-12, youth 12-16, adult 16+; at 3 the baby walks beside her mother, fire_fear = inherited + 20, knows what she knows  Mott, fear 67 -> 87, 1.4 tiles from Sef
+PASS child: fullness and water drain x0.7; picks up sticks and rocks, never flint, bones or a burning stick; does not hunt  child can take: stick, rock; adult: stick, rock, flint
+PASS child: an idle child more than 4 tiles off walks back to her guardian; stays within ~4 tiles while both are awake and sleeps beside her  awake together, off food/water trips, 94% (all awake time 95%) within 5 tiles (max 7.3); asleep together 100% side by side; keeps 12
+PASS learning: copy odds from an adult x2 for a child and x1.5 for a youth (copy-rate table, curiosity 50, 3000 watched successes each)  child 59.0% (x1.98), youth 43.6% (x1.46), adult 29.8% (x1.00); adult expected 29.8%
+PASS learning: a child watching a parent's success gains half the adult gain without copying (never past the parent); her card lists who she learned from  fire 0 -> 11 after one warming watched (gain 22 x 0.5), 60 after 21 (parent 60); learned from Sef (fire)
+PASS fear: a child's warming at a fire with an adult close by lowers fire_fear by 1.5 (x1.5 the adult rate); with no adult near, no change  70 -> 68.5
+PASS youth: at 12 she roams on her own (logged); kill odds x0.5; no pairing until 16; at 16 she is grown (logged) and may pair  kill odds youth 0.05 vs adult 0.10
+PASS orphans: a child whose parents die keeps close to the group member she likes most (logged); with none left she is on her own (logged)
+PASS learning: a child picks up a skill nobody in her own group has (copied from an adult of another group; logged as an action)  Golla hunting 60 (her mother never hunted: untried 50) after 1 watched success(es)
+PASS staged: a child of 12 grows on the clock through youth (12-16) to adult (16) in about 4 years of 28 days  Mott: child > youth > adult at day 123
+PASS save: a v13 save loads as v19 (v13->v14 names counted, the next repeat gets ' II'; v14->v15 faith added, v15->v16 shelters, v16->v17 powers, v17->v18 lightning / spawn, v18->v19 curiosity fade); v19 round-trips  Sef II
+PASS step 20 deaths fix: at night a group member within 1.5 tile adds bondC (12.5 C = half of a fire's 25 C); not by day, not from afar  night near 15.8 C vs far -0.7 C (huddle 1); day bond null
+PASS step 20 deaths fix: in Deep Cold two group members lie down to sleep together  apart 4.0 -> 1.0 tiles, gathers 1, sleep/sleep
+PASS step 20 deaths fix: on a cold Deep Cold night (latched for the night) hunger does not wake a sleeper or send her out for food  latched true/true, awake minutes 0, food trips 0
+PASS step 20 burning sticks: a stick lying within 1 tile (diagonal too) of a burning tile catches and burns on until the flames die + litMinutes; 2 tiles away it does not  diag lit true, 2 away false, caught 1
+PASS step 20: a person with fire score >= 40 no longer keeps away from a smouldering (struck) tree's flames beyond 1.5 tiles; other flames as before; reach stays 3  score 39 (start 50): 2, brave Infinity, brave at 0.5 0.5, plain fire 2
+PASS step 20 call 5: a child holding a rock may rub it on flint lying on the ground  child tried: true
+PASS step 21: faith trait 0-100 seeded for founders and inherited with drift  founders 51,47,23,35,52; babies of 90/90 avg 90, of 10/10 avg 10
+PASS step 21: a need under 25 or a death seen in the last day starts a 10-40 min prayer bout (chance faith/hourDiv per hour); never with the water/food she needs within 5 tiles  form still+sway+circle, 22 min, line: Sef lies still, sways and circles a spot, shivering
+PASS step 21 config matches the spec (faith/400 per hour, 5-tile source/copy, 6 h reinforce, 3 prayers within 2 tiles, drift 10, feed 300)
+PASS step 21: prayer forms are 1-3 actions stored as strings like kneel+offer:stick; offering is weighted by what is held, face:fire needs a fire  actions seen sway,still,circle,face,raise,kneel; offer:stick in 226/400 when holding a stick
+PASS step 21: a prayer seen within 5 tiles is copied by the normal copy rule (child x2), recording who it came from  adult 1300, child 2643 of 3000 (x2.03); 6 tiles away: false
+PASS step 21: a need that rises 10+ within 6 h of a prayer makes that form liked (superstition); later rises do not count  liked 25, late 0
+PASS step 21: an offering is set down and stays on the ground as an item  at 28,19 offered 1, offerings 1
+PASS step 21: 3 prayers within 2 tiles make a prayer spot (data, not drawn); a person starting a prayer within 10 tiles walks there first  spots 1, goal prayspot, now pray
+PASS step 21: Prayers feed keeps the last 300 lines (with group), saved with faith state, forms and the prayer rng  300 lines
+PASS step 21: a v14 save loads as v15..v20 (faith rolled per person from the seed, empty feed) and round-trips  faith 59,30,54,49,69
+PASS step 21 proof: 8 seeds x 2 years - prayers on every seed, 2+ forms spread by copying on some seed, prayer spots; no speech / quotes / named powers in any line  1:40b/5p/0s/3sp 2:40b/7p/1s/3sp 3:26b/5p/1s/0sp 4:42b/5p/2s/3sp 5:33b/5p/0s/1sp 6:53b/7p/1s/2sp 7:22b/5p/1s/1sp 8:41b/6p/2s/3sp; seeds with 2+ spread forms 2; lines checked 297
+PASS step 21 orphans: when a carrier dies the group member who likes her most (not the nearest) walks over from up to 15 tiles and lifts the baby (logged)  went true, lifted after 71 min by Quo
+PASS step 21 orphans: with no group member in range any adult within 10 tiles may take the baby, each hour with odds curiosity - fear (0 when fear >= curiosity, nobody past 10 tiles)  100-0 at 8: true, 20-40: false, at 12: false; 70-30 draws 39.6%
+PASS step 21 orphans: a baby survives 2 days alone (orphanMinutes 2880)
+PASS step 21 cold: 3 people asleep within 1 tile of each other feel a fire's warmth (25 C); 2 get half; an awake neighbour gives no sleep warmth  3: 31.3 C, 2: 14.8 C, alone: -1.7 C, awake pair: 2.3 C
+PASS step 21 cold: at warmth <= 20 she heads for the nearest group member (or fire) before anything else, even hungry  goal beside, 7.9 tiles off
+PASS step 21 sticks: an idle person warming within 1 tile of a burning stick rolls the grab every hour (none from 2 tiles with no fire by her)  rolls 5/5, at 2 tiles 0
+PASS step 21 sticks: a burning stick on the ground draws someone who knows fire to sit 1 tile from it, where she rolls the grab hourly (score < 40: not drawn)  went true, seat 1 tiles from it, rolled 1, shy false
+PASS step 21 sticks: warming at a fire, she reaches for a burning stick 1 tile from the flames and picks it up  by fire true, went true, picked up true
+PASS step 21 sticks: 'caught' counts sticks lit by nearby flames only; a person warming at the fire is not counted  with a person by it 0, with a stick 1
+PASS 21b shelters: 3-8 per seed from the terrain (caves 1-3 hill tiles cap 6 warm 1.0x; overhangs 1 hill tile cap 3 0.6x; thickets 2-4 woods tiles 3/tile 0.4x rain 0.5 walk x2), deterministic, map unchanged; no hollow (art slot 2 never drawn)  1:7 2:7 3:6 4:7 5:6 6:4 7:6 8:7 9:6 10:6 11:6 12:4 13:5 14:8 15:4 16:3; {"cave":22,"overhang":21,"thicket":49}
+PASS 21b warmth: asleep or idle inside adds 1.0x / 0.6x / 0.4x a fire (cave / overhang / thicket), none walking or outside; fire + huddle + sleeping together + shelter capped at 1.5x a fire (the shelter adds nothing past the cap)  {"cave":[true,25,7.5,0,0,0],"overhang":[true,15,7.5,0,0,0],"thicket":[true,10,7.5,0,0,0]}; cave + fire alone: 18.8 + den 18.75 = 37.5 C (cap 37.5); + 2 sleepers: 51.8 C already over, den 0
+PASS 21b full shelter: the one who doesn't fit lies down outside and likes the nearest one inside a little less (crowdLike -1), no fight  inside 6, like now 49 (was {})
+PASS 21b learning: a cold person (< 50 warmth) within 3 tiles steps into a cave, warming inside raises her 'den' score; the first wake-warm is Discoveries 'First shelter use: Zaba slept in a cave -> woke warm'  walked true, inside true, den 25 C, score 50 -> 51.62; discoveries with title 1
+PASS 21b learning odds: curiosity raises, fire-fear lowers the step-in odds; a remembered shelter + den score pulls her back when cold (none if she knows none)  step-ins of 400: curious/brave 305, wary 28, no curiosity 0
+PASS 21b copying: watching her warm in a cave, he copies the den score and now knows that cave (shared through copying)  his den score 70, knows [3]
+PASS 21b thicket: walking through a thicket tile costs x2 time; elsewhere x1
+PASS 21b thicket routing: walks are planned by time, so she goes round a thicket when quicker (24 of 28 crossings rerouted, none slower)
+PASS 21b: the info card shows 'Known shelters'; shelter log lines are action lines only  crawls into the cave mouth | ducks in under the overhang | pushes into the thicket
+PASS 21b save: a v15 save loads as v16 then v17, v18 and v19 (shelters from the seed, nobody knows one yet); v19 round-trips and a resumed run matches  6 shelters
+PASS 21b save: known shelters, the first-use record and the shelter rng round-trip; a resumed run matches
+PASS 21b Director values: pairing liking 65 / familiarity 60, conception 20% a night, a lit stick smolders 360 min (6 h), loners: warmth <= 20, 20 tiles (v19 growth recheck; was 15), +1 familiarity
+PASS 21b loners: at warmth <= 20 she walks to the nearest person within 15 tiles (a stranger, or someone from another group), presses in beside him; both get +1 familiarity, nobody refused; v19: also from 15-20 tiles away  from 8.0 tiles, joined after 63 min (no group) / 63 min (other groups), v19 from 17.0 tiles: true; fam 1/1
+PASS 22/24 config: radius 8 tiles, no cooldown; Medium rain 6 h, wet 1 day, bushes x3 for 3 days, warmth loss x1.5, smouldering tree out within 1 h, puddles 1 day; warm/cool +-15 F for 1 day, fade 2 h, stack to +-30 F; rain art 4 frames x 150 ms
+PASS 22 rain: burning tiles go to ash and embers out at once, a lit stick in the rain goes out (one outside the circle burns on), a smouldering tree is out within 60 min  tree out after 60 min; Rain falls near the meadow / The rain puts out the fire near the meadow
+PASS 22 rain: the ground in the circle stays wet for a day (40 sparks there, none catch); dry again after  dryness 0, caught 0
+PASS 22 rain: a bush in the circle regrows about 3x as fast; the rain stops after 6 h (logged)  regrow 1440 min -> 480 min
+PASS 22 rain: out in the open she loses warmth 1.5x as fast; under trees and in a cave / overhang the rain does not reach her; a thicket keeps half off  exposure open/woods/cave/thicket 1/0/0/0.5, warmth drop per min 0.0602 -> 0.0903
+PASS 22 rain: people out in the open hurry for tree cover (or a cave) and wait there while it rains  5 of 5 went for cover, 5 dry after 4 h, 2 turned their face up
+PASS 22 rain: puddles on the lowest tiles in the circle (not right beside a lake or river) hold water for a day; a thirsty person drinks at one  6 puddles;  drank true gone true low 0.250,0.255,0.258,0.277,0.283,0.285 vs 0.250,0.255,0.258,0.277,0.283,0.285,0.293,0.293,0.299
+PASS 22 warm / cool: +-15 F in the circle (edge included, outside none), stacking capped at +-30 F, fading over the last 2 h, gone after a day (logged)  warm 15.0 F, x2 30.0, x3 30.0; cool -15.0, 1 h before the end -7.5
+PASS 22 warm in Deep Cold: felt temperature +15 F, warmth falls slower; cool -15 F  felt 28°F / 43°F / 58°F
+PASS v19 no cooldown: Rain / Warm / Cool cast again at once (effects stack)  rain casts 3, left 0
+PASS 22 prayer: powers are visible to prayWatch (checked by the faith tests)
+PASS 22 log: power lines show in the Events tab; no speech or quotes  8 lines
+PASS 22 determinism: with no power used the powers stream is never drawn and runs match
+PASS 22 save v20: active effects, cooldowns and the power stream round-trip; a resumed run (rain, cover, puddles) matches
+PASS 22 migration: a v16 save loads (v17, then current) with no powers active and cooldowns ready; a same-sex partner link is cleared (the liking stays), a man + woman pair is kept
+PASS 22 Director: pairs are man + woman only; two women (or two men) who like each other stay friends (liking kept) and stay free to pair  same-sex pairs 0; mixed pair formed: true; 4 seeds x 56 days: 6 pairs, 0 same-sex
+PASS 22 shelterStats.learned is wired to Shelter.learnedCount (hourly) and survives save/load  count 2 -> stat 2, after load 2
+FAIL 23/24 config: no cooldowns; Lightning Single/Barrage (2-3 in r8); fire 60% dry / 40% rain / 20% Deep Cold, scare 6 tiles +20 fear 1 day, run 1 h; Spawn watchers 6 tiles +5 curiosity, grazer cap 40; art 48x48; save v19
+PASS 23 lightning: fire chance 60% on dry grass / forest, 40% in rain, 20% in Deep Cold, 0% on bare ground / rock / water (no roll drawn)  248/400 fires; rock/water/bare 3 strikes, no fire
+PASS 23 lightning: a strike with no fire leaves a 1-tile scorch; the one on the tile dies (struck by lightning); within 6 tiles +20 fear for 1 day and running for 1 h (a sleeper wakes); farther away untouched; action lines only  body Tull; n1 ran, 6.9 tiles off after a day
+PASS v19 no cooldown: Lightning / Spawn / Rain cast again at once  lightning casts 2, spawn 2
+PASS 23 spawn: one grazer by the tapped tile (joins the nearest herd, a shimmer); watchers within 6 tiles +5 curiosity; a predator (scavenger) may send them backing away; refused on water and at the grazer cap (40), no cooldown spent  herd 2; refusals: needs land / no room for more grazers
+PASS 23 lit stick: a stick within 1 tile of a lightning fire smoulders as a lit stick; a curious adult (curiosity - fear roll) creeps over and carries it; the first carry is a Discoveries entry  walk at +149 min, carried at +158 min; discovery {"n":1,"key":"carried|burning stick|fire in hand","action":"carried","materials"
+PASS 23 lit stick: the walk to a lightning-lit stick is not turned back by the flee rule (it passes within 2.5 tiles of live flames) and goes round the burning tiles  carried at +55 min, closest 0.7 tiles from the flames
+PASS 23 lit stick: the roll is curiosity minus fear (fireFear + fright): a fearful adult leaves it  5 rolls, 0 walks
+PASS 23 faith: a prayer followed within a day by a spawn (or strike) close by reinforces that ritual, once per prayer; far away or too late counts nothing  like 50 -> 75
+PASS 23 save: v19 round-trips a strike, its fire and fright, and a spawned animal (a resumed run matches); a v17 save loads as v18 then v19 (new strike / spawn stats, cooldowns kept)
+PASS 23 determinism: with no power used the powers stream is untouched, no animal is spawned and nobody is frightened
+PASS 24 config: save v20; spawn curiosity fade 7 d; Rain Light/Medium/Heavy scales; Lightning Barrage 2-3 in r8; no cooldowns
+PASS 24 curiosity: a spawn watcher gets +5 curiosity that fades 1 point at a time, back to normal after 7 days (someone too far gets nothing)  60 -> 65 -> 63 (3.5 d) -> 60 (7 d)
+PASS 24 curiosity: a second watch adds +5 to what is left and the 7 days start again; at the 100 cap only the points added fade off  mid 63, peak 68, day 6.5 61, day 7 60; 98 -> 100 -> 98 alive true c 65
+PASS 24 save: v19 keeps a fading curiosity bump (a resumed run matches); a v18 save loads as v20 (strikes.babies 0; earlier bumps are not tracked and stay)  left 4 at save
+PASS 24 rain Light: short/mild — sticks and non-hold embers out, burning tiles and hold trees left; 3 h, bush x1.5, rare puddles  fires left fire, puddles 2
+PASS 24 rain Heavy: long and hard — all fires + hold trees out at once, wet ground 2 days, bushes x5, many puddles  puddles 152, wet 2880 min
+PASS 24 lightning Barrage: 2 or 3 bolts on unique land tiles within r8 of the tap; Single is one at the tap  single 1, barrage 2 at 36,18 / 37,18
+PASS 24 lightning: a baby carried by someone struck dies too (struck by lightning, a baby body, the death line); a baby carried next door lives; a baby lying alone on the struck tile dies  Babe1 lies still. Babe1 was struck by lightning.
+PASS 25 config: save v20; speech tokens/meanings; words.js synced from words.json; gesture art cols  point+grunt, point+call, pat+chest, stop+hand, beckon+call
+PASS 25 invent: low need + neighbour → gesture emit (action log, no quotes); hearer watch; gesture overlay active  point+grunt watch=true line=Teva points and grunts
+PASS 25 bind setup: hearer has watch after emit
+PASS 25 bind: hearer seeing speaker eat binds token→food (bindGain); reuse raises score  score 25 → 33 binds 6
+PASS 25 group: 3+ at scoreAt+ lock token as speech; syllable from words.js; quoted log; gesture overlay stops  word=Isha label=Speech: 1 shared word said=Vesk says "Isha!"
+PASS 25 group: under groupMin does not lock  holders 2 < 3
+PASS 25 save: v20 keeps speech locks + wrng (resumed run matches); a v19 save loads as v20 (empty speech, no words)  locks 1 → after v19 migrate 0
+PASS 25 pickWord: stable per (seed, group, meaning), from words.js  Pli / group2 Yas
+PASS 25 card: loner / no locks → Speech: none
+PASS index.html: every script/CSS link has ?v=20 (= saveVersion)  29 links
+PASS tick cost with 8 founders and 25 animals  296 us/tick (seed 6)
+HEADLESS FAILED (1)

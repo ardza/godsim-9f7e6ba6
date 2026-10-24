@@ -42,11 +42,16 @@
     // step 21b (Artist): natural shelters, transparent overlays on the tile beneath (slot 2 is blank: the hollow was dropped, never drawn)
     shelter: { src: "data/art/shelter_16.png", frame: 16, cols: ["cave", "overhang", "", "thicket"] },   // 64x16
     // step 22 (Artist): rain over every tile in a Rain circle, 4 frames ~150 ms each (tileable, semi-transparent; no base tile changes)
-    rain: { src: "data/art/rain_16.png", frame: 16, cols: ["fall_0", "fall_1", "fall_2", "fall_3"] },   // 64x16
+    rain: { src: "data/art/rain_16.png", frame: 16, cols: ["fall_0", "fall_1", "fall_2", "fall_3"] },   // 64x16 Medium
+    rainLight: { src: "data/art/rain_light_16.png", frame: 16, cols: ["fall_0", "fall_1", "fall_2", "fall_3"] },   // v19 Light
+    rainHeavy: { src: "data/art/rain_heavy_16.png", frame: 16, cols: ["fall_0", "fall_1", "fall_2", "fall_3"] },   // v19 Heavy
     // step 23 (Artist): a Lightning strike, 3 frames 16x48 (strike, fade, ground flash); the bottom 16px sits on the struck tile, the bolt reaches 2 tiles up.
     // Shown ~80 / 80 / 150 ms (powers.lightning.frameMs), then the normal fire / scorch fx. Missing: a code-drawn bolt.
     lightning: { src: "data/art/lightning_16.png", frame: 16, frameH: 48, cols: ["strike", "strike_fade", "ground_flash"] },   // 48x48
-    baby: { src: "data/art/baby_16.png", frame: 16, cols: ["carried_down", "carried_left", "carried_right", "carried_up", "lying"] }   // 80x16
+    baby: { src: "data/art/baby_16.png", frame: 16, cols: ["carried_down", "carried_left", "carried_right", "carried_up", "lying"] },   // 80x16
+    // step 25 (Artist): speech gesture overlays on the down-facing frame (same origin), until the token is group speech for her group
+    gesture: { src: "data/art/gesture_16.png", frame: 16, variants: 8, cols: ["point_right", "point_left", "pat_chest", "stop_hand", "beckon"] },   // 80x128
+    childGesture: { src: "data/art/child_gesture_16.png", frame: 16, variants: 8 }   // 80x128, same columns, 75% figure
   };
   G.data.artItems = G.data.art.items.cols;   // which item frames exist (a sharp bone uses bone_shard; other shards use their material)
 })(this.GS = this.GS || {});

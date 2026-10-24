@@ -158,7 +158,7 @@
   function drink(sim, a) {
     const act = a.act, n = P().drinkMinutes / G.data.config.time.tickGameMinutes;
     act.t++; a.needs.water = Math.min(100, Math.round((act.from + (100 - act.from) * act.t / n) * 1e9) / 1e9);
-    if (act.t >= n) { a.needs.water = 100; a.stats.drinks++; startIdle(sim, a); }
+    if (act.t >= n) { a.needs.water = 100; a.stats.drinks++; if (G.Speech) G.Speech.onDrink(sim, a); startIdle(sim, a); }
   }
   // Lies down after dusk when energy is under sleepBelow (or straight back down if a need woke her early tonight).
   function shouldSleep(sim, a) { return a.needs.energy <= 0 || (Agent.isNight(sim.tick) && (a.needs.energy < P().energy.sleepBelow || a.wokeEarly)); }
@@ -390,6 +390,7 @@
     if (act.t >= n) {
       a.needs.fullness = end; b.ripe = false; b.regrow = 0; b.ateBy = a.id; b.ateAt = sim.tick; a.knowledge.bushes[b.id].ripe = false; a.knowledge.bushes[b.id].emptySince = sim.tick;
       a.stats.meals++; G.Sim.log(sim, a.name + " ate berries (" + Agent.fullnessWord(end) + ")", a);
+      if (G.Speech) G.Speech.onEat(sim, a);
       startIdle(sim, a);
     }
   }
