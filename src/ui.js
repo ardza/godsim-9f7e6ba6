@@ -213,7 +213,7 @@
     window.addEventListener("resize", UI.layout); UI.layout(); UI.fit();
   };
   // ---- person card helpers: trait names, experience scores (step 13-14), chips, and the personal log (.plog, only this person's events) ----
-  const TRAIT = { speed: "Speed", appetite: "Appetite", curiosity: "Curiosity", coldFear: "Cold fear", fireFear: "Fire fear", faith: "Faith" };
+  const TRAIT = { speed: "Speed", appetite: "Appetite", curiosity: "Curiosity", coldFear: "Cold fear", fireFear: "Fire fear", faith: "Faith", corpseFear: "Corpse fear" };
   const EXP = { fire: "Fire", huddle: "Huddling", shelter: "Shelter" };
   const traitName = k => TRAIT[k] || k;
   const chip = (t, cls) => '<span class="chip' + (cls ? " " + cls : "") + '">' + t + '</span>';
@@ -321,7 +321,9 @@
     } else if (bd) {
       const BC = G.data.config.body, ago = sim.tick - bd.diedAt, days = Math.floor(ago / 1440), hrs = Math.floor(ago % 1440 / 60);
       const MC = G.data.config.meat;
-      $("info-body").innerHTML = '<h3>' + (bd.stage === "bones" ? 'Bones of ' : bd.species ? 'Carcass of ' : 'Body of ') + esc(bd.name) + '</h3><div class="sub">' + bd.stage + (bd.species ? ' · ' + (bd.killedBy ? 'killed by ' + esc(bd.killedBy) : bd.cause) : ' · ' + ((G.data.config.body.causeVerb || {})[bd.cause] ? '' : 'died of ') + bd.cause + ' at ' + bd.age + ' years') + '</div>' +
+      const burialLine = bd.burial ? '<div class="sub">burial: ' + esc(bd.burial.stage.replace(/_/g, " ")) + '</div>' : '';
+      const pyreLine = bd.pyre ? '<div class="sub">pyre: ' + esc(bd.pyre.stage) + (bd.burned ? ' · ash bones' : '') + '</div>' : (bd.burned ? '<div class="sub">ash bones</div>' : '');
+      $("info-body").innerHTML = '<h3>' + (bd.burial ? 'Burial of ' : bd.stage === "bones" ? 'Bones of ' : bd.species ? 'Carcass of ' : 'Body of ') + esc(bd.name) + '</h3><div class="sub">' + bd.stage + (bd.species ? ' · ' + (bd.killedBy ? 'killed by ' + esc(bd.killedBy) : bd.cause) : ' · ' + ((G.data.config.body.causeVerb || {})[bd.cause] ? '' : 'died of ') + bd.cause + ' at ' + bd.age + ' years') + '</div>' + burialLine + pyreLine +
         (bd.species && bd.stage !== "bones" ? '<div class="sub">meat left: ' + (bd.meat || 0) + ' of ' + (MC.pieces[bd.species] || 0) + ' pieces' + (bd.stage === "fresh" ? ' (can be taken while fresh)' : ' (spoiled)') + '</div>' : '') +
         '<div class="sub">' + G.Time.stamp(bd.diedAt) + ' · ' + (days ? days + ' d ' : '') + hrs + ' h ago</div>' +
         (bd.stage === "bones"

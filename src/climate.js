@@ -42,10 +42,10 @@
   Climate.airAt = (sim, x, y) => Climate.airC(sim.tick) + (G.Powers ? G.Powers.shiftC(sim, Math.round(x), Math.round(y)) : 0);
   Climate.felt = function (sim, a) {
     const Wm = CF().person.warmth, x = Math.round(a.pos.x), y = Math.round(a.pos.y);
-    // step 22: rain on her (0..1): no sun, powers.rain.chillC x wet colder (warmth loss x lossX is applied in Agent.step)
+    // step 22/26: rain on her (0..1): no sun; v22 per-strength chillC × exposure (L3/M6/H10); warmth loss × lossX in Agent.step
     const wet = G.Powers ? G.Powers.exposure(sim, a) : 0, rainy = wet > 0 || (G.Powers && G.Powers.any(sim) && G.Powers.raining(sim, x, y));
     let c = Climate.airAt(sim, x, y); const sheltered = G.World.tile(sim.world, x, y) === T().WOODS; if (sheltered) c += Wm.shelterC; else if (!rainy) c += Wm.sunC * (1 - G.Time.darkness(sim.tick));
-    if (wet) c -= CF().powers.rain.chillC * wet;
+    if (wet) c -= (G.Powers.chillCAt ? G.Powers.chillCAt(sim, x, y) : 0) * wet;
     let hud = 0; for (const b of sim.agents) if (b !== a && Math.hypot(b.pos.x - a.pos.x, b.pos.y - a.pos.y) <= Wm.huddleTiles) hud++;
     hud = Math.min(hud, Wm.huddleMax); c += hud * Wm.huddleC;
     // step 20: at night a partner / group member / guardian (or ward) within bondTiles adds bondC (once)
@@ -65,7 +65,22 @@
   // Director (21): other people asleep within sleepHeat.tiles of her
   Climate.sleepersNear = function (sim, a) { const R = CF().person.warmth.sleepHeat.tiles; let n = 0;
     for (const b of sim.agents) if (b !== a && b.act.type === "sleep" && Math.hypot(b.pos.x - a.pos.x, b.pos.y - a.pos.y) <= R) n++; return n; };
-  // warmth change per minute for a felt temperature
-  Climate.warmthRate = function (feltC) { const Wm = CF().person.warmth, d = feltC - Wm.neutralC; return (d >= 0 ? d * Wm.gainPerDegreeHour : d * Wm.lossPerDegreeHour) / 60; };
+  // v22: equilibrium warmth from felt °C (Director: eq = clamp(50 + (feltC - 10) * 2.5, 0, 100))
+  Climate.warmthEq = function (feltC) {
+    const Wm = CF().person.warmth, k = Wm.eqPerC != null ? Wm.eqPerC : 2.5, base = Wm.eqAtNeutral != null ? Wm.eqAtNeutral : 50;
+    return Math.max(0, Math.min(100, base + (feltC - Wm.neutralC) * k));
+  };
+  // warmth change per minute toward eq. warmth = current warmth (defaults to eq → 0). Same gain/loss band as before; never pushes past eq.
+  Climate.warmthRate = function (feltC, warmth) {
+    const Wm = CF().person.warmth, eq = Climate.warmthEq(feltC);
+    const w = warmth == null ? eq : warmth, gap = eq - w;
+    if (Math.abs(gap) < 1e-12) return 0;
+    const dFelt = Math.abs(feltC - Wm.neutralC);
+    let perHour = dFelt * (gap > 0 ? Wm.gainPerDegreeHour : Wm.lossPerDegreeHour);
+    // mild air near neutral still drifts toward eq (so a mild day does not leave everyone stuck at 100 / 0)
+    if (dFelt < 0.5 && Math.abs(gap) > 1) perHour = Math.max(perHour, 2);
+    const perMin = perHour / 60;
+    return gap > 0 ? Math.min(gap, perMin) : Math.max(gap, -perMin);
+  };
   G.Climate = Climate;
 })(this.GS = this.GS || {});

@@ -41,7 +41,7 @@
     S.stats.casts[k] = (S.stats.casts[k] || 0) + 1;
     if (k === "rain") { const str = (opt && C.rain.strengths[opt]) ? opt : "medium", R = C.rain.strengths[str];
       e.str = str; e.end = sim.tick + mins(R.minutes); e.wetEnd = sim.tick + mins(R.wetMinutes); e.bushEnd = sim.tick + mins(R.bushMinutes);
-      e.bushX = R.bushX; e.lossX = R.lossX; e.douse = R.douse; e.holdOutMinutes = R.holdOutMinutes;
+      e.bushX = R.bushX; e.lossX = R.lossX; e.chillC = R.chillC; e.douse = R.douse; e.holdOutMinutes = R.holdOutMinutes;
       e.pudEnd = sim.tick + mins(R.puddles.minutes); e.puddles = puddleTiles(sim, e, R.puddles.count); e.on = true;
       G.Sim.log(sim, "Rain falls near " + place); douse(sim, e); }
     else { const W = C[k]; e.end = sim.tick + mins(W.minutes); e.fade = mins(W.fadeMinutes); e.dC = fToC(W.deltaF);
@@ -93,6 +93,8 @@
   Powers.bushX = function (sim, b) { if (!Powers.any(sim)) return 1; let x = 1; for (const e of sim.powers.effects) if (e.k === "rain" && sim.tick < e.bushEnd && inC(e, b.x, b.y)) x = Math.max(x, e.bushX != null ? e.bushX : 1); return x; };
   // warmth loss multiplier under rain at a tile (max of active rains there)
   Powers.lossXAt = function (sim, x, y) { if (!Powers.any(sim)) return 1; let v = 1; for (const e of sim.powers.effects) if (e.k === "rain" && e.on && sim.tick < e.end && inC(e, x, y)) v = Math.max(v, e.lossX != null ? e.lossX : 1); return v; };
+  // v22: open-air chill °C from active rain (max of overlapping strengths); Climate.felt multiplies by exposure
+  Powers.chillCAt = function (sim, x, y) { if (!Powers.any(sim)) return 0; let v = 0; for (const e of sim.powers.effects) if (e.k === "rain" && e.on && sim.tick < e.end && inC(e, x, y)) v = Math.max(v, e.chillC != null ? e.chillC : 0); return v; };
   // air temperature shift (°C) at a tile: sum of active Warm / Cool effects there, each fading out over its last fade minutes, capped
   Powers.shiftC = function (sim, x, y) { if (!Powers.any(sim)) return 0; let s = 0;
     for (const e of sim.powers.effects) if (e.dC && sim.tick < e.end && inC(e, x, y)) { const left = e.end - sim.tick; s += e.dC * Math.min(1, left / e.fade); }
@@ -190,20 +192,22 @@
     Powers.answer(sim, x, y);
     return { ok: true, effect: e, fire };
   };
-  // mode: "single" (default) or "barrage" — Barrage drops count[0..1] bolts on random land tiles within scatterTiles of the tap
+  // mode: "single" (default) or "barrage" — Barrage: one bolt on the tap + (count-1) on random land within scatterTiles (v22: primary always on tap)
   Powers.strike = function (sim, x, y, mode) {
     const C = PC(), L = C.lightning, S = st(sim), M = (L.modes && L.modes[mode]) || (L.modes && L.modes.single) || { count: [1, 1], scatterTiles: 0 };
     S.stats.casts.lightning = (S.stats.casts.lightning || 0) + 1;
     const lo = M.count[0], hi = M.count[1], nWant = lo === hi ? lo : lo + Math.floor(Powers.roll(sim) * (hi - lo + 1));
     if (!M.scatterTiles || nWant <= 1) return Powers.strikeOne(sim, x, y, { mode: mode || "single" });
+    // v22: Barrage always lands one bolt on the tapped tile; the other bolts scatter on land within scatterTiles (not the tap, not water)
     const tiles = [], R = M.scatterTiles;
     for (let yy = y - R; yy <= y + R; yy++) for (let xx = x - R; xx <= x + R; xx++) {
+      if (xx === x && yy === y) continue;
       if (!G.World.inb(sim.world, xx, yy) || (xx - x) * (xx - x) + (yy - y) * (yy - y) > R * R + 1e-9) continue;
       if (Powers.ground(sim, xx, yy) === "water") continue; tiles.push([xx, yy]); }
     // Fisher–Yates with the power stream so the barrage is seeded and unique tiles
     for (let i = tiles.length - 1; i > 0; i--) { const j = Math.floor(Powers.roll(sim) * (i + 1)), tmp = tiles[i]; tiles[i] = tiles[j]; tiles[j] = tmp; }
-    const pick = tiles.slice(0, Math.min(nWant, tiles.length));
-    if (!pick.length) pick.push([x, y]);
+    const pick = [[x, y]];
+    for (const t of tiles) { if (pick.length >= nWant) break; pick.push(t); }
     const bolts = []; let anyFire = false;
     for (const [bx, by] of pick) { const r = Powers.strikeOne(sim, bx, by, { mode: "barrage" }); bolts.push(r.effect); if (r.fire) anyFire = true; }
     const place = Powers.place(sim, x, y, R), e = { id: S.next++, k: "lightning", x, y, r: R, t: sim.tick, place, mode: "barrage", bolts: bolts.map(b => [b.x, b.y]) };

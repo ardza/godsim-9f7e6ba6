@@ -1,7 +1,8 @@
 // Animals (grazers, scavengers) and bodies. Plain objects, tick-based, seeded through their own stream sim.arng, no DOM.
 // Animals have no names (shown as "Grazer 12"), die only when hunted (step 16), grazers are born in Greening (step 17), and they flee people.
-// A body is what a death leaves on the ground: fresh -> rotting -> bones (a lasting object, material "bone"). People ignore bodies,
-// but bones are things: an idle person may pick up one of a skeleton's bones (objects.bonesPerBody) as a bone item (src/objects.js).
+// A body is what a death leaves on the ground: fresh -> rotting -> bones (a lasting object, material "bone").
+// Step 26: people may leave / drag / bury / burn / eat / ritual at a body (src/corpse.js). Bones stay as material (unless buried).
+// An idle person may pick up one of a skeleton's bones (objects.bonesPerBody) as a bone item (src/objects.js).
 (function (G) {
   const CF = () => G.data.config, AC = () => CF().animals, BC = () => CF().body, W = G.World;
   const TM = () => CF().time.tickGameMinutes, r2 = v => Math.round(v * 100) / 100, r9 = v => Math.round(v * 1e9) / 1e9;
@@ -204,6 +205,7 @@
   Body.yearsMinutes = () => 1440 * G.Time.daysPerYear();
   Body.step = function (sim, b) {
     const B = BC(), tm = TM();
+    if (G.Corpse && G.Corpse.skipDecay(b)) return;   // step 26: burial / active pyre owns the end state
     if (b.stage === "fresh" && sim.tick - b.stageAt >= B.freshMinutes) { b.stage = "rotting"; b.stageAt = sim.tick; G.Sim.log(sim, b.name + "'s body begins to rot", b); }
     if (b.stage === "rotting") { // flesh left = what rot (by time since rotting began) and scavengers (eaten) have not taken
       b.flesh = r9(Math.max(0, 100 * (1 - (sim.tick - b.stageAt) / B.rotMinutes) - (b.eaten || 0)));

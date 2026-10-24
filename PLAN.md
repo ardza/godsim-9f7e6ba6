@@ -134,10 +134,24 @@ Starts as soon as 13-15 and the new UI are frozen to godsim-rc, without waiting 
 - Spec: bottom of specs/15b-17.md.
 - Starts as soon as 24 is frozen to godsim-rc, without waiting for the pass.
 
-## After step 23 (not ordered yet)
-- What people do with the dead (bury, burn, ritual, eat), once those primitives exist
-- Giving and curing disease
-- Tools from cut and strike combinations
+## 26. Corpse choices (save v22)
+- Leave, drag, bury, burn, eat, ritual — from learning. Lightning aim fix in the same freeze.
+- Spec: bottom of specs/15b-17.md.
+- Starts as soon as 25b is live / next freeze slot; Programmer builds now.
+
+## 27. Moods (save v24)
+- Happiness, sadness, anger — push invent, ritual, hunt, banding. Spec: specs/15b-17.md. After 26b.
+
+## 26b. Materials world + predators (save v23)
+- Per-piece prop jitter + flex, terrain deposits, a mountain mass, reeds on river banks.
+- Spec: bottom of specs/15b-17.md. Starts after 26 freezes; not part of v22.
+- Disease draft moves to save v24; tools draft to v25.
+
+
+## After step 28 (not ordered yet)
+- What people do with the dead — see draft 26
+- Giving and curing disease — see draft 27
+- Tools from cut and strike — see draft 28
 - Farming
 - Local language
 - Group-to-group contact

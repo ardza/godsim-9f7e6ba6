@@ -48,6 +48,10 @@
     // step 23 (Artist): a Lightning strike, 3 frames 16x48 (strike, fade, ground flash); the bottom 16px sits on the struck tile, the bolt reaches 2 tiles up.
     // Shown ~80 / 80 / 150 ms (powers.lightning.frameMs), then the normal fire / scorch fx. Missing: a code-drawn bolt.
     lightning: { src: "data/art/lightning_16.png", frame: 16, frameH: 48, cols: ["strike", "strike_fade", "ground_flash"] },   // 48x48
+    // step 26 (Artist): burial overlays (dug briefly, then mound/cairn replace the body); pyre unlit→burning→ash; ash_bones after a pyre
+    burial: { src: "data/art/burial_16.png", frame: 16, cols: ["mound_fresh", "mound_settled", "cairn", "dug"] },   // 64x16
+    pyre: { src: "data/art/pyre_16.png", frame: 16, cols: ["unlit", "burning", "ash"] },   // 48x16
+    ashBones: { src: "data/art/ash_bones_16.png", frame: 16, cols: ["ash_over_bones", "ash_with_bone_flecks"] },   // 32x16
     baby: { src: "data/art/baby_16.png", frame: 16, cols: ["carried_down", "carried_left", "carried_right", "carried_up", "lying"] },   // 80x16
     // step 25 (Artist): speech gesture overlays on the down-facing frame (same origin), until the token is group speech for her group
     gesture: { src: "data/art/gesture_16.png", frame: 16, variants: 8, cols: ["point_right", "point_left", "pat_chest", "stop_hand", "beckon"] },   // 80x128

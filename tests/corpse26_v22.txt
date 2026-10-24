@@ -1,0 +1,20 @@
+PASS 26 config: save v22; corpse + burial/pyre/ashBones art; Barrage scatter 4; warmth eqPerC 2.5  eqK=2.5 scatter=4
+PASS 26 warmthEq: 61°F→~65, 32°F→25, clamps 0/100  61°F eq=65.3 32°F eq=25.0 hot=100 cold=0
+PASS 26 founders: corpseFear 40–70 from crng; corpseStats present  51,44,65,57,60
+PASS 26 leave: high corpseFear → leaves body; Discoveries first leave  leave=1 disc=leave|corpse|leave
+PASS 26 bury setup: sharp flint + soft ground
+PASS 26 bury: dig starts (dug stage)
+PASS 26 bury: mound_fresh, flesh/bones locked, skipDecay, Discoveries  stage=mound_fresh frame=burial/mound_fresh
+PASS 26 burn: lit stick → pyre burning; skipDecay  pyre=burning
+PASS 26 burn: ash → ashBones art; Discoveries burn  ashFrame=ash_over_bones sheet=ashBones
+PASS 26 eat: eatCorpse act starts
+PASS 26 eat: fullness up, flesh down, sickness (forced), Discoveries  full=60 flesh=65 energy 80→60
+PASS 26 ritual: pray at body; faith↑ corpseFear↓; Discoveries  faith 60→63 fear 50→45
+PASS 26 drag: body moved ≤ dragMaxTiles; Discoveries  to 2,6 drag=1
+PASS 26 lightning: Single on tap; Barrage primary on tap + extras within r4  barrage 9,9 / 10,12 / 11,9
+PASS 26 save: v22 round-trip; v21→v22 seeds corpseFear + crng + corpseStats  fears 47,57,42,57,52,59
+PASS 26 warmth live: mild open-air mean 55–75; same air + huddle/fire → higher eq  air 16.0°C meanW 69.4 eqOpen 72.5 eqHud 82.5 eqFire 100.0 feltΔ 4.0
+PASS 26 rain chillC: Light 3 / Medium 6 / Heavy 10 (no flat chillC)  3/6/10
+PASS 26 rain→warmth: same air, Medium vs dry → eq lower by ≥10 (wet eq ≤50); warmth falling in the rain  air 16.0°C dryEq 65.0 wetEq 50.0 Δeq 15.0 wr -0.0333 w 65.0→65.0
+PASS 26 index: corpse.js?v=22  ok
+CORPSE26 PASSED

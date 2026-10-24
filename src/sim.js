@@ -47,6 +47,7 @@
     G.Shelter.init(sim);  // step 21b: natural shelters from the terrain (own hash-seeded stream); nobody knows any yet
     G.Powers.init(sim);   // step 22: god powers (own stream, drawn only while one is active)
     G.Speech.init(sim);   // step 25: local language (own stream wrng)
+    G.Corpse.init(sim);   // step 26: corpseFear (own stream crng), corpse choices
     return sim;
   };
   // Seeded names with no repeats until the list is used up, then a fresh shuffle (reuse is fine past the list).
@@ -115,6 +116,18 @@
     if (!o || o.version !== 20) return o; const s = JSON.parse(JSON.stringify(o));
     s.version = 21; return s;
   };
+  // v21 -> v22 (step 26): corpseFear on every living person (founders range 40-70 via a seeded stream), corpseStats; bodies keep optional burial/pyre fields as they appear.
+  Sim.migrate22 = function (o) {
+    if (!o || o.version !== 21) return o; const s = JSON.parse(JSON.stringify(o));
+    const R = (G.data.config.corpse && G.data.config.corpse.foundersFear) || [40, 70];
+    const rng = new G.RNG((s.seed ^ 0xC0B5E26F ^ (s.tick || 0)) >>> 0);
+    s.crng = rng.s; s.corpseStats = G.Corpse.newStats();
+    for (const a of s.agents || []) {
+      if (a.traits && a.traits.corpseFear == null) a.traits.corpseFear = rng.int(R[0], R[1]);
+      delete a.corpseAt;
+    }
+    s.version = 22; return s;
+  };
   // One log line. who = the person(s) involved (person/body objects or ids): the line is tagged with their ids and also goes into each one's own
   // log (sim.plog[id], last log.personMax kept, saved). k = an optional kind for the personal log ("death", "birth", "disc").
   Sim.ids = who => (who == null ? [] : Array.isArray(who) ? who : [who]).map(w => w == null ? null : typeof w === "number" ? w : w.kind === "body" ? w.of : w.id).filter((v, i, a) => v != null && a.indexOf(v) === i);
@@ -145,12 +158,13 @@
     G.Body.stepAll(sim);
     G.Hunt.step(sim);
     G.Cook.step(sim);   // step 17: meat close to an ember / fire heats (cooked, then charred)
+    G.Corpse.step(sim);   // step 26: burial / pyre stage advances
     G.Fire.lightning(sim);
     G.Fire.step(sim);
   };
   // this season's bush numbers: {yield, regrowMinutes}
   Sim.seasonal = tick => { const S = CFG().bushes.season, i = G.Climate.seasonIndex(tick); return { yield: S ? S.yield[i] : 1, regrowMinutes: S ? S.regrowMinutes[i] : CFG().bushes.regrowMinutes }; };
-  // A death: one action line, the person leaves the living and a body stays where they were (no grave; people ignore it).
+  // A death: one action line, the person leaves the living and a body stays where they were (step 26: others may leave/drag/bury/burn/eat/ritual).
   Sim.die = function (sim, a, cause) {
     const vb = (G.data.config.body.causeVerb || {})[cause];   // step 23: "was struck by lightning" rather than "has died of struck by lightning"
     Sim.log(sim, a.name + " lies still. " + a.name + (vb ? " " + vb + " " : " has died of ") + cause + ".", a, "death");
@@ -175,7 +189,8 @@
       prng: sim.prng.s, faith: sim.faith, prayers: sim.prayers || [],
       shelters: sim.shelters || [], shelterStats: sim.shelterStats || null, shelterFirst: sim.shelterFirst || null, srng: sim.srng ? sim.srng.s : null,
       powers: sim.powers || null,
-      wrng: sim.wrng ? sim.wrng.s : null, speech: sim.speech || null };
+      wrng: sim.wrng ? sim.wrng.s : null, speech: sim.speech || null,
+      crng: sim.crng ? sim.crng.s : null, corpseStats: sim.corpseStats || null };
   };
   Sim.deserialize = function (o) {
     if (o && o.version === 13) o = Sim.migrate(o);
@@ -186,6 +201,7 @@
     if (o && o.version === 18) o = Sim.migrate19(o);
     if (o && o.version === 19) o = Sim.migrate20(o);
     if (o && o.version === 20) o = Sim.migrate21(o);
+    if (o && o.version === 21) o = Sim.migrate22(o);
     if (!o || o.version !== CFG().saveVersion) throw new Error("unsupported save version " + (o && o.version));
     const s = JSON.parse(JSON.stringify(o));
     const world = { w: s.world.w, h: s.world.h, seed: s.seed, attempt: s.world.attempt, spawn: s.world.spawn, hills: s.world.hills, info: s.world.info, tiles: s.world.tiles.split("").map(c => TILE_CH.indexOf(c)) };
@@ -200,7 +216,8 @@
       prng: new G.RNG(s.prng), faith: s.faith || G.Faith.newState(), prayers: s.prayers || [],
       shelters: s.shelters || [], shelterStats: s.shelterStats || G.Shelter.newStats(), shelterFirst: s.shelterFirst || null, srng: s.srng != null ? new G.RNG(s.srng) : undefined,
       powers: s.powers || Object.assign(G.Powers.newState(), { rs: (s.seed ^ 0x5A1D0F22) >>> 0 }),
-      wrng: new G.RNG(s.wrng != null ? s.wrng : (s.seed ^ 0x5FEE7C11) >>> 0), speech: s.speech || G.Speech.newState() };
+      wrng: new G.RNG(s.wrng != null ? s.wrng : (s.seed ^ 0x5FEE7C11) >>> 0), speech: s.speech || G.Speech.newState(),
+      crng: new G.RNG(s.crng != null ? s.crng : (s.seed ^ 0xC0B5E26F) >>> 0), corpseStats: s.corpseStats || G.Corpse.newStats() };
   };
 
   G.Time = Time; G.Sim = Sim;

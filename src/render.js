@@ -11,7 +11,7 @@
     if (A.person && A.person.src) loadImg(A.person.src, im => art.person = im);
     if (A.founders && A.founders.src) loadImg(A.founders.src, im => art.founders = im);
     loadImg(A.bush, im => art.bush = im); loadImg(A.bushEmpty, im => art.bushEmpty = im);
-    for (const k of ["body", "grazer", "scavenger", "items", "fx", "food", "carcass", "smoke", "baby", "child", "pray", "childPray", "gesture", "childGesture", "spot", "shelter", "rain", "rainLight", "rainHeavy", "lightning"]) if (A[k] && A[k].src) loadImg(A[k].src, im => art[k] = im);
+    for (const k of ["body", "grazer", "scavenger", "items", "fx", "food", "carcass", "smoke", "baby", "child", "pray", "childPray", "gesture", "childGesture", "spot", "shelter", "rain", "rainLight", "rainHeavy", "lightning", "burial", "pyre", "ashBones"]) if (A[k] && A[k].src) loadImg(A[k].src, im => art[k] = im);
   };
   R.art = () => art;
 
@@ -209,6 +209,16 @@
   function drawBody(b, sel) {
     const px = b.x * tp, py = b.y * tp, B = G.data.art.body;
     if (sel) { cx.strokeStyle = "#fff6b0"; cx.lineWidth = 1.5; cx.strokeRect(px + 0.5, py + 0.5, tp - 1, tp - 1); cx.lineWidth = 1; }
+    // step 26: burial / pyre / ash_bones overlays replace the normal body / bones draw
+    const fr = G.Corpse && G.Corpse.frame(b);
+    if (fr) {
+      const A = G.data.art[fr.sheet], im = art[fr.sheet], col = fr.col;
+      if (im && A) { const i = Math.max(0, A.cols.indexOf(col)); cx.drawImage(im, i * A.frame, 0, A.frame, A.frame, px, py, tp, tp); }
+      else if (fr.sheet === "burial") { cx.fillStyle = col === "dug" ? "#5a4a32" : col === "cairn" ? "#8a8478" : "#6b5a3e"; cx.fillRect(px + 2, py + 8, 12, col === "dug" ? 3 : 5); if (col === "cairn") { cx.fillStyle = "#a8a090"; cx.fillRect(px + 5, py + 5, 6, 4); } }
+      else if (fr.sheet === "pyre") { cx.fillStyle = col === "burning" ? "#c45a20" : col === "ash" ? "#8f8a80" : "#7a5230"; cx.fillRect(px + 2, py + 7, 12, 5); }
+      else { cx.fillStyle = "#8f8a80"; cx.fillRect(px + 2, py + 8, 12, 4); cx.fillStyle = "#e8e0c8"; cx.fillRect(px + 4, py + 9, 2, 2); cx.fillRect(px + 9, py + 10, 2, 1); }
+      cx.globalAlpha = 1; return;
+    }
     if (b.stage === "bones") cx.globalAlpha = 0.45 + 0.55 * b.condition / 100;   // weathering fades them slowly over the years
     if (b.species) {   // step 16: a killed grazer: fresh -> picked (meat taken or rotting) -> bones
       const C = G.data.art.carcass, col = G.Body.carcassFrame(b);

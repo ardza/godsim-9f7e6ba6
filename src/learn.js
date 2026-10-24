@@ -18,7 +18,8 @@
   // what one visible success raises the doer's score by (step 20: a watching child gains seepX of this)
   Learn.gainOf = function (key) {
     const C = L(); if (C[key] && C[key].warmGain != null) return C.successWarmth * C[key].warmGain + (key === "fire" ? C.fireSuccessGain || 0 : 0);
-    if (key === "hunt") return CF().hunt.gain; if (key === "cook") return CF().cook.gain; return 0;
+    if (key === "hunt") return CF().hunt.gain; if (key === "cook") return CF().cook.gain;
+    const Cg = CF().corpse && CF().corpse.gain; if (Cg && Cg[key] != null) return Cg[key]; return 0;
   };
   // step 20: who taught her what: [{key, from, name, how: "copied" | "watched"}] (a copy wins over watching)
   Learn.learnedFrom = a => Object.keys(L().actions).map(k => { const e = a.exp && a.exp[k]; if (!e) return null; const c = e.copied || e.seep; return c ? { key: k, from: c.from, name: c.name, how: e.copied ? "copied" : "watched" } : null; }).filter(Boolean);
@@ -43,7 +44,7 @@
     if (felt.sheltered) parts.push(["shelter", Wm.shelterC, C.shelter.warmGain]);
     if (felt.den > 0 && C.den) parts.push(["den", felt.den, C.den.warmGain]);   // step 21b: warmed inside a cave / overhang / thicket
     for (const [key, dC, gain, src] of parts) {
-      const got = (rate(felt.c) - rate(felt.c - dC)) * TM(); if (got <= 0) continue;
+      const got = (rate(felt.c, w0) - rate(felt.c - dC, w0)) * TM(); if (got <= 0) continue;
       const e = Learn.add(a, key, got * gain), ep = a.learnEp || (a.learnEp = {});
       if (key === "fire") stats(sim).warmed += TM();
       ep[key] = r2((ep[key] || 0) + got);

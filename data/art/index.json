@@ -41,7 +41,8 @@
    "right",
    "up"
   ],
-  "cols": "frames 0-1"
+  "cols": "frames 0-1",
+  "label": "deer"
  },
  "scavenger_16.png": {
   "frame": 16,
@@ -51,7 +52,8 @@
    "right",
    "up"
   ],
-  "cols": "frames 0-1"
+  "cols": "frames 0-1",
+  "label": "wild dog"
  },
  "items_16.png": {
   "frame": 16,
@@ -196,5 +198,74 @@
   "frame": 16,
   "layout": "8 rows (founder variants); cols: point_right, point_left, pat_chest, stop_hand, beckon. Transparent overlays drawn on the down-facing frame at the same origin.",
   "note": "75% child version"
+ },
+ "burial_16.png": {
+  "frame": 16,
+  "cols": [
+   "mound_fresh",
+   "mound_settled",
+   "cairn",
+   "dug"
+  ],
+  "note": "step 26 corpse choices \u2014 burial overlays on the tile; dig then mound/cairn replace the body"
+ },
+ "pyre_16.png": {
+  "frame": 16,
+  "cols": [
+   "unlit",
+   "burning",
+   "ash"
+  ],
+  "note": "step 26 \u2014 body burned on a stick pile; after ash, bones may remain via body_stages bones frame"
+ },
+ "ash_bones_16.png": {
+  "frame": 16,
+  "cols": [
+   "ash_over_bones",
+   "ash_with_bone_flecks"
+  ],
+  "note": "after a pyre burns out; use instead of plain bones when the body was burned"
+ },
+ "tools_16.png": {
+  "frame": 16,
+  "layout": "cols flake, axe, spear; rows down, left, right, up. Transparent hand overlays at the founder origin.",
+  "note": "step 28 prep \u2014 Director asked for flake_16/axe_16/spear_16; one sheet covers all three"
+ },
+ "reed_16.png": {
+  "frame": 16,
+  "cols": [
+   "reed",
+   "reed_clump"
+  ],
+  "note": "new material after 26 \u2014 wetter and more flexible than stick; ground pickup + clump"
+ },
+ "reed_bank_16.png": {
+  "frame": 16,
+  "cols": [
+   "bank_0",
+   "bank_1",
+   "bank_2"
+  ],
+  "note": "transparent overlay along river banks; animate or pick by seed"
+ },
+ "mountain_16.png": {
+  "frame": 16,
+  "cols": [
+   "peak",
+   "upper_slope",
+   "foothill"
+  ],
+  "note": "rock mass overlays for a hill/mountain cluster; needs Commissioner OK before ship if treated as new terrain look"
+ },
+ "wolves_16.png": {
+  "frame": 16,
+  "rows": [
+   "down",
+   "left",
+   "right",
+   "up"
+  ],
+  "cols": "frames 0-1",
+  "note": "pack predator (Wolves); bulkier than scavenger_16 (wild dog); placeholder OK until polish"
  }
 }

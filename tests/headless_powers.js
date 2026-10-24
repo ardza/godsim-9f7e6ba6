@@ -47,7 +47,7 @@ module.exports = function (G, C, ok, h) {
       "regrow " + a.n + " min -> " + b.n + " min"); });
 
   // Warmth: in the open she loses warmth 1.5x as fast; under trees no change; a cave none; a thicket keeps half off
-  withCfg(Object.assign({ "powers.rain.chillC": 0 }, NO_LIGHTNING), () => { const s = G.Sim.create(42), a = solo(s), x0 = Math.round(a.pos.x), y0 = Math.round(a.pos.y);
+  withCfg(Object.assign({ "powers.rain.strengths.light.chillC": 0, "powers.rain.strengths.medium.chillC": 0, "powers.rain.strengths.heavy.chillC": 0 }, NO_LIGHTNING), () => { const s = G.Sim.create(42), a = solo(s), x0 = Math.round(a.pos.x), y0 = Math.round(a.pos.y);
     s.tick = 3 * 28 * MD / 4; while (G.Time.darkness(s.tick) < 1) s.tick++; const E = { };   // Deep Cold, full night (no sun either way)
     const at = (x, y) => { a.pos = { x, y }; a.den = null; return P.exposure(s, a); };
     const op = meadowSpot(s, x0, y0), wd = tileOf(s, x0, y0, (x, y) => W.tile(s.world, x, y) === T.WOODS && !G.Shelter.at(s, x, y));
@@ -55,7 +55,7 @@ module.exports = function (G, C, ok, h) {
     E.open = at(op.x, op.y); E.woods = at(wd.x, wd.y);
     const cave = s.shelters.find(q => q.type === "cave" || q.type === "overhang"), th = s.shelters.find(q => q.type === "thicket");
     if (cave) { a.den = cave.id; E.cave = P.exposure(s, a); a.den = null; } if (th) { a.pos = { x: th.x != null ? th.x : th.tiles[0][0], y: th.y != null ? th.y : th.tiles[0][1] }; a.den = th.id; E.thicket = P.exposure(s, a); a.den = null; }
-    a.pos = { x: op.x, y: op.y }; const f = G.Climate.felt(s, a), wr0 = G.Climate.warmthRate(f.c);
+    a.pos = { x: op.x, y: op.y }; a.needs.warmth = 90; const f = G.Climate.felt(s, a), wr0 = G.Climate.warmthRate(f.c, 90);
     // a run: same person, idle in the open at night, warm enough not to go anywhere; drop with rain vs without
     const drop = rain => { const q = G.Sim.create(42), b = solo(q); q.tick = s.tick; q.fire = {}; q.items.forEach(it => it.lit = 0); b.pos = { x: op.x, y: op.y }; b.needs.warmth = 90; b.traits.coldFear = 0;
       if (rain) { P.cast(q, "rain", op.x, op.y); }
@@ -99,7 +99,7 @@ module.exports = function (G, C, ok, h) {
   // Warm in deep cold: she loses less warmth (felt temperature follows the air); Cool on a hot day: same rule the other way
   withCfg(NO_LIGHTNING, () => { const loss = k => { const s = G.Sim.create(42), a = solo(s); s.tick = 3 * 28 * MD / 4 + 4 * 60; const x = Math.round(a.pos.x), y = Math.round(a.pos.y); if (k) P.cast(s, k, x, y); return G.Climate.felt(s, a).c; };
     const n = loss(null), w = loss("warm"), c = loss("cool");
-    ok(Math.abs(w - n - 25 / 3) < 0.01 && Math.abs(n - c - 25 / 3) < 0.01 && G.Climate.warmthRate(w) > G.Climate.warmthRate(n), "22 warm in Deep Cold: felt temperature +15 F, warmth falls slower; cool -15 F", "felt " + G.Time.tempF(c) + " / " + G.Time.tempF(n) + " / " + G.Time.tempF(w)); });
+    ok(Math.abs(w - n - 25 / 3) < 0.01 && Math.abs(n - c - 25 / 3) < 0.01 && G.Climate.warmthRate(w, 50) > G.Climate.warmthRate(n, 50), "22 warm in Deep Cold: felt temperature +15 F, warmth falls slower; cool -15 F", "felt " + G.Time.tempF(c) + " / " + G.Time.tempF(n) + " / " + G.Time.tempF(w)); });
 
   // v19: no cooldowns — Rain / Warm / Cool can be cast again immediately
   { const s = G.Sim.create(4), a = P.cast(s, "rain", 20, 20), b = P.cast(s, "rain", 40, 20), c = P.cast(s, "warm", 40, 20), left = P.cooldownLeft(s, "rain");

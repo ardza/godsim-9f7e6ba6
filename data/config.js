@@ -2,7 +2,7 @@
 (function (G) {
   G.data = G.data || {};
   G.data.config = {
-    saveVersion: 21,                // v21: speech polish (People card + group line Speech label, Discoveries first spoken syllable, child copy x2, inventDiv tune, growth recheck); v20: local language (sim.speech, per-person a.words token→meaning scores, group speech locks, own stream wrng; gesture overlays until lock); v19: power rewrite (no cooldowns; Rain Light/Medium/Heavy; Lightning Single/Barrage), spawn-watch curiosity fades over 7 days (a.curioFade), a baby carried by someone struck dies too (strikes.babies), phone Powers row, Find button; v18: Lightning and Spawn powers (per-power cooldowns, strike / spawn stats, a.fright, bolt sticks); v17: god powers (sim.powers: active Rain / Warm / Cool effects, cooldowns, own stream), pairs man + woman only; v16: natural shelters (sim.shelters, per-person known shelters, den score); v15: faith trait, prayer forms, prayer spots, Prayers feed (own stream prng); v14: children / youths as people (stage by age, guardian, learned-from), name numbering; v13: sex, pairs, pregnancy, babies (own stream frng), burning sticks; v12: relations (familiarity, liking) and groups; v11: cooked meat (heat), grazer births (own stream), cook score; v10: hunting, carcasses, meat, lightning; v9: varied maps (spawn, hills, map info; no lake/source); v8: learning (experience scores, copying), seasonal food, per-person logs; v7: objects, physics + discoveries, temperature + warmth, fire (v6: aging, death, bodies, animals); older saves are rejected
+    saveVersion: 22,                // v22: corpse choices (leave/drag/bury/burn/eat/ritual, corpseFear, burial/pyre/ash_bones art) + lightning aim (Barrage primary on tap, scatterTiles 4) + warmth equilibrium (eq = clamp(50+(feltC-neutralC)*eqPerC,0,100), move toward eq) + rain chillC per strength (L3/M6/H10 on feltC×exposure); v21: speech polish (People card + group line Speech label, Discoveries first spoken syllable, child copy x2, inventDiv tune, growth recheck); v20: local language (sim.speech, per-person a.words token→meaning scores, group speech locks, own stream wrng; gesture overlays until lock); v19: power rewrite (no cooldowns; Rain Light/Medium/Heavy; Lightning Single/Barrage), spawn-watch curiosity fades over 7 days (a.curioFade), a baby carried by someone struck dies too (strikes.babies), phone Powers row, Find button; v18: Lightning and Spawn powers (per-power cooldowns, strike / spawn stats, a.fright, bolt sticks); v17: god powers (sim.powers: active Rain / Warm / Cool effects, cooldowns, own stream), pairs man + woman only; v16: natural shelters (sim.shelters, per-person known shelters, den score); v15: faith trait, prayer forms, prayer spots, Prayers feed (own stream prng); v14: children / youths as people (stage by age, guardian, learned-from), name numbering; v13: sex, pairs, pregnancy, babies (own stream frng), burning sticks; v12: relations (familiarity, liking) and groups; v11: cooked meat (heat), grazer births (own stream), cook score; v10: hunting, carcasses, meat, lightning; v9: varied maps (spawn, hills, map info; no lake/source); v8: learning (experience scores, copying), seasonal food, per-person logs; v7: objects, physics + discoveries, temperature + warmth, fire (v6: aging, death, bodies, animals); older saves are rejected
     saveKey: "godsim.save",
     map: {
       w: 60, h: 40, tilePx: 16,      // map is 960x640 art px, scaled to fit the screen
@@ -40,7 +40,8 @@
         curiosity: "chance to go and pick up a thing in sight when idle = objects.pickupChance x curiosity/50",
         coldFear: "seeks shelter / huddles once warmth is below warmth.seekBelow + coldFear x warmth.seekPerFear (35 at 0, 60 at 50, 85 at 100)",
         fireFear: "step 13: going near embers / a fire when cold is less likely the higher it is (x (1.5 - fireFear/100)); also lowers the odds of copying someone at a fire",
-        faith: "step 21: per-hour chance of a prayer bout when a need is under faith.needBelow or after seeing a death = faith / faith.hourDiv (founders: own stream prng; inherited like the rest)"
+        faith: "step 21: per-hour chance of a prayer bout when a need is under faith.needBelow or after seeing a death = faith / faith.hourDiv (founders: own stream prng; inherited like the rest)",
+        corpseFear: "step 26: high → leave bodies alone; low + curiosity → drag/bury/burn/eat/ritual (founders: own stream crng 40-70; inherited like the rest)"
       },
       traitSpread: 17.5,              // gaussian sd in trait points
       sightTiles: 6,                  // fixed sight radius (tiles)
@@ -77,11 +78,12 @@
         asleepNeedRate: 0.25,         // fullness and water drain at a quarter of the waking rate while asleep
         start: [90, 100]              // energy 0 logs "is exhausted" once and they lie down where they are, day or night
       },
-      // Warmth (step 11): 0-100, 100 = warm. Each minute it moves toward an equilibrium set by the felt temperature:
-      //   felt = air + shelter (on a woods tile) + huddle (per other person within huddleTiles, up to huddleMax) + heat from fire + walking/asleep offsets
-      //   it rises by (felt - neutralC) x gainPerDegreeHour per hour when felt > neutralC, falls by (neutralC - felt) x lossPerDegreeHour when below.
+      // Warmth (step 11 / v22): 0-100. Felt = air + shelter + huddle + fire + activity (± rain chill). Equilibrium from felt:
+      //   eq = clamp(eqAtNeutral + (feltC - neutralC) * eqPerC, 0, 100)  → open air ~61°F (~16°C) ≈ 65; ~32°F (0°C) ≈ 25.
+      // Each minute warmth moves toward eq at the gain/loss-per-degree-hour band (never a hard climb to 100 / fall to 0 from mild air alone).
       warmth: {
-        neutralC: 10,                 // felt temperature with no net gain or loss
+        neutralC: 10,                 // °C; eq reads eqAtNeutral here (50). Air display stays °F elsewhere.
+        eqAtNeutral: 50, eqPerC: 2.5, // Director v22: eq = clamp(50 + (feltC - 10) * 2.5, 0, 100)
         lossPerDegreeHour: 0.85, gainPerDegreeHour: 1.5,
         shelterC: 5,                  // standing/lying on a woods tile (under trees: out of the wind)
         huddleC: 4, huddleMax: 3, huddleTiles: 1.5,   // each other person this close adds 4 C, up to 3 people
@@ -113,7 +115,7 @@
     },
     // A death leaves a body on the tile where the person was (no grave). It decays: fresh (fixed time) -> rotting (until its flesh is gone) -> bones.
     // Bones stay as a lasting object tagged with the primitive material "bone" (its properties come in step 10) and weather away over many years.
-    // People ignore bodies. Bodies and bones are inspectable and saved.
+    // Step 26: people may leave / drag / bury / burn / eat / ritual at a body (corpse.js). Bodies and bones are inspectable and saved.
     body: {
       freshMinutes: 1440,             // fresh for 1 game day (flesh can already be eaten by scavengers)
       rotMinutes: 10080,              // rotting: the flesh (0-100) decays 100 -> 0 in 7 game days on its own; scavengers feeding make it go sooner (~2 days)
@@ -299,7 +301,13 @@
       actions: { fire: { label: "sitting by the fire", short: "fire", fear: "fireFear" }, huddle: { label: "huddling up", short: "huddling", fear: null }, shelter: { label: "sheltering under the trees", short: "shelter", fear: null },
         den: { label: "sleeping in a cave, overhang or thicket", short: "shelters", fear: null },
         hunt: { label: "going after grazers", short: "hunting", fear: null },
-        cook: { label: "holding meat to the fire", short: "cooking", fear: "fireFear" } }
+        cook: { label: "holding meat to the fire", short: "cooking", fear: "fireFear" },
+        leave: { label: "leaving a body where it lies", short: "leaving bodies", fear: "corpseFear" },
+        drag: { label: "dragging a body", short: "dragging bodies", fear: "corpseFear" },
+        bury: { label: "burying a body", short: "burying", fear: "corpseFear" },
+        burn: { label: "burning a body", short: "burning bodies", fear: "corpseFear" },
+        eat: { label: "eating from a body", short: "eating bodies", fear: "corpseFear" },
+        ritual: { label: "ritual at a body", short: "body ritual", fear: "corpseFear" } }
     },
     // Step 16 hunting. A hungry person (fullness under actAt, the normal "goes to eat" point) holding a thing hard enough to strike with
     // (hardness >= minHardness: rock 70, stick 25, flint 80, bone 55; meat 5 is not) who sees a grazer within sightTiles may go after it instead of a bush:
@@ -357,13 +365,34 @@
     //   v19 power rewrite (Commissioner): no cooldowns on any power. Rain has Light / Medium / Heavy; Lightning has Single bolt / Barrage.
     //   rain strengths (scales in rain.strengths): duration, bushX / bushMinutes, puddles count, lossX (warmth), wetMinutes, douse mode
     //     (small = sticks + non-hold embers only; fires = burning tiles + embers, hold trees within holdOutMinutes; all = fires + hold trees at once).
-    //   Shared rain: checkMinutes / coverChance / coverTiles / waitMinutes / faceChance / chillC.
+    //   Shared rain: checkMinutes / coverChance / coverTiles / waitMinutes / faceChance.
+    //   v22 rain chill (Director): per-strength open-air chillC on feltC × exposure — Light 3 / Medium 6 / Heavy 10 (no flat chillC).
     //   warm / cool: shift the air by deltaF (°F) inside the circle for minutes, fading out over the last fadeMinutes; overlapping effects add,
     //     capped at +/- maxShiftF. tint = the overlay colour (view only); rainFrameMs = rain art frame time (view only).
-    //   Lightning modes: single = one tile at the tap; barrage = count[0..1] bolts on random land tiles within scatterTiles (no water, at most one per tile).
+    //   Lightning modes: single = one tile at the tap; barrage = one bolt on the tap plus count-1 more on random land tiles within scatterTiles (no water, at most one per tile; v22 scatterTiles 4, primary always on tap).
     //   Spawn: one animal (picker), under the usual caps. Faith: a strike / spawn within faithTiles / faithMinutes answers a recent prayer.
+    // Step 26 corpse choices. People no longer ignore bodies. Choices emerge from curiosity vs corpseFear (founders 40-70 via crng)
+    // and learned scores (leave/drag/bury/burn/eat/ritual); copying uses group rules. Soft ground = walkable non-hill non-water.
+    // Burial: digMaterials into soft ground → dug (brief) → mound_fresh → mound_settled → cairn (burial_16). Bones locked under the mound.
+    // Burn: fire / lit stick / stick pile → pyre unlit→burning→ash, then ash_bones_16. Eat: flesh while fresh/rotting only.
+    // Ritual: faith >= ritualFaithMin + a known prayer form at the body (reuses pray frames); raises faith, may cut corpseFear.
+    corpse: {
+      sightTiles: 8, approachChance: 0.5, cooldownMinutes: 90, forceLeaveAt: 90,
+      dragMaxTiles: 8, digMinutes: 30, dugShowMinutes: 10,
+      moundSettleMinutes: 10080,   // 7 days → settled mound
+      cairnMinutes: 40320,         // 28 days → cairn
+      digMaterials: ["rock", "bone", "stick", "flint"],  // bury needs a sharp tool (Items.sharp: flint or a sharp shard of these)
+      fireTiles: 1.5, pyreBurnMinutes: 60,
+      eatFullness: { raw: 40, cooked: 50 }, sickChance: { raw: 0.4, cooked: 0.15 }, sickEnergy: 20, sickDrop: 5,
+      eatMinutes: 20, eatFlesh: 35,
+      ritualFaithMin: 50, ritualMinutes: 20, ritualFaithGain: 3, ritualFearDrop: 5,
+      watchTiles: 4, watchLikeDrop: -2, watchFearAt: 55,
+      buryChance: 0.55, burnChance: 0.5, eatChance: 0.45, ritualChance: 0.6,
+      foundersFear: [40, 70],
+      gain: { leave: 8, drag: 12, bury: 18, burn: 18, eat: 15, ritual: 12 }
+    },
     powers: { radiusTiles: 8, order: ["rain", "warm", "cool", "lightning", "spawn"], labels: { rain: "Rain", warm: "Warm", cool: "Cool", lightning: "Lightning", spawn: "Spawn" },
-      lightning: { modes: { single: { label: "Single bolt", count: [1, 1], scatterTiles: 0 }, barrage: { label: "Barrage", count: [2, 3], scatterTiles: 8 } },
+      lightning: { modes: { single: { label: "Single bolt", count: [1, 1], scatterTiles: 0 }, barrage: { label: "Barrage", count: [2, 3], scatterTiles: 4 } },
                    modeOrder: ["single", "barrage"],
                    fire: { dry: 0.6, rain: 0.4, deepCold: 0.2, deepColdSeason: 3 }, cause: "struck by lightning", scareTiles: 6, fearAdd: 20, fearMinutes: 1440,
                    runMinutes: 60, runTiles: [7, 10], frameMs: [80, 80, 150] },
@@ -378,12 +407,12 @@
       // fire.brand.litMinutes past the flames. Every everyMinutes each free adult (idle / wandering, empty-handed) who can see one within seeTiles rolls
       // chance x clamp(0.5 + (curiosity - fireFear - fright) / 100, 0, 1) to walk over and pick it up (the walk does not turn back at the flee rule).
       boltStick: { everyMinutes: 30, seeTiles: 12, chance: 0.5 },
-      rain: { chillC: 2, checkMinutes: 30, coverChance: 0.5, coverTiles: 10, waitMinutes: 180, faceChance: 0.3,
+      rain: { checkMinutes: 30, coverChance: 0.5, coverTiles: 10, waitMinutes: 180, faceChance: 0.3,
               strengthOrder: ["light", "medium", "heavy"],
               strengths: {
-                light:  { label: "Light",  minutes: 180, bushX: 1.5, bushMinutes: 1440, lossX: 1.25, wetMinutes: 720,  holdOutMinutes: null, douse: "small", puddles: { count: 2,   minutes: 720 } },
-                medium: { label: "Medium", minutes: 360, bushX: 3,   bushMinutes: 4320, lossX: 1.5,  wetMinutes: 1440, holdOutMinutes: 60,   douse: "fires", puddles: { count: 6,   minutes: 1440 } },
-                heavy:  { label: "Heavy",  minutes: 720, bushX: 5,   bushMinutes: 7200, lossX: 2,    wetMinutes: 2880, holdOutMinutes: 0,    douse: "all",   puddles: { count: 200, minutes: 2880 } } } },
+                light:  { label: "Light",  minutes: 180, bushX: 1.5, bushMinutes: 1440, chillC: 3,  lossX: 1.25, wetMinutes: 720,  holdOutMinutes: null, douse: "small", puddles: { count: 2,   minutes: 720 } },
+                medium: { label: "Medium", minutes: 360, bushX: 3,   bushMinutes: 4320, chillC: 6,  lossX: 1.5,  wetMinutes: 1440, holdOutMinutes: 60,   douse: "fires", puddles: { count: 6,   minutes: 1440 } },
+                heavy:  { label: "Heavy",  minutes: 720, bushX: 5,   bushMinutes: 7200, chillC: 10, lossX: 2,    wetMinutes: 2880, holdOutMinutes: 0,    douse: "all",   puddles: { count: 200, minutes: 2880 } } } },
       warm: { deltaF: 15, minutes: 1440, fadeMinutes: 120 }, cool: { deltaF: -15, minutes: 1440, fadeMinutes: 120 }, maxShiftF: 30,
       tint: { warm: "rgba(255,150,60,0.13)", cool: "rgba(90,170,255,0.15)", rain: "rgba(60,80,110,0.12)", lightning: "rgba(255,250,210,0.6)" }, rainFrameMs: 150 },
     // Step 25 local language (src/speech.js; own seeded stream wrng). Tokens are gesture+sound strings.

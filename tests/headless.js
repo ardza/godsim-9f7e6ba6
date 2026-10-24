@@ -1,7 +1,7 @@
 // Headless sim test, no deps. Run: node tests/headless.js
 const vm = require("vm"), fs = require("fs"), path = require("path"), root = path.join(__dirname, "..");
 function load() { const ctx = { console, Math, JSON }; vm.createContext(ctx);
-  for (const f of ["data/config.js", "data/tiles.js", "data/names.js", "data/words.js", "data/art.js", "data/materials.js", "src/rng.js", "src/world.js", "src/climate.js", "src/agent.js", "src/animal.js", "src/objects.js", "src/fire.js", "src/learn.js", "src/hunt.js", "src/cook.js", "src/social.js", "src/family.js", "src/faith.js", "src/shelter.js", "src/powers.js", "src/speech.js", "src/sim.js"])
+  for (const f of ["data/config.js", "data/tiles.js", "data/names.js", "data/words.js", "data/art.js", "data/materials.js", "src/rng.js", "src/world.js", "src/climate.js", "src/agent.js", "src/animal.js", "src/objects.js", "src/fire.js", "src/learn.js", "src/hunt.js", "src/cook.js", "src/social.js", "src/family.js", "src/faith.js", "src/shelter.js", "src/powers.js", "src/speech.js", "src/corpse.js", "src/sim.js"])
     vm.runInContext(fs.readFileSync(path.join(root, f), "utf8"), ctx, { filename: f });
   return ctx.GS; }
 const G = load(), W = G.World, C = G.data.config;
@@ -87,7 +87,7 @@ withCfg(Object.assign({ "person.fullness.minutesFullToHungry": 1e15 }, NO_THIRST
 // trait speed scales walk time
 { const s = G.Sim.create(42), a = s.agents[0]; const m = v => (a.traits.speed = v, G.Agent.minutesPerTile(a));
   ok(m(50) === 8 && m(0) === 16 && Math.abs(m(100) - 16 / 3) < 1e-9, "speed trait: 8 min/tile at 50, 16 at 0, 5.33 at 100");
-  ok(Object.keys(a.traits).sort().join() === "appetite,coldFear,curiosity,faith,fireFear,speed" && Object.values(a.traits).every(v => Number.isInteger(v) && v >= 0 && v <= 100), "traits are speed, appetite, curiosity, coldFear, fireFear, faith (ints 0-100)", JSON.stringify(a.traits)); }
+  ok(Object.keys(a.traits).sort().join() === "appetite,coldFear,corpseFear,curiosity,faith,fireFear,speed" && Object.values(a.traits).every(v => Number.isInteger(v) && v >= 0 && v <= 100) && a.traits.corpseFear >= 40 && a.traits.corpseFear <= 70, "traits are speed, appetite, curiosity, coldFear, fireFear, faith, corpseFear (ints 0-100; corpseFear founders 40-70)", JSON.stringify(a.traits)); }
 
 // founders: 5-8 per seed, ages 16-40, distinct tiles, clustered, names from names.json, seeded; 'look' = sprite block
 { const counts = {}; let ages = true, distinct = true, near = true, named = true, looks = true, maxR = 0;
@@ -238,7 +238,7 @@ withCfg({ "climate.seasonMeanC": [25, 25, 25, 25] }, () => { const s = G.Sim.cre
   { const g = s.animals.find(q => q.species === "grazer"); s.animals.splice(s.animals.indexOf(g), 1); delete s.prev[g.id]; s.bodies.push(G.Body.createAnimal(s, g, s.agents[0]));
     const m = G.Items.create(s, "meat", 5, 5); m.spoilAt = s.tick + 600; m.from = s.bodies.at(-1).id; m.heat = 42; s.items.push(m); G.Hunt.stats(s).kills++; G.Cook.stats(s).cooked++; }
   const j1 = JSON.stringify(G.Sim.serialize(s)), s2 = G.Sim.deserialize(JSON.parse(j1)), j2 = JSON.stringify(G.Sim.serialize(s2));
-  ok(j1 === j2 && JSON.parse(j1).version === C.saveVersion && C.saveVersion === 21 && !!s.brng && JSON.parse(j1).brng === s.brng.s && s2.brng.s === s.brng.s && s2.items.some(i => i.material === "meat" && G.Cook.of(i) === "cooked") && s2.cookStats.cooked === s.cookStats.cooked && s2.bodies.length === s.bodies.length && s.bodies.length >= 2 && s2.bodies.at(-1).species === "grazer" && s2.bodies.at(-1).stage === "fresh" && s2.items.some(i => i.material === "meat" && i.spoilAt) && s2.huntStats.kills === s.huntStats.kills && s.huntStats.kills >= 1 && s2.items.length === s.items.length && s2.animals.length === s.animals.length, "save round-trip gives the same state (v" + C.saveVersion + ")", (j1.length / 1024).toFixed(1) + " KB, " + s.agents.length + " people, " + s.animals.length + " animals, " + s.bodies.length + " bodies (" + s.bodies.map(b => b.stage).join(", ") + ", incl. a grazer carcass and a piece of cooked meat; " + (s.grazerBirths || 0) + " grazer births so far)");
+  ok(j1 === j2 && JSON.parse(j1).version === C.saveVersion && C.saveVersion === 22 && !!s.brng && JSON.parse(j1).brng === s.brng.s && s2.brng.s === s.brng.s && s2.items.some(i => i.material === "meat" && G.Cook.of(i) === "cooked") && s2.cookStats.cooked === s.cookStats.cooked && s2.bodies.length === s.bodies.length && s.bodies.length >= 2 && s2.bodies.at(-1).species === "grazer" && s2.bodies.at(-1).stage === "fresh" && s2.items.some(i => i.material === "meat" && i.spoilAt) && s2.huntStats.kills === s.huntStats.kills && s.huntStats.kills >= 1 && s2.items.length === s.items.length && s2.animals.length === s.animals.length, "save round-trip gives the same state (v" + C.saveVersion + ")", (j1.length / 1024).toFixed(1) + " KB, " + s.agents.length + " people, " + s.animals.length + " animals, " + s.bodies.length + " bodies (" + s.bodies.map(b => b.stage).join(", ") + ", incl. a grazer carcass and a piece of cooked meat; " + (s.grazerBirths || 0) + " grazer births so far)");
   for (let i = 0; i < 2000; i++) { G.Sim.step(s); G.Sim.step(s2); }
   ok(JSON.stringify(G.Sim.serialize(s)) === JSON.stringify(G.Sim.serialize(s2)), "loaded sim continues identically (2000 more ticks, incl. a night)");
   let bad = 0; for (const v of [6, 7, 8, 9, 10, 99]) try { G.Sim.deserialize(Object.assign(JSON.parse(j1), { version: v })); } catch (e) { bad++; } ok(bad === 6, "old (v6-v10) and unknown save versions are rejected"); }
@@ -277,9 +277,9 @@ withCfg(NO_LIGHTNING, () => { const s = G.Sim.create(7); s.animals = []; s.bushe
   let t = 0; while (s.bodies.length && t < 21 * YEAR) { G.Sim.step(s); t++; } const yrs = (s.tick - b.diedAt - 8 * MD) / YEAR;
   ok(!s.bodies.length && Math.abs(yrs - 20) < 0.01 && s.log.some(e => e.text === b.name + "'s bones have crumbled away"), "bones weather away after ~20 game years", yrs.toFixed(3) + " years as bones");
   const L = s.log.map(e => e.text); ok(L.includes(b.name + "'s body begins to rot") && L.includes("Only " + b.name + "'s bones remain"), "stage changes are logged as states"); });
-// people ignore bodies: a body on a tile changes nothing for the living (same run with and without it)
-{ const run = withBody => { const s = G.Sim.create(42); if (withBody) s.bodies.push(Object.assign(G.Body.create(s, s.agents[0], "thirst"), { id: 99999 })); for (let i = 0; i < MD; i++) G.Sim.step(s); return JSON.stringify(s.agents); };
-  ok(run(false) === run(true), "people ignore bodies (founders' day is identical with a body lying among them)"); }
+// step 26: people no longer ignore bodies (leave/drag/bury/burn/eat/ritual) — covered in tests/headless_corpse26.js
+{ ok(!!G.Corpse && typeof G.Corpse.maybe === "function" && C.corpse && C.learn.actions.leave && C.learn.actions.bury,
+    "step 26: Corpse module wired (choices tested in headless_corpse26.js)", Object.keys(C.corpse.gain || {}).join(",")); }
 
 // ---- step 8: animals ----
 // scavengers: feeding cuts the rotting stage to ~2 days and leaves the bones; without them it is 7
@@ -380,10 +380,15 @@ withCfg(NO_THIRST_SLEEP, () => { const s = G.Sim.create(42), a = solo(s); const 
 { const s = G.Sim.create(42), a = s.agents[0], w = s.world; s.tick = 3 * C.time.daysPerSeason * MD + 3.5 * MD - C.time.startMinute + 2 * 60;   // Deep Cold, 02:00
   const T = G.data.T; let open = null, wood = null; for (let y = 0; y < w.h && !(open && wood); y++) for (let x = 0; x < w.w; x++) { const t = W.tile(w, x, y); if (!open && t === T.MEADOW) open = [x, y]; if (!wood && t === T.WOODS) wood = [x, y]; }
   s.agents = [a]; a.act = { type: "idle", until: s.tick + 999 };
-  const rate = () => G.Climate.warmthRate(G.Climate.felt(s, a).c) * 60;
-  a.pos = { x: open[0], y: open[1] }; const rOpen = rate(); a.pos = { x: wood[0], y: wood[1] }; const rWood = rate();
-  for (let k = 0; k < 3; k++) s.agents.push(Object.assign({}, a, { id: 900 + k, pos: { x: wood[0], y: wood[1] } })); const rHud = rate();
-  ok(rOpen < rWood && rWood < rHud && rOpen < 0, "warmth: under trees and huddled with others the night-time loss is slower", "Deep Cold 02:00, air " + G.Climate.airC(s.tick).toFixed(1) + " C: open " + rOpen.toFixed(1) + "/h, under trees " + rWood.toFixed(1) + "/h, + 3 huddled " + rHud.toFixed(1) + "/h"); }
+  // v22 eq model: from warmth=50 (between open eq and huddle eq), open cools toward low eq; trees lose slower / gain; huddle warms
+  a.needs.warmth = 50;
+  const rate = () => G.Climate.warmthRate(G.Climate.felt(s, a).c, a.needs.warmth) * 60;
+  a.pos = { x: open[0], y: open[1] }; const rOpen = rate(), eqOpen = G.Climate.warmthEq(G.Climate.felt(s, a).c);
+  a.pos = { x: wood[0], y: wood[1] }; const rWood = rate(), eqWood = G.Climate.warmthEq(G.Climate.felt(s, a).c);
+  for (let k = 0; k < 3; k++) s.agents.push(Object.assign({}, a, { id: 900 + k, pos: { x: wood[0], y: wood[1] }, needs: Object.assign({}, a.needs) })); const rHud = rate(), eqHud = G.Climate.warmthEq(G.Climate.felt(s, a).c);
+  ok(rOpen < rWood && rWood < rHud && rOpen < 0 && rHud > 0 && eqOpen < eqWood && eqWood < eqHud,
+    "warmth: under trees and huddled, night-time move toward eq is better (open cools; huddle warms; eq rises with felt)",
+    "Deep Cold 02:00, air " + G.Climate.airC(s.tick).toFixed(1) + " C: open " + rOpen.toFixed(1) + "/h eq " + eqOpen.toFixed(0) + ", under trees " + rWood.toFixed(1) + "/h eq " + eqWood.toFixed(0) + ", + 3 huddled " + rHud.toFixed(1) + "/h eq " + eqHud.toFixed(0)); }
 withCfg(Object.assign({ "climate.seasonMeanC": [-25, -25, -25, -25] }, NO_THIRST_SLEEP), () => { const s = G.Sim.create(42), a = solo(s); a.needs.fullness = 100; let t0 = null, t = 0;
   while (s.agents.length && t < 4 * MD) { G.Sim.step(s); t++; if (s.agents.length) { a.needs.fullness = 100; if (t0 === null && a.needs.warmth <= 0) t0 = s.tick; } }
   const b = s.bodies.find(q => q.of === a.id);
@@ -735,7 +740,7 @@ ok(C.animals.grazer.births.perSeason === 0.35, "call 3: grazer births " + C.anim
   { const s = G.Sim.create(2); for (let i = 0; i < 6 * MD; i++) G.Sim.step(s); const j = JSON.stringify(G.Sim.serialize(s)), r = G.Sim.deserialize(JSON.parse(j));
     for (let i = 0; i < MD; i++) { G.Sim.step(s); G.Sim.step(r); }
     const rel = s.agents.reduce((n, a) => n + Object.keys(a.rel || {}).length, 0);
-    ok(JSON.stringify(G.Sim.serialize(s)) === JSON.stringify(G.Sim.serialize(r)) && C.saveVersion === 21 && JSON.parse(j).version === 21 && rel > 0,
+    ok(JSON.stringify(G.Sim.serialize(s)) === JSON.stringify(G.Sim.serialize(r)) && C.saveVersion === 22 && JSON.parse(j).version === 22 && rel > 0,
       "save v16+: relations, groups and their colours round-trip; a resumed run matches a straight run a day later", rel + " pair records, " + (s.groups || []).length + " groups"); }
   // a year on 6 seeds: how many groups form and how big
   { const rows = []; let gd = 0, days = 0, formed = 0, sizes = []; const t0 = Date.now();
@@ -849,7 +854,7 @@ ok(C.animals.grazer.births.perSeason === 0.35, "call 3: grazer births " + C.anim
     G.Family._daily(t); const [f, m] = [t.agents.find(p => p.id === a.id), t.agents.find(p => p.id === b.id)]; f.preg = { since: t.tick, due: t.tick, father: m.id, fatherName: m.name, ftraits: Object.assign({}, m.traits), flife: m.lifespan, fgroup: m.group };
     G.Family.step(t); f.preg = { since: t.tick, due: t.tick + 3 * MD, father: m.id, fatherName: m.name, ftraits: Object.assign({}, m.traits), flife: m.lifespan, fgroup: m.group };
     const j = JSON.stringify(G.Sim.serialize(t)), r = G.Sim.deserialize(JSON.parse(j)); for (let i = 0; i < MD; i++) { G.Sim.step(t); G.Sim.step(r); }
-    ok(JSON.parse(j).version === 21 && r.babies.length === 1 && JSON.stringify(G.Sim.serialize(t)) === JSON.stringify(G.Sim.serialize(r)) && t.babies.length === 1 && t.agents.some(p => p.preg),
+    ok(JSON.parse(j).version === 22 && r.babies.length === 1 && JSON.stringify(G.Sim.serialize(t)) === JSON.stringify(G.Sim.serialize(r)) && t.babies.length === 1 && t.agents.some(p => p.preg),
       "save v16+: pairs, a pregnancy and a baby round-trip; a resumed run matches a straight run a day later", (j.length / 1024).toFixed(1) + " KB"); }
   // the cap holds at 60 (forced: every pair conceives every night, 1-day pregnancies) + a drift table for 10 babies
   { const seed = 1, t0 = Date.now(); let maxPop = 0, s, nights = 0;
@@ -978,8 +983,8 @@ ok(C.animals.grazer.births.perSeason === 0.35, "call 3: grazer births " + C.anim
     o.nameBag = [G.data.names.indexOf(s.agents[0].name)];   // the next draw repeats a living person's name
     const r = G.Sim.deserialize(o), j = JSON.stringify(G.Sim.serialize(r)), back = G.Sim.deserialize(JSON.parse(j));
     const first = s.agents.map(p => p.name), nm = G.Sim.nextName(r), base = nm.replace(/ [IVXLCDM]+$/, "");
-    ok(r.version === 21 && JSON.parse(j).version === 21 && Object.keys(r.nameCount).length >= first.length && nm === s.agents[0].name + " II" && first.indexOf(base) >= 0 && JSON.stringify(G.Sim.serialize(back)) === j,
-      "save: a v13 save loads as v19 (v13->v14 names counted, the next repeat gets ' II'; v14->v15 faith added, v15->v16 shelters, v16->v17 powers, v17->v18 lightning / spawn, v18->v19 curiosity fade); v19 round-trips", nm); }
+    ok(r.version === 22 && JSON.parse(j).version === 22 && Object.keys(r.nameCount).length >= first.length && nm === s.agents[0].name + " II" && first.indexOf(base) >= 0 && JSON.stringify(G.Sim.serialize(back)) === j,
+      "save: a v13 save loads as v22 (v13->v14 names counted, the next repeat gets ' II'; v14->v15 faith, v15->v16 shelters, v16->v17 powers, v17->v18 lightning/spawn, v18->v19 curiosity fade, v19->v20 speech, v20->v21 inventDiv, v21->v22 corpseFear); v22 round-trips", nm); }
 }
 
 // ---- step 20 (Director's calls on 20) ----
@@ -1080,7 +1085,7 @@ ok(C.animals.grazer.births.perSeason === 0.35, "call 3: grazer births " + C.anim
   // v14 -> v15 migration: faith rolled for everyone, empty feed/state; v15 round-trips
   { const s = G.Sim.create(7); for (let i = 0; i < 600; i++) G.Sim.step(s); const o = JSON.parse(JSON.stringify(G.Sim.serialize(s))); o.version = 14; delete o.faith; delete o.prayers; delete o.prng; for (const a of o.agents) { delete a.traits.faith; delete a.prayForms; }
     const r = G.Sim.deserialize(o), r2 = G.Sim.deserialize(JSON.parse(JSON.stringify(G.Sim.serialize(r)))); for (let i = 0; i < 60; i++) { G.Sim.step(r); G.Sim.step(r2); }
-    ok(C.saveVersion === 21 && r.agents.every(a => Number.isInteger(a.traits.faith) && a.traits.faith >= 0 && a.traits.faith <= 100) && Array.isArray(r.prayers) && r.faith && r.faith.stats && r.prng && typeof r.prng.s === "number" && r2.tick === r.tick, "step 21: a v14 save loads as v15..v21 (faith rolled per person from the seed, empty feed) and round-trips", "faith " + r.agents.map(a => a.traits.faith).join(",")); }
+    ok(C.saveVersion === 22 && r.agents.every(a => Number.isInteger(a.traits.faith) && a.traits.faith >= 0 && a.traits.faith <= 100) && Array.isArray(r.prayers) && r.faith && r.faith.stats && r.prng && typeof r.prng.s === "number" && r2.tick === r.tick, "step 21: a v14 save loads as v15..v22 (faith rolled per person from the seed, empty feed) and round-trips", "faith " + r.agents.map(a => a.traits.faith).join(",")); }
   // proof over 2 years on 8 seeds: everyone prays sometimes, forms spread by copying, spots form; no speech in any line
   withCfg({}, () => { const rows = []; let spread2 = 0, bad = [], lines = 0;
     for (let seed = 1; seed <= 8; seed++) { const s = G.Sim.create(seed); for (let i = 0; i < 2 * YEAR; i++) G.Sim.step(s); const st = F.stats(s); rows.push(seed + ":" + st.bouts + "b/" + st.prayed + "p/" + st.spreadForms + "s/" + st.spots + "sp");
@@ -1237,9 +1242,9 @@ ok(C.animals.grazer.births.perSeason === 0.35, "call 3: grazer births " + C.anim
   { const s = G.Sim.create(9); for (let i = 0; i < 600; i++) G.Sim.step(s); const o = JSON.parse(JSON.stringify(G.Sim.serialize(s))); o.version = 15; delete o.shelters; delete o.shelterStats; delete o.shelterFirst; delete o.srng;
     for (const a of o.agents) { delete a.shelters; delete a.den; delete a.denW0; delete a.denSlept; delete a.denFull; delete a.denTry; }
     const r = G.Sim.deserialize(o), j = JSON.stringify(G.Sim.serialize(r)), r2 = G.Sim.deserialize(JSON.parse(j)); for (let i = 0; i < 300; i++) { G.Sim.step(r); G.Sim.step(r2); }
-    ok(C.saveVersion === 21 && r.version === 21 && JSON.parse(j).version === 21 && JSON.stringify(r.shelters) === JSON.stringify(SH.generate(W.generate(9), 9)) && r.agents.every(a => Array.isArray(a.shelters) && !a.shelters.length) &&
+    ok(C.saveVersion === 22 && r.version === 22 && JSON.parse(j).version === 22 && JSON.stringify(r.shelters) === JSON.stringify(SH.generate(W.generate(9), 9)) && r.agents.every(a => Array.isArray(a.shelters) && !a.shelters.length) &&
        JSON.stringify(G.Sim.serialize(r)) === JSON.stringify(G.Sim.serialize(r2)),
-      "21b save: a v15 save loads as v16..v21 (shelters from the seed, nobody knows one yet); v21 round-trips and a resumed run matches", r.shelters.length + " shelters"); }
+      "21b save: a v15 save loads as v16..v22 (shelters from the seed, nobody knows one yet); v22 round-trips and a resumed run matches", r.shelters.length + " shelters"); }
   // shelter state round-trips (known lists, who is inside, the first-use record, the shelter rng)
   { const s = G.Sim.create(2); for (let i = 0; i < 3000; i++) G.Sim.step(s); const a = s.agents[0]; a.shelters = [s.shelters[0].id]; s.shelterFirst = { who: a.name, id: a.id, type: s.shelters[0].type, tick: s.tick }; SH.rng(s).float();
     const j = JSON.stringify(G.Sim.serialize(s)), r = G.Sim.deserialize(JSON.parse(j)); for (let i = 0; i < 600; i++) { G.Sim.step(s); G.Sim.step(r); }
@@ -1267,6 +1272,8 @@ require("./headless_powers23.js")(G, C, ok, { withCfg, NO_LIGHTNING, NO_THIRST_S
 require("./headless_powers24.js")(G, C, ok, { withCfg, NO_LIGHTNING, NO_THIRST_SLEEP, solo });
 // ---- step 25 polish (save v21): local language + Discoveries spoken syllable, child copy x2, v19/v20 -> v21 (tests/headless_speech25.js) ----
 require("./headless_speech25.js")(G, C, ok, { withCfg, NO_LIGHTNING, NO_THIRST_SLEEP, solo });
+// ---- step 26 (save v22): corpse choices, lightning aim (tap primary + scatter 4), warmth eq, v21 -> v22 ----
+require("./headless_corpse26.js")(G, C, ok, { withCfg, NO_LIGHTNING, NO_THIRST_SLEEP, solo });
 // cache-bust: every script/CSS link in index.html carries ?v= equal to config.saveVersion (bump both together)
 { const html = fs.readFileSync(path.join(root, "index.html"), "utf8"), refs = [...html.matchAll(/<(?:script[^>]*\ssrc|link[^>]*\shref)="([^"]+)"/g)].map(m => m[1]).filter(u => !/^(https?:|data:)/.test(u));
   const badV = refs.filter(u => { const m = u.match(/[?&]v=(\d+)/); return !m || +m[1] !== C.saveVersion; });
