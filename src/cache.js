@@ -20,7 +20,7 @@
       if (it.tool === "long" || (it.material === "stick" && it.long)) return true;
     }
     // untyped long stick / flake-ish materials still useful as tools
-    if (it.material === "stick" || it.material === "flint" || it.material === "rock" || it.material === "bone") return true;
+    if (it.material === "stick" || it.material === "flint" || it.material === "rock" || it.material === "bone" || it.material === "ore") return true;
     return false;
   };
   Cache.isFood = it => !!it && it.material === "meat";

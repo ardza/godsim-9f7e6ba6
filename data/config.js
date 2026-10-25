@@ -2,7 +2,7 @@
 (function (G) {
   G.data = G.data || {};
   G.data.config = {
-    saveVersion: 32,                // v32: built shelters (crude huts); v31: group identity; v30: sacred places; v29: caching; v28: hides
+    saveVersion: 33,                // v33: ore finds; v32: built shelters; v31: group identity; v30: sacred places; v29: caching; v28: hides
     saveKey: "godsim.save",
     map: {
       w: 60, h: 40, tilePx: 16,      // map is 960x640 art px, scaled to fit the screen
@@ -205,6 +205,7 @@
       stick: { deposits: [5, 9], size: [3, 8],  where: "woodsEdge" },   // woods edges
       flint: { deposits: [1, 3], size: [3, 7],  where: "riverBank" },   // 1–3 river-bank clusters (not blanket)
       reed:  { deposits: [4, 8], size: [4, 10], where: "riverBank" },   // river banks only (1–2 tile land band; never mid-stream)
+      ore:   { deposits: [1, 3], size: [2, 6],  where: "slope" },       // §36 / v33: rarer clusters on hill/mountain slopes
       minSpacing: 1,                                 // never two on one tile at the start
       bonesPerBody: 4,                               // a skeleton gives 4 bones that can be picked up; the rest stays as the body's bones
       pickupChance: 0.6,                            // at the end of an idle spell, x curiosity/50 (0.5 at curiosity 100)
@@ -213,7 +214,7 @@
       tryCooldown: 360,                              // ...at most once per 6 game h each
       // Per-piece property jitter (±jitterPct of type base for hardness/sharpness/dryness/durability; flex uses flexJitter)
       jitterPct: [0.10, 0.20],
-      flexJitter: { stick: 25, rock: 3, flint: 3, bone: 8, reed: 20, berry: 5, meat: 8 }
+      flexJitter: { stick: 25, rock: 3, flint: 3, bone: 8, reed: 20, berry: 5, meat: 8, ore: 2, hide: 10 }
     },
     // Step 10 physics: outcome rules over the material properties (data/materials.js). Actions: strike, rub, cut. "Held" = the thing in hand, "target" = the thing on the ground.
     physics: {

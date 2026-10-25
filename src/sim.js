@@ -220,6 +220,12 @@
     s.hutStats = s.hutStats || (G.Hut ? G.Hut.newStats() : { built: 0, tries: 0, walks: 0, firsts: 0 });
     s.version = 32; return s;
   };
+  // v32 -> v33 (§36): ore deposits on hill/mountain. Flag continuing saves that still need clusters (seeded after tiles unpack).
+  Sim.migrate33 = function (o) {
+    if (!o || o.version !== 32) return o; const s = JSON.parse(JSON.stringify(o));
+    if (s.items && !s.items.some(it => it.material === "ore")) s.seedOre = true;
+    s.version = 33; return s;
+  };
   // One log line. who = the person(s) involved (person/body objects or ids): the line is tagged with their ids and also goes into each one's own
   // log (sim.plog[id], last log.personMax kept, saved). k = an optional kind for the personal log ("death", "birth", "disc").
   Sim.ids = who => (who == null ? [] : Array.isArray(who) ? who : [who]).map(w => w == null ? null : typeof w === "number" ? w : w.kind === "body" ? w.of : w.id).filter((v, i, a) => v != null && a.indexOf(v) === i);
@@ -318,11 +324,12 @@
     if (o && o.version === 29) o = Sim.migrate30(o);
     if (o && o.version === 30) o = Sim.migrate31(o);
     if (o && o.version === 31) o = Sim.migrate32(o);
+    if (o && o.version === 32) o = Sim.migrate33(o);
     if (!o || o.version !== CFG().saveVersion) throw new Error("unsupported save version " + (o && o.version));
     const s = JSON.parse(JSON.stringify(o));
     const world = { w: s.world.w, h: s.world.h, seed: s.seed, attempt: s.world.attempt, spawn: s.world.spawn, hills: s.world.hills, mountain: s.world.mountain || "0".repeat(s.world.w * s.world.h), info: s.world.info, tiles: s.world.tiles.split("").map(c => TILE_CH.indexOf(c)) };
     const rng = new G.RNG(s.rng);
-    return { version: s.version, seed: s.seed, tick: s.tick, nextId: s.nextId, world, rng, bushes: s.bushes, agents: s.agents, log: s.log, plog: s.plog || {}, nameBag: s.nameBag, nameRound: s.nameRound || 0, nameCount: s.nameCount || {}, prev: {},
+    const sim = { version: s.version, seed: s.seed, tick: s.tick, nextId: s.nextId, world, rng, bushes: s.bushes, agents: s.agents, log: s.log, plog: s.plog || {}, nameBag: s.nameBag, nameRound: s.nameRound || 0, nameCount: s.nameCount || {}, prev: {},
       arng: new G.RNG(s.arng), animals: s.animals, herds: s.herds, packs: s.packs || [], nextPackId: s.nextPackId || 1, bodies: s.bodies,
       orng: new G.RNG(s.orng), items: s.items, discoveries: s.discoveries, fire: s.fire, fireStats: s.fireStats, physStats: s.physStats || undefined, fx: s.fx || [],
       lrng: new G.RNG(s.lrng), learnStats: s.learnStats, huntStats: s.huntStats || undefined,
@@ -339,6 +346,14 @@
       cacheStats: s.cacheStats || (G.Cache ? G.Cache.newStats() : null),
       hutStats: s.hutStats || (G.Hut ? G.Hut.newStats() : null),
       hrng: s.hrng != null ? new G.RNG(s.hrng) : undefined };
+    // §36: after tiles are numeric, seed ore onto migrated v32 worlds that had none (one-shot rng; do not advance save orng)
+    if (s.seedOre && G.Items && G.Items.seedMaterial) {
+      const keep = sim.orng.s;
+      sim.orng = new G.RNG(((sim.seed || 0) ^ 0x0B1EC7ED ^ 0x04E33) >>> 0);
+      G.Items.seedMaterial(sim, "ore");
+      sim.orng = new G.RNG(keep);
+    }
+    return sim;
   };
 
   G.Time = Time; G.Sim = Sim;

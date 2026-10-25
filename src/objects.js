@@ -24,13 +24,14 @@
   // name from the data: a broken piece with a keen edge is a "<material> shard", a blunt one is a "broken <material>"
   Items.matLabel = it => { if (it.lit) return "burning " + M()[it.material].label; const l = M()[it.material].label; return it.form === "shard" ? (Items.sharp(it) ? l + " shard" : "broken " + l) : l; };
   Items.baseLabel = it => M()[it.material].label;   // the material's own name, whole or broken
-  Items.label = it => { const tl = G.Tools && G.Tools.labelOf(it); return tl ? "a " + tl : "a " + Items.matLabel(it); };
+  Items.label = it => { const tl = G.Tools && G.Tools.labelOf(it); const m = tl || Items.matLabel(it); return (/^[aeiou]/i.test(m) ? "an " : "a ") + m; };
   Items.frame = it => (it.form === "shard" && G.data.artItems && G.data.artItems.indexOf(it.material + "_shard") >= 0) ? it.material + "_shard" : it.material;
   Items.byId = (sim, id) => sim.items.find(i => i.id === id) || null;
   Items.held = (sim, a) => a.carry != null ? Items.byId(sim, a.carry) : null;
   Items.at = (sim, x, y) => sim.items.filter(i => !i.heldBy && !i.wornBy && i.x === x && i.y === y);
 
   // Step 26b deposits by terrain: rocks on hill/mountain slopes (clusters); sticks on woods edges; flint in 1–3 river-bank clusters; reeds on river banks only (never mid-stream).
+  // §36 / v33: ore deposits on the same slope band as rock (rarer clusters; higher hardness).
   Items.populate = function (sim) {
     const w = sim.world, T = G.data.T, rng = sim.orng, O = OC(); sim.items = sim.items || [];
     const near = (x, y, r, t) => { for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (W.inb(w, x + dx, y + dy) && W.tile(w, x + dx, y + dy) === t) return true; return false; };
@@ -81,7 +82,60 @@
         }
       }
     }
-    for (const mat of ["rock", "stick", "flint", "reed"]) placeDeposits(mat);
+    for (const mat of ["rock", "stick", "flint", "reed", "ore"]) placeDeposits(mat);
+  };
+  // Place one material's deposits onto an existing sim (migrate / tests). Skips tiles already holding an item or agent.
+  Items.seedMaterial = function (sim, mat) {
+    const w = sim.world, T = G.data.T, rng = sim.orng, O = OC(); if (!w || !rng) return 0;
+    sim.items = sim.items || [];
+    const near = (x, y, r, t) => { for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (W.inb(w, x + dx, y + dy) && W.tile(w, x + dx, y + dy) === t) return true; return false; };
+    const isWater = (x, y) => { const t = W.tile(w, x, y); return t === T.RIVER || t === T.LAKE; };
+    const hasRiver = (() => { for (let i = 0; i < w.tiles.length; i++) if (w.tiles[i] === T.RIVER) return true; return false; })();
+    const ok = {
+      slope: (x, y) => W.walkable(w, x, y) && (W.hillAt(w, x, y) || (W.mountainAt && W.mountainAt(w, x, y) > 0)),
+      woodsEdge: (x, y) => W.walkable(w, x, y) && near(x, y, 1, T.WOODS),
+      riverBank: (x, y) => {
+        if (!W.walkable(w, x, y) || isWater(x, y)) return false;
+        if (hasRiver) return near(x, y, 1, T.RIVER) || near(x, y, 2, T.RIVER);
+        return near(x, y, 1, T.LAKE) || near(x, y, 2, T.LAKE);
+      }
+    };
+    const used = new Set();
+    for (const a of sim.agents || []) used.add(Math.round(a.pos.x) + "," + Math.round(a.pos.y));
+    for (const it of sim.items) if (!it.heldBy && !it.wornBy) used.add(it.x + "," + it.y);
+    const c = O[mat]; if (!c || !c.deposits) return 0;
+    const where = ok[c.where] || (() => false), cand = [];
+    for (let y = 0; y < w.h; y++) for (let x = 0; x < w.w; x++) if (where(x, y)) cand.push([x, y]);
+    if (!cand.length) return 0;
+    rng.shuffle(cand);
+    const nDep = rng.int(c.deposits[0], c.deposits[1]);
+    const seeds = [];
+    for (const [x, y] of cand) {
+      if (seeds.length >= nDep) break;
+      if (seeds.every(([sx, sy]) => Math.hypot(sx - x, sy - y) >= 5)) seeds.push([x, y]);
+    }
+    if (!seeds.length) seeds.push(cand[0]);
+    let placed = 0;
+    for (const [sx, sy] of seeds) {
+      const n = rng.int(c.size[0], c.size[1]);
+      const local = cand.filter(([x, y]) => Math.hypot(x - sx, y - sy) <= 3);
+      rng.shuffle(local);
+      let nHere = 0;
+      for (const [x, y] of local) {
+        if (nHere >= n) break;
+        const k = x + "," + y; if (used.has(k)) continue;
+        used.add(k); sim.items.push(Items.create(sim, mat, x, y)); nHere++; placed++;
+      }
+      if (nHere < Math.max(1, Math.floor(c.size[0] / 2))) {
+        for (const [x, y] of cand) {
+          if (nHere >= n) break;
+          if (Math.hypot(x - sx, y - sy) > 4) continue;
+          const k = x + "," + y; if (used.has(k)) continue;
+          used.add(k); sim.items.push(Items.create(sim, mat, x, y)); nHere++; placed++;
+        }
+      }
+    }
+    return placed;
   };
 
   // ---------- carrying (one thing at a time) ----------
@@ -111,6 +165,7 @@
       G.Sim.log(sim, a.name + " picks up a bone from " + b.name + "'s bones", [a, b]);
     } else { if (it.heldBy || Math.round(a.pos.x) !== it.x || Math.round(a.pos.y) !== it.y) return false; G.Sim.log(sim, a.name + " picks up " + Items.label(it), a);
       if (it.material === "reed") { const d = Discoveries.note(sim, a, "pickup", ["reed"], "reed in hand"); if (d) d.title = "First reed"; }
+      if (it.material === "ore") { const d = Discoveries.note(sim, a, "pickup", ["ore"], "ore in hand"); if (d) d.title = "First ore"; }
     }
     it.heldBy = a.id; a.carry = it.id; a.carryUntil = sim.tick + sim.orng.int(OC().carry[0], OC().carry[1]); if (it.lit) { a.carryUntil = it.lit + 1; it.lastBy = a.id; it.lastByName = a.name; if (sim.fireStats) { sim.fireStats.brandPickups = (sim.fireStats.brandPickups || 0) + 1; if (it.bolt) sim.fireStats.boltPickups = (sim.fireStats.boltPickups || 0) + 1; }
       const d = Discoveries.note(sim, a, "carried", ["burning stick"], "fire in hand"); if (d) d.title = "First lit stick carried"; }   /* step 23: the first carry of a lit stick, from the data */   /* step 19: a burning stick is kept until it burns out */ a.stats.pickups = (a.stats.pickups || 0) + 1;
