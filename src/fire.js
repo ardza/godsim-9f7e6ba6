@@ -41,7 +41,12 @@
   // dryness rule as a spark; nobody started it, so no Discoveries line.
   Fire.lightning = function (sim) {
     const L = F().lightning; if (!L) return null;
-    const per = L.perSeason[G.Climate.seasonIndex(sim.tick)] / (CF().time.daysPerSeason * 1440) * TM(); if (!(per > 0) || !sim.orng.chance(per)) return null;   // no draw when off, so a lightning-free run keeps its rng stream
+    const si = G.Climate.seasonIndex(sim.tick); let rate = L.perSeason[si];
+    // §38 / v35: storm odds ramp with year (climate.hard.stormX × hardT)
+    const Hard = CF().climate.hard; if (Hard && Hard.stormX && G.Climate.hardT) {
+      const ht = G.Climate.hardT(sim.tick); rate *= 1 + ((Hard.stormX[si] || 1) - 1) * ht;
+    }
+    const per = rate / (CF().time.daysPerSeason * 1440) * TM(); if (!(per > 0) || !sim.orng.chance(per)) return null;   // no draw when off, so a lightning-free run keeps its rng stream
     const w = sim.world, x = sim.orng.int(0, w.w - 1), y = sim.orng.int(0, w.h - 1), S = sim.fireStats; S.lightning = (S.lightning || 0) + 1;
     sim.fx.push({ k: "spark", x, y, t: sim.tick });
     const tree = W.tile(w, x, y) === G.data.T.WOODS, d = Math.min(100, Fire.dryness(sim, x, y) + (tree && Fire.dryness(sim, x, y) > 0 ? L.snagDry : 0));

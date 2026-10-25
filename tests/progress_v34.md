@@ -1,7 +1,7 @@
 # Progress — saveVersion 34 / §37 Hard points
 
-**FROZEN** to `/workspace/godsim-rc` (saveVersion 34).  
-Backup left alone: `/workspace/godsim-rc-v33`. Live stays 33 until Tester PASS + Judge publish.
+**Working copy only:** `/workspace/godsim`  
+**Do NOT freeze yet** — wait for v33 PASS + Judge publish. Live stays 32 (or 33 after publish); `godsim-rc` is on v33 for Tester.
 
 ## Done
 - `data/config.js` — `saveVersion: 34`; `tools.tip` (points ore|flint, shafts stick|bone, digMult 0.55, huntOddsAdd 0.25); `hunt.odds.tip`.
@@ -11,7 +11,7 @@ Backup left alone: `/workspace/godsim-rc-v33`. Live stays 33 until Tester PASS +
 - `src/sim.js` — migrate **33→34**.
 - `src/render.js` / `data/art.js` — Artist tip_stick_16 / tip_bone_16 / tip_16 already wired.
 - `index.html` — all `?v=34`.
-- Headless: `tests/headless_tip37.js` — **ALL PASS** in working copy and in `godsim-rc` after freeze.
+- Headless: `tests/headless_tip37.js` — **ALL PASS** (craft ≥45, dig/hunt bonus, Discoveries, dull, onTry, score gate, ≥1 tip on 8/8 seeds, migrate 33→34 + round-trip).
 
 ## Spec check (§37)
 - Strike ore or flint onto stick or bone → harder tip when score ≥45 — yes.
@@ -21,8 +21,11 @@ Backup left alone: `/workspace/godsim-rc-v33`. Live stays 33 until Tester PASS +
 - Art tip sheets — yes.
 - Out of scope (thrown spears / bows / metal blades) — untouched.
 
+## Next
+- Wait for Tester v33 PASS + Judge publish, then freeze v34 to rc.
+- Then §38 / v35 Hard seasons.
+
 ## Paths
-- RC: `/workspace/godsim-rc` (v34)
-- Backup: `/workspace/godsim-rc-v33`
-- Headless: `/workspace/godsim-rc/tests/headless_tip37.js`
-- This note: `/workspace/godsim-rc/progress_v34.md`
+- Headless: `/workspace/godsim/tests/headless_tip37.js`
+- This note: `/workspace/godsim/tests/progress_v34.md`
+- `godsim-rc` untouched (still saveVersion 33).

@@ -1,15 +1,37 @@
 // Step 11: air temperature (season + time of day), ground dryness (season + fixed patchiness + water), and the felt temperature that drives warmth.
 // Pure functions of tick / tile / sim state, no RNG and no DOM.
+// §38 / v35: season means + dayAmp ramp with yearIndex (mild coastal at year 0; Deep Cold can kill open-air later).
 (function (G) {
   const CF = () => G.data.config, K = () => CF().climate, T = () => G.data.T;
   const Climate = {};
   const wrap = (i, n) => ((i % n) + n) % n;
+  // 0-based year from tick (New Game = 0). Display Year in the clock is yearIndex + 1.
+  Climate.yearIndex = function (tick) {
+    const t = CF().time, m = t.startMinute + tick * t.tickGameMinutes, day = Math.floor(m / 1440) + 1;
+    return Math.floor((day - 1) / (t.daysPerSeason * t.seasons.length));
+  };
+  // 0..1 harshness; 0 at yearIndex 0, 1 at rampYears+.
+  Climate.hardT = function (tick) {
+    const H = K().hard; if (!H || !(H.rampYears > 0)) return 0;
+    return Math.min(1, Climate.yearIndex(tick) / H.rampYears);
+  };
+  // Season means after year ramp (base seasonMeanC + meanDeltaC × hardT).
+  Climate.seasonMeans = function (tick) {
+    const M = K().seasonMeanC, H = K().hard, t = Climate.hardT(tick);
+    if (!H || !H.meanDeltaC || t <= 0) return M;
+    return M.map((m, i) => m + (H.meanDeltaC[i] || 0) * t);
+  };
+  // Day amplitude after year ramp (base dayAmpC + dayAmpAddC[season] × hardT).
+  Climate.dayAmp = function (tick) {
+    const H = K().hard, t = Climate.hardT(tick), s = Climate.seasonIndex(tick);
+    return K().dayAmpC + (H && H.dayAmpAddC && t > 0 ? (H.dayAmpAddC[s] || 0) * t : 0);
+  };
   // Season means sit at the middle of each season and blend linearly into the next; the day is a cosine with its low at coldestHour.
   Climate.airC = function (tick) {
-    const t = CF().time, m = t.startMinute + tick * t.tickGameMinutes, dps = t.daysPerSeason, n = t.seasons.length, M = K().seasonMeanC;
+    const t = CF().time, m = t.startMinute + tick * t.tickGameMinutes, dps = t.daysPerSeason, n = t.seasons.length, M = Climate.seasonMeans(tick);
     const f = m / 1440 / dps - 0.5, i = Math.floor(f), w = f - i, mean = M[wrap(i, n)] * (1 - w) + M[wrap(i + 1, n)] * w;
     const h = (m % 1440) / 60, day = -Math.cos((h - K().coldestHour) / 24 * Math.PI * 2);
-    return Math.round((mean + K().dayAmpC * day) * 100) / 100;
+    return Math.round((mean + Climate.dayAmp(tick) * day) * 100) / 100;
   };
   Climate.seasonIndex = tick => { const t = CF().time, m = t.startMinute + tick * t.tickGameMinutes; return Math.floor(m / 1440 / t.daysPerSeason) % t.seasons.length; };
 

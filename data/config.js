@@ -2,7 +2,7 @@
 (function (G) {
   G.data = G.data || {};
   G.data.config = {
-    saveVersion: 34,                // v34: hard tips; v33: ore finds; v32: built shelters; v31: group identity; v30: sacred places; v29: caching
+    saveVersion: 35,                // v35: hard seasons; v34: hard tips; v33: ore finds; v32: built shelters; v31: group identity; v30: sacred places; v29: caching
     saveKey: "godsim.save",
     map: {
       w: 60, h: 40, tilePx: 16,      // map is 960x640 art px, scaled to fit the screen
@@ -231,8 +231,15 @@
     },
     // Step 11 air temperature (C) by season and time of day: each season has a mean, blended smoothly into the next; the day swings +-dayAmp,
     // coldest at 05:00 and warmest at 15:00.
-    climate: { // 26b/v23 Director: San Diego–like coastal (Commissioner Oct 24) — mild year-round, Deep Cold never frost; no snow. Was [13,23,12,-2]/dayAmp 5.
+    climate: { // 26b/v23 Director: San Diego–like coastal (Commissioner Oct 24) — mild year-round base. §38/v35: harshness ramps with year (not Ice Age on New Game).
       seasonMeanC: [18, 23, 19, 15], dayAmpC: 4, coldestHour: 5,
+      // §38 Hard seasons: yearIndex 0 keeps mild means; by rampYears, Deep Cold mean/night can kill open-air without den/hide/fire.
+      hard: {
+        rampYears: 4,                    // full harshness at yearIndex ≥ 4 (display Year 5+)
+        meanDeltaC: [0, -2, -6, -20],    // °C added to seasonMeanC × hardT (Deep Cold 15→-5°C at full)
+        dayAmpAddC: [0, 0.5, 2, 6],      // extra dayAmp × hardT (stronger nights in Deep Cold)
+        stormX: [1, 1.1, 1.4, 2.5]       // lightning rate × at full ramp (Deep Cold storms)
+      },
       // ground dryness 0-100 by season (Greening, High Sun, Leaffall, Deep Cold), plus a fixed per-tile patchiness +-patch, minus wetC near water
       dryness: { meadow: [35, 70, 55, 25], woods: [30, 50, 50, 20], sand: [0, 0, 0, 0], patch: 25, nearWaterTiles: 2, nearWater: -30 } },
     // Step 12 fire. A spark lands on the target's tile: it catches if the fuel there (ground grass/litter, or a stick lying there) is dry enough:
