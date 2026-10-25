@@ -14,7 +14,7 @@
   Hunt.weapon = it => !!it && it.material !== "meat" && it.props.hardness >= H().minHardness;
   Hunt.sharp = it => G.Items.sharp(it);   // one shared threshold (config.physics.sharpAt)
   Hunt.learned = a => G.Learn.score(a, "hunt") >= H().learnedAt;
-  Hunt.odds = (a, it) => { const O = H().odds; return clamp((O.base + (Hunt.sharp(it) ? O.sharp : 0) + (Hunt.learned(a) ? O.learned : 0)) * (G.Family && G.Family.isYouth(a) ? G.data.config.child.youthKillX : 1), 0, 1); };   // step 20: a youth x0.5
+  Hunt.odds = (a, it) => { const O = H().odds; const tipAdd = (G.Tools && G.Tools.huntOddsAdd) ? G.Tools.huntOddsAdd(it) : 0; return clamp((O.base + (Hunt.sharp(it) ? O.sharp : 0) + (Hunt.learned(a) ? O.learned : 0) + tipAdd) * (G.Family && G.Family.isYouth(a) ? G.data.config.child.youthKillX : 1), 0, 1); };   // step 20: a youth x0.5; §37 tip hunt bonus
   Hunt.edible = (sim, it) => !!it && it.material === "meat" && sim.tick < it.spoilAt;
   Hunt.isMeat = it => !!it && it.material === "meat";
   Hunt.pull = a => clamp(G.Learn.score(a, "hunt") / 50, 0, 2);
@@ -74,8 +74,9 @@
 
   Hunt.strike = (sim, a, g, it) => strike(sim, a, g, it);
   function strike(sim, a, g, it) {
-    const S = stats(sim), p = Hunt.odds(a, it), hl = G.Items.matLabel(it), base = G.Items.baseLabel(it), k = (it.form === "shard" ? "broken " : "") + base;
+    const S = stats(sim), p = Hunt.odds(a, it), hl = (G.Tools && G.Tools.labelOf(it)) || G.Items.matLabel(it), base = G.Items.baseLabel(it), k = (it.form === "shard" ? "broken " : "") + base;
     S.strikes++; if (G.Family && G.Family.isYouth(a)) S.youthStrikes = (S.youthStrikes || 0) + 1; const bh = S.byHeld[k] || (S.byHeld[k] = { strikes: 0, kills: 0 }); bh.strikes++;
+    if (G.Tools && it && it.tool) G.Tools.use(sim, a, it, "hunt");   // §37: tip (and other tools) dull with hunt use
     if (sim.orng.chance(p)) {
       S.kills++; bh.kills++; if (G.Family && G.Family.isYouth(a)) S.youthKills = (S.youthKills || 0) + 1;
       sim.animals.splice(sim.animals.indexOf(g), 1); delete sim.prev[g.id];
@@ -99,7 +100,7 @@
     if (!Hunt.carcassMeat(b) || dist(a, b.x, b.y) > 1.5) { if (b && !Hunt.carcassMeat(b) && b.tookBy != null && b.tookBy !== a.id && sim.tick - b.tookAt <= 240) G.Social.took(sim, a, sim.agents.find(q => q.id === b.tookBy), "last of the meat");   // step 18
       G.Agent.startIdle(sim, a, 0.3); return; }
     const cutter = G.Items.held(sim, a);
-    const usedCut = !!(G.Tools && cutter && G.Tools.bonusLive(cutter) && (G.Tools.is(cutter, "flake") || G.Tools.is(cutter, "axe")));
+    const usedCut = !!(G.Tools && cutter && G.Tools.bonusLive(cutter) && (G.Tools.is(cutter, "flake") || G.Tools.is(cutter, "axe") || G.Tools.isTip(cutter)));
     if (usedCut) G.Tools.use(sim, a, cutter, "cut");
     if (a.carry != null) G.Items.drop(sim, a);
     const it = G.Items.create(sim, "meat", b.x, b.y); it.spoilAt = b.diedAt + CF().body.freshMinutes; it.from = b.id; it.heat = b.heat || 0;   // step 17: meat off a roasted carcass is as cooked as the carcass

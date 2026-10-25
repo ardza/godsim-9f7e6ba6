@@ -55,7 +55,7 @@
   Agent.sight = a => P().sightTiles;
   Agent.tilePos = a => ({ x: Math.round(a.pos.x), y: Math.round(a.pos.y) });
   Agent.doing = a => { const d = a.act.type === "pray" ? G.Faith.doing(a) : (a.act.type === "idle" || a.act.type === "sleep") && a.felt && a.felt.huddle && a.needs.warmth < 60 ? (a.act.type === "sleep" ? "asleep, huddled" : "huddling") :
-    a.hypoUnconscious ? "unconscious from cold" : a.hypo >= 4 && a.needs.warmth <= 0 && a.act.type === "sleep" ? "asleep from cold" : ({ idle: "resting", try: ({ strike: "striking", rub: "rubbing", cut: "cutting" })[a.act.action] || "trying", bind: "binding a tool", chop: "chopping at a tree", eat: "eating a meal", eatMeat: "eating meat", eatCorpse: "eating from a body", dig: "digging", cook: "holding meat to the fire", drink: "drinking", sleep: "asleep" })[a.act.type] || ({ wander: "wandering", food: "going to a bush", explore: "looking for food", water: "going to the water", exploreWater: "looking for water", collapse: "stumbling to a stop", pickup: "going to pick something up", try: "going to try something", shelter: "seeking warmth", fleeFire: "moving away from flames", fireside: "going to sit by the fire", burnt: "jumping back from the flames", hunt: "going after a deer", meat: "going to a carcass", corpse: "going to a body", drag: "dragging a body", follow: "keeping close to someone", mate: "going to sleep beside a partner", keep: "keeping close to family", prayspot: "going to a prayer spot", sacred: "walking toward a worn place", stash: "going to stash something", cache: "going to a cache", hut: "piling a shelter", beside: "going to sleep beside family", avoid: "keeping away from someone", scared: "running from the flash", fleeWolf: "running from the Wolves" })[a.act.goal] || a.act.type;
+    a.hypoUnconscious ? "unconscious from cold" : a.hypo >= 4 && a.needs.warmth <= 0 && a.act.type === "sleep" ? "asleep from cold" : ({ idle: "resting", try: ({ strike: "striking", rub: "rubbing", cut: "cutting" })[a.act.action] || "trying", bind: "binding a tool", tip: "striking a tip", chop: "chopping at a tree", eat: "eating a meal", eatMeat: "eating meat", eatCorpse: "eating from a body", dig: "digging", cook: "holding meat to the fire", drink: "drinking", sleep: "asleep" })[a.act.type] || ({ wander: "wandering", food: "going to a bush", explore: "looking for food", water: "going to the water", exploreWater: "looking for water", collapse: "stumbling to a stop", pickup: "going to pick something up", try: "going to try something", shelter: "seeking warmth", fleeFire: "moving away from flames", fireside: "going to sit by the fire", burnt: "jumping back from the flames", hunt: "going after a deer", meat: "going to a carcass", corpse: "going to a body", drag: "dragging a body", follow: "keeping close to someone", mate: "going to sleep beside a partner", keep: "keeping close to family", prayspot: "going to a prayer spot", sacred: "walking toward a worn place", stash: "going to stash something", cache: "going to a cache", hut: "piling a shelter", beside: "going to sleep beside family", avoid: "keeping away from someone", scared: "running from the flash", fleeWolf: "running from the Wolves" })[a.act.goal] || a.act.type;
     return (G.Disease && G.Disease.isSick(a) && d.indexOf("sick") < 0) ? d + ", sick" : d; };
 
 
@@ -389,6 +389,7 @@
     if (g === "pickup") { G.Items.arrivePickup(sim, a); if (!G.Items.maybeTry(sim, a)) startIdle(sim, a, 0.5); return; }   // a fresh find is often tried on something close by
     if (g === "try") { if (!G.Items.arriveTry(sim, a)) startIdle(sim, a, 0.5); return; }
     if (g === "bind") { if (!G.Tools || !G.Tools.arriveBind(sim, a)) startIdle(sim, a, 0.5); return; }
+    if (g === "tip") { if (!G.Tools || !G.Tools.arriveTip(sim, a)) startIdle(sim, a, 0.5); return; }
     if (g === "prayspot") { if (!G.Faith.arriveSpot(sim, a)) startIdle(sim, a); return; }   // step 21
     if (g === "sacred") { startIdle(sim, a); return; }   // §33: arrived at known sacred marker
     if (g === "stash") { if (G.Cache) G.Cache.arriveStash(sim, a); else startIdle(sim, a); return; }   // v29
@@ -573,6 +574,7 @@
     if (a.act.type === "pray") { if (!G.Faith.stepPray(sim, a)) startIdle(sim, a); return; }   // step 21: a prayer bout (10-40 min); step 26 ritual at a body also uses pray
     if (a.act.type === "dig") { G.Corpse.stepDig(sim, a); return; }   // step 26 bury
     if (a.act.type === "bind") { if (!G.Tools.stepBind(sim, a)) startIdle(sim, a); return; }   // step 29
+    if (a.act.type === "tip") { if (!G.Tools.stepTip(sim, a)) startIdle(sim, a); return; }   // §37 hard tip
     if (a.act.type === "chop") { if (!G.Tools.stepChop(sim, a)) startIdle(sim, a); return; }
     if (a.act.type === "eatCorpse") { G.Corpse.stepEat(sim, a); return; }
     if (a.wokeEarly && !Agent.isNight(sim.tick)) a.wokeEarly = false;

@@ -1,7 +1,8 @@
 // Step 29 Tools (save v26): lock useful strike/cut/rub/bind outcomes as carried tools when Learn score ≥45.
 // Tools: flake (sharp rock/bone/flint), crude axe/hoe (stick + sharp bound by reed or friction-fit), long stick (reach/poke).
+// §37 / v34: hard tip — strike ore|flint onto stick|bone → tip_stick / tip_bone (same scoreMin craft lock).
 // Durability from hardness; dulls with use → lose bonus, then break to junk. First craft → Discoveries. Own helpers; rolls use orng/lrng.
-// Action-only logs. Overlay sheet data/art/tools_16.png (flake, axe, spear × facings).
+// Action-only logs. Overlay sheets: tools_16 + tip_stick_16 / tip_bone_16 / tip_16.
 (function (G) {
   const CF = () => G.data.config, TC = () => CF().tools || {}, TM = () => CF().time.tickGameMinutes;
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v)), r2 = v => Math.round(v * 100) / 100;
@@ -19,7 +20,7 @@
   Tools.type = it => (it && it.tool) || null;
   Tools.is = (it, t) => Tools.type(it) === t;
   Tools.isTool = it => !!Tools.type(it);
-  Tools.labels = { flake: "sharp flake", axe: "crude axe", spear: "long stick" };
+  Tools.labels = { flake: "sharp flake", axe: "crude axe", spear: "long stick", tip_stick: "hard tip", tip_bone: "hard tip" };
   Tools.labelOf = it => {
     const t = Tools.type(it); if (!t) return null;
     const base = Tools.labels[t] || t;
@@ -51,6 +52,17 @@
     if (!it || it.tool || it.lit || it.form === "shard") return false;
     return it.material === "stick";
   };
+  Tools.isTipPoint = function (it) {
+    if (!it || it.lit || it.tool || it.material === "meat") return false;
+    const mats = (TC().tip && TC().tip.points) || ["ore", "flint"];
+    return mats.indexOf(it.material) >= 0;
+  };
+  Tools.isTipShaft = function (it) {
+    if (!it || it.lit || it.form === "shard") return false;
+    if (it.tool && !Tools.is(it, "spear")) return false;   // plain stick/bone or long stick OK
+    const mats = (TC().tip && TC().tip.shafts) || ["stick", "bone"];
+    return mats.indexOf(it.material) >= 0;
+  };
   Tools.isSharpHead = function (it) {
     if (!it || it.lit || it.material === "meat") return false;
     const mats = (TC().axe && TC().axe.head) || ["rock", "flint", "bone"];
@@ -62,9 +74,11 @@
 
   Tools.digOk = function (it) {
     if (!it) return false;
-    if (Tools.is(it, "flake") || Tools.is(it, "axe")) return Tools.bonusLive(it);
+    if (Tools.is(it, "flake") || Tools.is(it, "axe") || Tools.isTip(it)) return Tools.bonusLive(it);
     return false;
   };
+  Tools.isTip = it => Tools.is(it, "tip_stick") || Tools.is(it, "tip_bone");
+  Tools.tipTypeFor = shaft => shaft && shaft.material === "bone" ? "tip_bone" : "tip_stick";
   Tools.bonusLive = function (it) {
     if (!it || !it.tool) return false;
     const below = TC().dullBelow != null ? TC().dullBelow : 15;
@@ -74,14 +88,22 @@
   Tools.digMult = function (it) {
     if (!Tools.bonusLive(it)) return 1;
     if (Tools.is(it, "axe")) return (TC().axe && TC().axe.digMult) != null ? TC().axe.digMult : 0.5;
+    if (Tools.isTip(it)) return (TC().tip && TC().tip.digMult) != null ? TC().tip.digMult : 0.55;
     if (Tools.is(it, "flake")) return (TC().flake && TC().flake.digMult) != null ? TC().flake.digMult : 0.7;
     return 1;
   };
   Tools.cutMult = function (it) {
     if (!Tools.bonusLive(it)) return 1;
     if (Tools.is(it, "flake")) return (TC().flake && TC().flake.cutMult) != null ? TC().flake.cutMult : 0.6;
+    if (Tools.isTip(it)) return (TC().tip && TC().tip.cutMult) != null ? TC().tip.cutMult : 0.65;
     if (Tools.is(it, "axe")) return (TC().axe && TC().axe.cutMult) != null ? TC().axe.cutMult : 0.8;
     return 1;
+  };
+  Tools.huntOddsAdd = function (it) {
+    if (!Tools.isTip(it) || !Tools.bonusLive(it)) return 0;
+    const tip = TC().tip || {}, H = CF().hunt, O = (H && H.odds) || {};
+    if (tip.huntOddsAdd != null) return tip.huntOddsAdd;
+    return O.tip != null ? O.tip : 0.25;
   };
   Tools.reachTiles = function (sim, a) {
     const it = G.Items.held(sim, a);
@@ -105,9 +127,14 @@
     if (a) {
       a.stats = a.stats || {}; a.stats.crafts = (a.stats.crafts || 0) + 1;
       const lab = Tools.labels[type] || type;
-      G.Sim.log(sim, a.name + " keeps " + (type === "spear" ? "a long stick" : type === "axe" ? "a crude axe" : "a sharp flake") + " ready", a);
+      const keep =
+        type === "spear" ? "a long stick" :
+        type === "axe" ? "a crude axe" :
+        Tools.isTip({ tool: type }) ? "a hard tip" :
+        "a sharp flake";
+      G.Sim.log(sim, a.name + " keeps " + keep + " ready", a);
       const d = G.Discoveries.note(sim, a, "craft", [lab], how || ("made " + lab));
-      if (d) d.title = "First " + lab;
+      if (d) d.title = (Tools.isTip({ tool: type }) ? "First hard tip" : ("First " + lab));
       const key = type === "axe" ? "bind" : (how && how.indexOf("cut") >= 0 ? "cut" : "strike");
       const e = G.Learn.add(a, key, Tools.craftGain(key)); e.n = (e.n || 0) + 1;
       G.Learn.success(sim, a, key);
@@ -115,7 +142,7 @@
     return it;
   };
 
-  // After a physics try: raise strike/cut/rub score; maybe lock flake or long stick
+  // After a physics try: raise strike/cut/rub score; maybe lock tip / flake / long stick
   Tools.onTry = function (sim, a, action, held, target, outcome) {
     if (!a || !action) return;
     Tools.ensure(sim);
@@ -127,6 +154,8 @@
       G.Learn.add(a, action, -(TC().missDrop != null ? TC().missDrop : 1));
     }
     if (!Tools.scoreOk(a, [action, "strike", "cut", "rub"])) return;
+    // §37: strike ore|flint onto stick|bone → hard tip (consumes point)
+    if (action === "strike" && held && target && Tools.tryTip(sim, a, held, target, action + " tip")) return;
     // sharp shard / flint → flake
     const check = (piece, side) => {
       if (!Tools.canFlake(piece)) return;
@@ -138,6 +167,53 @@
     // whole stick involved → long stick
     if (held && Tools.canSpear(held)) Tools.lock(sim, a, held, "spear", action + " stick");
     else if (target && Tools.canSpear(target) && !target.heldBy) Tools.lock(sim, a, target, "spear", action + " stick");
+  };
+
+  // Fuse ore/flint point onto stick/bone shaft → tip_stick / tip_bone. Returns true if crafted.
+  Tools.tryTip = function (sim, a, aIt, bIt, how) {
+    if (!aIt || !bIt || aIt === bIt) return false;
+    let point = null, shaft = null;
+    if (Tools.isTipPoint(aIt) && Tools.isTipShaft(bIt)) { point = aIt; shaft = bIt; }
+    else if (Tools.isTipPoint(bIt) && Tools.isTipShaft(aIt)) { point = bIt; shaft = aIt; }
+    else return false;
+    if (Tools.isTip(shaft)) return false;
+    return !!Tools.finishTip(sim, a, shaft, point, how || "strike tip");
+  };
+
+  Tools.finishTip = function (sim, a, shaft, point, how) {
+    if (!shaft || !point || !Tools.scoreOk(a, ["strike", "cut", "rub", "bind"])) return null;
+    const type = Tools.tipTypeFor(shaft);
+    const hard = Math.round(Math.max(shaft.props.hardness || 25, point.props.hardness || 80));
+    const sharp = Math.max(shaft.props.sharpness || 0, point.props.sharpness || 0, 40);
+    shaft.props.hardness = hard;
+    shaft.props.sharpness = sharp;
+    shaft.props.durability = clamp(Math.round(hard * (TC().durFromHardness != null ? TC().durFromHardness : 1)), 1, 100);
+    shaft.form = "whole";
+    shaft.tool = type;
+    shaft.tippedWith = point.material;
+    shaft.craftedAt = sim.tick; shaft.craftedBy = a ? a.id : null;
+    // consume point
+    if (point.heldBy) {
+      const h = sim.agents.find(q => q.id === point.heldBy);
+      if (h) { h.carry = null; h.carryUntil = null; }
+    }
+    const pi = sim.items.indexOf(point); if (pi >= 0) sim.items.splice(pi, 1);
+    // ensure shaft in hand
+    if (a && shaft.heldBy !== a.id) {
+      if (a.carry != null) G.Items.drop(sim, a);
+      shaft.heldBy = a.id; shaft.x = Math.round(a.pos.x); shaft.y = Math.round(a.pos.y);
+      a.carry = shaft.id; a.carryUntil = sim.tick + sim.orng.int(CF().objects.carry[0], CF().objects.carry[1]);
+    }
+    bump(sim, type);
+    if (a) {
+      a.stats = a.stats || {}; a.stats.crafts = (a.stats.crafts || 0) + 1;
+      G.Sim.log(sim, a.name + " strikes a hard tip onto the " + G.Items.matLabel(shaft).replace(/^broken /, ""), a);
+      const d = G.Discoveries.note(sim, a, "craft", ["hard tip"], how || (point.material + " on " + shaft.material));
+      if (d) d.title = "First hard tip";
+      const e = G.Learn.add(a, "strike", Tools.craftGain("strike")); e.n = (e.n || 0) + 1;
+      G.Learn.success(sim, a, "strike");
+    }
+    return shaft;
   };
 
   // Idle: holding one part + the other in reach → try bind into axe
@@ -341,8 +417,62 @@
     return true;
   };
 
+
+  // Idle: holding ore|flint or stick|bone + the other in reach → strike a hard tip (score ≥45)
+  Tools.maybeTip = function (sim, a) {
+    const C = TC().tip || {}; if (!C || a.carry == null) return false;
+    if (G.Family && G.Family.isChild(a)) return false;
+    if (!Tools.scoreOk(a, ["strike", "cut", "rub", "bind"])) return false;
+    const cool = Math.round((C.tipCooldown != null ? C.tipCooldown : 360) / TM());
+    if (sim.tick - (a.lastTip == null ? -1e9 : a.lastTip) < cool) return false;
+    const held = G.Items.held(sim, a); if (!held || held.lit || held.material === "meat") return false;
+    const pointHeld = Tools.isTipPoint(held);
+    const shaftHeld = Tools.isTipShaft(held);
+    if (!pointHeld && !shaftHeld) return false;
+    const R = C.tipReach != null ? C.tipReach : 1.5;
+    const ground = sim.items.filter(i => !i.heldBy && !i.lit && Math.hypot(i.x - a.pos.x, i.y - a.pos.y) <= R + 1e-9);
+    let point = pointHeld ? held : ground.find(Tools.isTipPoint);
+    let shaft = shaftHeld ? held : ground.find(Tools.isTipShaft);
+    if (!point || !shaft || point === shaft) return false;
+    if (Tools.isTip(shaft)) return false;
+    const chance = (C.tipChance != null ? C.tipChance : 0.5) * (a.traits.curiosity / 50)
+      * (G.Moods ? G.Moods.bindMult(a) : 1);
+    if (!sim.orng.chance(clamp(chance, 0, 1))) return false;
+    a.lastTip = sim.tick;
+    const other = held === shaft ? point : shaft;
+    if (other.heldBy == null && (Math.round(a.pos.x) !== other.x || Math.round(a.pos.y) !== other.y)) {
+      if (G.Agent.walkTo(sim, a, other.x, other.y, "tip", { shaft: shaft.id, point: point.id })) return true;
+      return false;
+    }
+    return Tools.startTip(sim, a, shaft, point);
+  };
+  Tools.startTip = function (sim, a, shaft, point) {
+    const mins = (TC().tip && TC().tip.tipMinutes != null) ? TC().tip.tipMinutes : 12;
+    a.act = { type: "tip", shaft: shaft.id, point: point.id, t: 0, n: Math.max(1, Math.round(mins / TM())) };
+    G.Sim.log(sim, a.name + " strikes the " + G.Items.matLabel(point) + " onto the " + G.Items.matLabel(shaft), a);
+    return true;
+  };
+  Tools.arriveTip = function (sim, a) {
+    const shaft = G.Items.byId(sim, a.act.shaft), point = G.Items.byId(sim, a.act.point);
+    if (!shaft || !point) return false;
+    return Tools.startTip(sim, a, shaft, point);
+  };
+  Tools.stepTip = function (sim, a) {
+    const act = a.act; if (++act.t < act.n) return true;
+    const shaft = G.Items.byId(sim, act.shaft), point = G.Items.byId(sim, act.point);
+    if (!shaft || !point) return false;
+    if (!Tools.scoreOk(a, ["strike", "cut", "rub", "bind"])) {
+      G.Sim.log(sim, a.name + " cannot set the tip", a);
+      G.Learn.add(a, "strike", 2);
+      return false;
+    }
+    Tools.finishTip(sim, a, shaft, point, "struck tip");
+    return false;
+  };
+
   Tools.maybe = function (sim, a) {
     if (a.carry == null && G.Cache && G.Cache.seekRetrieve(sim, a, "tool")) return true;   // v29: remembered tool cache
+    if (Tools.maybeTip(sim, a)) return true;
     if (Tools.maybeBind(sim, a)) return true;
     if (Tools.maybeChop(sim, a)) return true;
     if (Tools.maybePoke(sim, a)) return true;

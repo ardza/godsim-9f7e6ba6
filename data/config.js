@@ -2,7 +2,7 @@
 (function (G) {
   G.data = G.data || {};
   G.data.config = {
-    saveVersion: 33,                // v33: ore finds; v32: built shelters; v31: group identity; v30: sacred places; v29: caching; v28: hides
+    saveVersion: 34,                // v34: hard tips; v33: ore finds; v32: built shelters; v31: group identity; v30: sacred places; v29: caching
     saveKey: "godsim.save",
     map: {
       w: 60, h: 40, tilePx: 16,      // map is 960x640 art px, scaled to fit the screen
@@ -377,7 +377,7 @@
     // A kill raises her score by gain (a visible success others within copyTiles may copy); a miss lowers it by missDrop.
     hunt: { coldBelow: 30,   // Director (call 1 on 18): only warmth under 30 stops a hunt (step 17 used her warmth-seeking level)
       minHardness: 20, sightTiles: 12, strikeTiles: 4, approachChance: 0.5, cooldownMinutes: 120, giveUpMinutes: 90,
-      odds: { base: 0.10, sharp: 0.30, learned: 0.20 }, learnedAt: 60,
+      odds: { base: 0.10, sharp: 0.30, learned: 0.20, tip: 0.25 }, learnedAt: 60,
       gain: 20, missDrop: 2, sickDrop: 5, watchGain: 8,   // 26b: watch animal kill within watchTiles → +watchGain hunt score
       scavengeChance: 0.5 },   // a fresh carcass with meat in sight (sightTiles): p(go and take meat) = scavengeChance x hunt score / 50
     // Step 16 meat. A killed grazer is a body (fresh -> rotting -> bones, same timings as config.body). While it is fresh, meat can be taken from it:
@@ -550,7 +550,13 @@
       bindReach: 1.5,
       flake: { materials: ["rock", "flint", "bone"], digMult: 0.7, cutMult: 0.6 },
       axe: { head: ["rock", "flint", "bone"], digMult: 0.5, cutMult: 0.8, chopMinutes: 60, chopCooldown: 720, chopChance: 0.25 },
-      spear: { reachTiles: 2, pokeTiles: 4, pokeChance: 0.4, pokeCooldown: 180, readyChance: 0.25 }
+      spear: { reachTiles: 2, pokeTiles: 4, pokeChance: 0.4, pokeCooldown: 180, readyChance: 0.25 },
+      // §37 / v34 Hard tips: strike ore|flint onto stick|bone → tip_stick / tip_bone (score ≥ scoreMin)
+      tip: {
+        points: ["ore", "flint"], shafts: ["stick", "bone"],
+        digMult: 0.55, huntOddsAdd: 0.25, cutMult: 0.65,
+        tipChance: 0.5, tipCooldown: 360, tipMinutes: 12, tipReach: 1.5
+      }
     },
     // Step 28 Disease (v25): lasting sick state (Energy drain ×1.5, Fullness drain ×1.25) for 1–3 days.
     // Seeded by raw meat / corpse eat, person-to-person spread within spreadTiles, or scavengers at rotting bodies (once/day).
