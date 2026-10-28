@@ -179,3 +179,7 @@ Starts as soon as 13-15 and the new UI are frozen to godsim-rc, without waiting 
 4. §37 / v34 Hard points — ore/flint tip on stick/bone ≥45.
 5. §38 / v35 Hard seasons — ramp harshness; mild start stays.
 Skip Meeting strangers. Specs: specs/15b-17.md §34–38.
+
+## 39. People UI polish (save v36) — built in godsim (Oct 28; not frozen)
+- RimWorld-denser People menus; prev/next + Find; no portrait strip. Spec §39.
+- Five held sim notes stay deferred.

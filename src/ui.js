@@ -75,6 +75,20 @@
     const f = UI.focusFrac(); R.centerOn(a.pos.x, a.pos.y, F.zoom, f.fx, f.fy); if (UI.zoomUI) UI.zoomUI();
     R.follow = id; R.pulse = { id, t0: performance.now(), ms: F.pulseMs }; return true;
   };
+  // v36 §39: cycle list = same sort/filter as People tab (oldest→youngest); ← → on inspect card
+  UI.peopleCycleList = function (sim) {
+    let rows = (sim.agents || []).slice();
+    if (UI.peopleFilter !== "all") rows = rows.filter(a => a.group === UI.peopleFilter);
+    rows.sort((p, q) => q.age - p.age || p.id - q.id);
+    return rows;
+  };
+  UI.cyclePerson = function (app, dir) {
+    const list = UI.peopleCycleList(app.sim); if (!list.length) return false;
+    let i = list.findIndex(a => a.id === app.selected);
+    if (i < 0) i = dir > 0 ? -1 : 0;
+    const n = list.length, j = ((i + (dir < 0 ? -1 : 1)) % n + n) % n;
+    app.select(list[j].id); return true;
+  };
   function updatePanels(app) {
     for (const p of UC().panels) { const on = UI.panel === p.key, el = UI.panelEl(p), b = $("ptab-" + p.key);
       el.classList.toggle("closed", !on); b.classList.toggle("on", on); b.setAttribute("aria-selected", on); b.setAttribute("aria-expanded", on);
@@ -202,6 +216,9 @@
     const personTabLink = e => { const b = e.target.closest && e.target.closest("[data-ptab]"); if (!b) return; e.preventDefault();
       const k = b.getAttribute("data-ptab"); if (!k || k === UI.personTab) return; UI.personTab = k; UI._personCardKey = null; UI.update(app); };
     $("info-body").addEventListener("pointerup", personTabLink); $("info-body").addEventListener("click", e => { if (e.detail === 0) personTabLink(e); });
+    // v36 §39: ← → on inspect card
+    const cycleLink = e => { const b = e.target.closest && e.target.closest("[data-pcycle]"); if (!b) return; e.preventDefault(); UI.cyclePerson(app, +b.getAttribute("data-pcycle")); };
+    $("info-body").addEventListener("pointerup", cycleLink); $("info-body").addEventListener("click", e => { if (e.detail === 0) cycleLink(e); });
     $("log").addEventListener("pointerup", selLink); $("log").addEventListener("click", e => { if (e.detail === 0) selLink(e); });
     $("seed").addEventListener("keydown", e => { if (e.key === "Enter") app.newWorld($("seed").value); e.stopPropagation(); });
     $("info-close").onclick = () => app.select(null);
@@ -315,6 +332,7 @@
     const bb = !a && !an && !bd && !it && G.Family && G.Family.babyById(sim, app.selected);   // step 19: a baby
     const sp = !a && !an && !bd && !it && !bb && G.Faith && G.Faith.byId(sim, app.selected);   // §33 sacred / prayer spot
     info.hidden = !a && !an && !bd && !it && !bb && !sp;
+    info.classList.toggle("people-ui", !!a);   // v36 §39: Artist dense People inspect styles
     const need = (label, v, cls, word, tip) => '<div class="row need" title="' + tip + '"><span>' + label + '</span>' + bar(v, 100, cls).replace('</div>', '<em>' + word + '</em></div>') + '<b>' + Math.round(v) + '/100</b></div>';
     if (sp) {   // §33: sacred / prayer spot — decorative inspect only
       const knownG = (sim.groups || []).filter(g => (g.sacred || []).some(q => q.x === sp.x && q.y === sp.y)).length;
@@ -370,39 +388,57 @@
         { key: "needs", label: "Needs" }, { key: "mind", label: "Mind" }, { key: "kin", label: "Kin" }, { key: "knows", label: "Knows" }, { key: "log", label: "Log" }
       ]);
       if (!tabs.some(x => x.key === UI.personTab)) UI.personTab = "needs";
-      const tabBar = '<div class="pcard-tabs" role="tablist" aria-label="person sections">' +
-        tabs.map(x => '<button type="button" role="tab" class="pcard-tab' + (UI.personTab === x.key ? " on" : "") +
+      // v36 §39: Artist mock pp-* tabs (brown), meters (cyan), mind skill rows — no portrait strip
+      const tabBar = '<div class="pp-tabs" role="tablist" aria-label="person sections">' +
+        tabs.map(x => '<button type="button" role="tab" class="pp-tab' + (UI.personTab === x.key ? " on" : "") +
           '" data-ptab="' + x.key + '" aria-selected="' + (UI.personTab === x.key) + '" id="pcard-tab-' + x.key + '">' + esc(x.label) + '</button>').join("") + '</div>';
-      const sickLine = (G.Disease && G.Disease.isSick(a)) ? '<div class="sec">Sick</div><div class="sub">drains faster · recovering</div>' : '';
-      const needsPane =
-        '<div class="sec">Needs (0-100, full = good)</div>' +
-        need("Fullness", n.fullness, n.fullness < A.fullnessThreshold(a) ? "hot" : "", A.fullnessWord(n.fullness), "100 = stuffed, " + PC.fullness.mealFillTo + " = full after a meal; eats below " + A.fullnessThreshold(a) + "; 0 = starving (food fills Fullness only)") +
-        need("Water", n.water, n.water < A.waterThreshold(a) ? "hot" : "water", A.waterWord(n.water), "100 = just drank; drinks below " + A.waterThreshold(a) + "; 0 = dehydrated") +
-        need("Energy", n.energy, n.energy < 25 ? "hot" : "energy", A.energyWord(n.energy), "100 = rested (" + PC.energy.restedAt + "+); sleeps after dusk under " + PC.energy.sleepBelow + "; 0 = sleep-deprived (collapse → forced sleep; confusion → hallucinations; dies after 5 days at 0); refill from sleep only, food never fills Energy") +
-        need("Warmth", n.warmth, n.warmth < 30 ? "hot" : "warm", A.warmthWord(n.warmth), "100 = warm; seeks shelter below " + Math.round(A.warmthSeekBelow(a)) + "; 0 = hypothermia (shivering→stumbling→moving slow→nodding off→collapsed; dies after 3 days at 0)" + (a.felt ?  " · feels like " + G.Time.tempF(a.felt.c) + (a.felt.sheltered ? ", under trees" : "") + (a.felt.huddle ? ", huddled with " + a.felt.huddle : "") + (a.felt.bond ? ", close to " + esc(a.felt.bond) : "") + (a.felt.heat ? ", fire nearby" : "") : "")) +
-        (a.zero && (a.zero.water > 0 || a.zero.fullness > 0 || a.zero.warmth > 0 || a.zero.energy > 0) ? '<div class="sub hot">' + [a.zero.water > 0 ? 'no water for ' + (a.zero.water / 60).toFixed(1) + ' h' : '', a.zero.fullness > 0 ? 'no food for ' + (a.zero.fullness / 60).toFixed(1) + ' h' : '', a.zero.energy > 0 ? 'no sleep for ' + (a.zero.energy / 60).toFixed(1) + ' h' : '', a.zero.warmth > 0 ? 'hypothermia for ' + (a.zero.warmth / 60).toFixed(1) + ' h' + (a.hypo ? ' (stage ' + a.hypo + ')' : '') : ''].filter(Boolean).join(' · ') + '</div>' : '') +
-        (a.act.type === "sleep" ? '<div class="sub">asleep since ' + G.Time.hhmm(G.Time.at(a.act.since)) + '</div>' : '') +
-        '<div class="sub">' + a.stats.meals + ' meal' + (a.stats.meals === 1 ? "" : "s") + ' · ' + (a.stats.drinks || 0) + ' drink' + (a.stats.drinks === 1 ? "" : "s") + ' · ' + (a.stats.sleeps || 0) + ' sleep' + (a.stats.sleeps === 1 ? "" : "s") + '</div>' + sickLine;
+      const cap = w => w ? String(w).replace(/^./, c => c.toUpperCase()) : "";
+      const pct = v => Math.max(0, Math.min(100, +v || 0)).toFixed(1);
+      const ppMeter = (label, v, word, warn) => '<div class="pp-meter' + (warn ? " warn" : "") + '"><span>' + label + '</span><i><s style="width:' + pct(v) + '%"></s></i><em>' + esc(cap(word)) + '</em></div>';
+      const ppSkill = (label, v) => '<div class="pp-skill"><span>' + esc(label) + '</span><i><s style="width:' + pct(v) + '%"></s></i><em>' + Math.round(v) + '</em></div>';
       const mm = a.moods || { happiness: 40, sadness: 40, anger: 40 }, md = G.Moods ? G.Moods.dominant(a) : null;
-      const moodRow = '<div class="sec">Moods</div><div class="moods">' +
-        '<span class="' + (md === "happiness" ? "dom" : "") + '">Hap ' + Math.round(mm.happiness) + '</span>' +
-        '<span class="' + (md === "sadness" ? "dom" : "") + '">Sad ' + Math.round(mm.sadness) + '</span>' +
-        '<span class="' + (md === "anger" ? "dom" : "") + '">Ang ' + Math.round(mm.anger) + '</span></div>';
+      const moodBit = (key, short, v) => md === key ? ("<b>" + short + " " + Math.round(v) + "</b>") : (short + " " + Math.round(v));
+      const moodLine = '<div class="pp-mood">Mood: ' + moodBit("happiness", "Hap", mm.happiness) + " · " + moodBit("sadness", "Sad", mm.sadness) + " · " + moodBit("anger", "Ang", mm.anger) + "</div>";
+      const sickLine = (G.Disease && G.Disease.isSick(a)) ? '<div class="pp-sub">Sick</div><div class="sub">drains faster · recovering</div>' : "";
+      const needsPane =
+        moodLine +
+        ppMeter("Fullness", n.fullness, A.fullnessWord(n.fullness), n.fullness < A.fullnessThreshold(a)) +
+        ppMeter("Water", n.water, A.waterWord(n.water), n.water < A.waterThreshold(a)) +
+        ppMeter("Energy", n.energy, A.energyWord(n.energy), n.energy < 25) +
+        ppMeter("Warmth", n.warmth, A.warmthWord(n.warmth), n.warmth < 30) +
+        (a.zero && (a.zero.water > 0 || a.zero.fullness > 0 || a.zero.warmth > 0 || a.zero.energy > 0) ? '<div class="sub hot">' + [a.zero.water > 0 ? "no water for " + (a.zero.water / 60).toFixed(1) + " h" : "", a.zero.fullness > 0 ? "no food for " + (a.zero.fullness / 60).toFixed(1) + " h" : "", a.zero.energy > 0 ? "no sleep for " + (a.zero.energy / 60).toFixed(1) + " h" : "", a.zero.warmth > 0 ? "hypothermia for " + (a.zero.warmth / 60).toFixed(1) + " h" + (a.hypo ? " (stage " + a.hypo + ")" : "") : ""].filter(Boolean).join(" · ") + "</div>" : "") +
+        (a.act.type === "sleep" ? '<div class="sub">asleep since ' + G.Time.hhmm(G.Time.at(a.act.since)) + "</div>" : "") +
+        (a.felt ? '<div class="sub">feels like ' + G.Time.tempF(a.felt.c) + (a.felt.sheltered ? ", under trees" : "") + (a.felt.huddle ? ", huddled with " + a.felt.huddle : "") + (a.felt.bond ? ", close to " + esc(a.felt.bond) : "") + (a.felt.heat ? ", fire nearby" : "") + "</div>" : "") +
+        '<div class="sub">' + a.stats.meals + " meal" + (a.stats.meals === 1 ? "" : "s") + " · " + (a.stats.drinks || 0) + " drink" + (a.stats.drinks === 1 ? "" : "s") + " · " + (a.stats.sleeps || 0) + " sleep" + (a.stats.sleeps === 1 ? "" : "s") + "</div>" + sickLine;
       const mindPane =
-        sickLine + moodRow +
-        '<div class="sec">Experience (0-100, ' + G.data.config.learn.start + ' = untried)</div>' + expRows(sim, a) + learnedRow(sim, a) +
-        '<div class="sec">Traits (0-100, 50 = avg' + (a.inh ? '; ▲▼ vs parents' : '') + ')</div>' + traitRows(a) +
+        sickLine +
+        '<div class="pp-sub">Moods</div>' +
+        ppSkill("Happy", mm.happiness) + ppSkill("Sad", mm.sadness) + ppSkill("Angry", mm.anger) +
+        '<div class="pp-sub">Experience</div>' +
+        Object.keys(G.data.config.learn.actions).map(k => {
+          const e = a.exp && a.exp[k], v = e ? e.score : G.data.config.learn.start;
+          return ppSkill(EXP[k] || k, v);
+        }).join("") + learnedRow(sim, a) +
+        '<div class="pp-sub">Traits</div>' +
+        Object.entries(a.traits).map(([k, v]) => ppSkill(traitName(k), v)).join("") +
         speechRows(sim, a) + prayRows(a);
       const kinPane = familyRows(sim, a) + relRows(sim, a);
       const knowsPane =
-        '<div class="sec">Knows</div><div class="chips">' + chip(known + ' berry bush' + (known === 1 ? "" : "es")) + chip(waterKnown(a)) + chip('Known shelters: ' + (a.shelters || []).length) + chip('Caches: ' + (a.caches || []).length) + chip('Sacred places: ' + (a.sacred || []).length) +
-          chip('carrying ' + (G.Items.held(sim, a) ? esc(G.Items.label(G.Items.held(sim, a))) : 'nothing')) +
-          (sim.discoveries || []).filter(d => d.who === a.name).map(d => chip(esc(d.action + " " + d.materials.slice(0, 2).join(" / ") + " → " + d.result), "disc")).join("") + '</div>';
-      const logPane = '<div class="sec">' + esc(a.name) + "'s log</div>" + plogHtml(sim, a.id);
+        '<div class="pp-sub">Knows</div><div class="chips">' + chip(known + " berry bush" + (known === 1 ? "" : "es")) + chip(waterKnown(a)) + chip("Known shelters: " + (a.shelters || []).length) + chip("Caches: " + (a.caches || []).length) + chip("Sacred places: " + (a.sacred || []).length) +
+          chip("carrying " + (G.Items.held(sim, a) ? esc(G.Items.label(G.Items.held(sim, a))) : "nothing")) +
+          (sim.discoveries || []).filter(d => d.who === a.name).map(d => chip(esc(d.action + " " + d.materials.slice(0, 2).join(" / ") + " → " + d.result), "disc")).join("") + "</div>";
+      const logPane = '<div class="pp-sub">' + esc(a.name) + "'s log</div>" + plogHtml(sim, a.id);
       const pane = UI.personTab === "mind" ? mindPane : UI.personTab === "kin" ? kinPane : UI.personTab === "knows" ? knowsPane : UI.personTab === "log" ? logPane : needsPane;
-      // header + Find outside tabs; personal log only in Log tab (no under-card strip)
-      $("info-body").innerHTML = findBtn(a) + '<h3 class="hasfind">' + esc(a.name) + '</h3><div class="sub">' + Math.floor(a.age) + ' years · <span class="stage">' + G.Family.stageWord(a) + '</span> · ' + A.doing(a) + '</div>' +
-        tabBar + '<div class="pcard-pane" role="tabpanel" aria-labelledby="pcard-tab-' + UI.personTab + '">' + pane + '</div>';
+      const Sg = G.Social, grp = Sg && Sg.group(sim, a);
+      const gname = grp ? Sg.groupName(sim, grp) : "Loner";
+      const head = '<div class="pp-cardhead">' +
+        '<button type="button" class="pp-nav" data-pcycle="-1" aria-label="Prev person">←</button>' +
+        '<div class="pp-name"><b>' + esc(a.name) + "</b><span>" + esc(gname) + " · " + Math.floor(a.age) + " · " + esc(A.doing(a)) + "</span></div>" +
+        '<button type="button" class="pp-nav" data-pcycle="1" aria-label="Next person">→</button>' +
+        '<button type="button" class="pp-find" data-find="' + a.id + '" aria-label="Find ' + esc(a.name) + ' on the map">Find</button></div>';
+      // no portrait strip; header ← → Find; tabs; pane
+      $("info-body").innerHTML = '<div class="pp-card">' + head + tabBar +
+        '<div class="pp-pane" role="tabpanel" aria-labelledby="pcard-tab-' + UI.personTab + '">' + pane + "</div></div>";
     }
     hidePlogStrip();
     const last = sim.log[sim.log.length - 1], key = UI.tab + "|" + sim.log.length + "|" + (last && last.t) + "|" + (last && last.text);
@@ -456,28 +492,35 @@
       D.slice().reverse().map(d => '<tr><td>' + d.n + '</td><td>' + G.Time.stamp(d.tick) + '</td><td>' + esc(d.who || "-") + '</td><td>' + esc((d.title ? d.title + ": " : "") + d.action + " " + d.materials[0] + (d.materials[1] ? " on " + d.materials[1] : "") + (d.materials[2] ? ", over " + d.materials[2] : "")) + '</td><td>' + esc(d.result) + '</td><td>' + (esc(d.group) || '<span class="blank">-</span>') + '</td></tr>').join("") +
       '</tbody></table>' : '<div class="empty">Nothing discovered yet.</div>');
   };
-  // ---- People tab (26b/v23): All + one tab per formed group; auto-sort oldest → youngest; no name/age sort picker; dead collapsed ----
+  // ---- People tab (v36 §39): Artist pp-* list + group tabs; oldest → youngest; dead collapsed; no portrait strip ----
   UI.peopleFilter = "all";   // "all" or a group id
   UI.panelRender.people = function (app, el, force) {
     const sim = app.sim, now = Date.now();
     if (!force && el._t && now - el._t < 1000 && el._seed === sim.seed && el._pf === UI.peopleFilter) return;   // live, at most once per real second
     el._t = now; el._seed = sim.seed; el._pf = UI.peopleFilter;
-    const A = G.Agent, S = G.Social, groups = (sim.groups || []).slice().sort((p, q) => p.id - q.id);
+    el.classList.add("people-ui");
+    const S = G.Social, groups = (sim.groups || []).slice().sort((p, q) => p.id - q.id);
     if (UI.peopleFilter !== "all" && !groups.some(g => g.id === UI.peopleFilter)) UI.peopleFilter = "all";
-    let rows = sim.agents.slice();
-    if (UI.peopleFilter !== "all") rows = rows.filter(a => a.group === UI.peopleFilter);
-    rows.sort((p, q) => q.age - p.age || p.id - q.id);   // oldest → youngest (youngest at bottom)
-    const meter = (cls, v, ic) => { const lo = v < 50; return '<span class="pm' + (lo ? ' low' : '') + '">' + ic + bar(v, 100, lo ? "hot" : cls) + '<b>' + Math.round(v) + '</b></span>'; };
+    let rows = UI.peopleCycleList(sim);
     const dead = (sim.bodies || []).filter(b => !b.species).slice().sort((p, q) => q.diedAt - p.diedAt);
     const sx = a => a.sex === "f" ? "F" : a.sex === "m" ? "M" : "-";
-    const tab = (key, label) => '<button type="button" role="tab" class="peop-tab' + (UI.peopleFilter === key ? " on" : "") + '" data-pf="' + key + '" aria-selected="' + (UI.peopleFilter === key) + '">' + esc(label) + '</button>';
-    const tabs = '<div class="peop-tabs" role="tablist" aria-label="people groups">' + tab("all", "All") +
-      groups.map(g => tab(g.id, (S && S.groupName ? S.groupName(sim, g) : ("Group " + g.id)))).join("") + '</div>';
-    el.innerHTML = '<div class="sec">People <span class="sub">' + rows.length + (UI.peopleFilter === "all" ? " alive" : " in group") + '</span></div>' + tabs +
-      '<div class="plist">' + (rows.length ? rows.map(a => '<button class="prow" data-pid="' + a.id + '"><span class="pn">' + esc(a.name) + '</span><span class="pa">' + Math.floor(a.age) + ' y · ' + sx(a) + ' · ' + G.Family.stageWord(a) + '</span>' +
-        '<span class="pms">' + meter("", a.needs.fullness, '<span class="pl">Fullness</span>') + meter("water", a.needs.water, '<span class="pl">Water</span>') + meter("energy", a.needs.energy, '<span class="pl">Energy</span>') + meter("warm", a.needs.warmth, '<span class="pl">Warmth</span>') + '</span></button>').join("") : '<div class="empty">No one here.</div>') + '</div>' +
-      '<details class="pdead"' + (UI.peopleDeadOpen ? " open" : "") + '><summary>Dead (' + dead.length + ')</summary>' +
-        (dead.length ? dead.map(b => '<div class="drow"><span class="pn">' + esc(b.name) + '</span><span>' + (b.age != null ? b.age + ' y' : '') + '</span><span>' + esc(b.cause || "") + '</span></div>').join("") : '<div class="empty">No one has died.</div>') + '</details>';
+    const tab = (key, label) => '<button type="button" role="tab" class="pp-tab' + (UI.peopleFilter === key ? " on" : "") + '" data-pf="' + key + '" aria-selected="' + (UI.peopleFilter === key) + '">' + esc(label) + "</button>";
+    const tabs = '<div class="pp-groups" role="tablist" aria-label="people groups">' + tab("all", "All") +
+      groups.map(g => tab(g.id, (S && S.groupName ? S.groupName(sim, g) : ("Group " + g.id)))).join("") + "</div>";
+    const mini = a => {
+      const n = a.needs, lo = Math.min(n.fullness, n.water, n.energy, n.warmth);
+      const warn = lo < 50;
+      return '<i class="pp-mini' + (warn ? " warn" : "") + '"><s style="width:' + Math.max(0, Math.min(100, lo)).toFixed(1) + '%"></s></i>';
+    };
+    const gLabel = a => { const g = S && S.group(sim, a); return g ? S.groupName(sim, g) : "Loner"; };
+    const list = rows.length ? rows.map(a => {
+      const on = app.selected === a.id ? " on" : "";
+      return '<button type="button" class="pp-row' + on + '" data-pid="' + a.id + '"><b>' + esc(a.name) + "</b><span>" + esc(gLabel(a)) + " · " + Math.floor(a.age) + "</span>" + mini(a) + "</button>";
+    }).join("") : '<div class="empty">No one here.</div>';
+    el.innerHTML = '<div class="pp-list"><div class="pp-head">People <span class="pp-dim">(' + rows.length + (UI.peopleFilter === "all" ? "" : " in group") + ")</span></div>" + tabs +
+      '<div class="pp-rows">' + list + "</div>" +
+      '<details class="pdead"' + (UI.peopleDeadOpen ? " open" : "") + "><summary>Dead (" + dead.length + ")</summary>" +
+        (dead.length ? dead.map(b => '<div class="drow"><span class="pn">' + esc(b.name) + "</span><span>" + (b.age != null ? b.age + " y" : "") + "</span><span>" + esc(b.cause || "") + "</span></div>").join("") : '<div class="empty">No one has died.</div>') + "</details></div>";
     el.querySelectorAll("button[data-pf]").forEach(b => b.onclick = () => { const v = b.getAttribute("data-pf"); UI.peopleFilter = v === "all" ? "all" : +v; UI.panelRender.people(app, el, true); });
     el.querySelectorAll("button[data-pid]").forEach(b => b.onclick = () => { const id = +b.getAttribute("data-pid"), a = sim.agents.find(q => q.id === id); if (!a) return;
       G.Render.centerOn(Math.round(a.pos.x), Math.round(a.pos.y), UC().peopleZoom || 2); app.select(id); });

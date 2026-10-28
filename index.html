@@ -126,6 +126,14 @@
   #info .moods .dom { font-weight: 700; color: var(--wheat); }
   #info .pcard-pane { flex: 1 1 auto; min-height: 0; padding-top: 8px; }
   #info .pcard-pane > .sec:first-child { margin-top: 0; border-top: 0; padding-top: 0; }
+  /* v36 §39: Artist people-ui / pp-* — fluid live layout (mock used fixed 260/440) */
+  #info.people-ui { background: var(--pp-bg, #16110c); }
+  #info.people-ui .pp-card { width: auto; max-width: none; border: 0; padding: 0; background: transparent; box-shadow: none; }
+  #info.people-ui .pp-cardhead { padding-right: 52px; } /* room for #info-close */
+  #info.people-ui .pp-pane { padding-top: 4px; }
+  #panel-people.people-ui { background: var(--pp-bg, #16110c); }
+  #panel-people.people-ui .pp-list { width: auto; max-width: none; border: 0; padding: 0; background: transparent; }
+  #panel-people.people-ui .pp-rows { max-height: min(420px, 50vh); }
   button.logn { display: inline-block; font: inherit; color: inherit; background: none; border: 0; border-radius: 6px; padding: 12px 10px; margin: -12px -10px; min-height: 44px; min-width: 44px; text-align: center; text-decoration: underline; text-decoration-color: var(--dim); text-underline-offset: 3px; cursor: pointer; }
   button.logn:hover, button.logn:focus-visible { text-decoration-color: currentColor; }
   .empty { color: var(--dim); padding: 6px 2px; }
@@ -190,7 +198,7 @@
     #info > * { flex-shrink: 0; }   /* the short card scrolls as a whole; her log follows the details */
   }
 </style>
-<link rel="stylesheet" href="data/ui/theme.css?v=35">
+<link rel="stylesheet" href="data/ui/theme.css?v=36">
 </head><body>
 <div id="top">
   <span class="grp"><button id="btn-menu" aria-expanded="false" aria-controls="files" title="World: save, load, new world"><span class="ico" data-icon="menu"></span><span class="wide">World</span></button></span>
@@ -210,40 +218,40 @@
 </div>
 <div id="panelbar" role="tablist" aria-label="panels"></div>
 <div id="toast"></div>
-<script src="data/config.js?v=35"></script>
-<script src="data/tiles.js?v=35"></script>
-<script src="data/names.js?v=35"></script>
-<script src="data/words.js?v=35"></script>
-<script src="data/group_names.js?v=35"></script>
-<script src="data/art.js?v=35"></script>
-<script src="data/materials.js?v=35"></script>
-<script src="src/rng.js?v=35"></script>
-<script src="src/world.js?v=35"></script>
-<script src="src/climate.js?v=35"></script>
-<script src="src/agent.js?v=35"></script>
-<script src="src/animal.js?v=35"></script>
-<script src="src/objects.js?v=35"></script>
-<script src="src/fire.js?v=35"></script>
-<script src="src/learn.js?v=35"></script>
-<script src="src/hunt.js?v=35"></script>
-<script src="src/cook.js?v=35"></script>
-<script src="src/social.js?v=35"></script>
-<script src="src/family.js?v=35"></script>
-<script src="src/faith.js?v=35"></script>
-<script src="src/shelter.js?v=35"></script>
-<script src="src/powers.js?v=35"></script>
-<script src="src/speech.js?v=35"></script>
-<script src="src/corpse.js?v=35"></script>
-<script src="src/moods.js?v=35"></script>
-<script src="src/disease.js?v=35"></script>
-<script src="src/tools.js?v=35"></script>
-<script src="src/hides.js?v=35"></script>
-<script src="src/cache.js?v=35"></script>
-<script src="src/hut.js?v=35"></script>
-<script src="src/sim.js?v=35"></script>
-<script src="src/save.js?v=35"></script>
-<script src="src/icons.js?v=35"></script>
-<script src="src/render.js?v=35"></script>
-<script src="src/ui.js?v=35"></script>
-<script src="src/main.js?v=35"></script>
+<script src="data/config.js?v=36"></script>
+<script src="data/tiles.js?v=36"></script>
+<script src="data/names.js?v=36"></script>
+<script src="data/words.js?v=36"></script>
+<script src="data/group_names.js?v=36"></script>
+<script src="data/art.js?v=36"></script>
+<script src="data/materials.js?v=36"></script>
+<script src="src/rng.js?v=36"></script>
+<script src="src/world.js?v=36"></script>
+<script src="src/climate.js?v=36"></script>
+<script src="src/agent.js?v=36"></script>
+<script src="src/animal.js?v=36"></script>
+<script src="src/objects.js?v=36"></script>
+<script src="src/fire.js?v=36"></script>
+<script src="src/learn.js?v=36"></script>
+<script src="src/hunt.js?v=36"></script>
+<script src="src/cook.js?v=36"></script>
+<script src="src/social.js?v=36"></script>
+<script src="src/family.js?v=36"></script>
+<script src="src/faith.js?v=36"></script>
+<script src="src/shelter.js?v=36"></script>
+<script src="src/powers.js?v=36"></script>
+<script src="src/speech.js?v=36"></script>
+<script src="src/corpse.js?v=36"></script>
+<script src="src/moods.js?v=36"></script>
+<script src="src/disease.js?v=36"></script>
+<script src="src/tools.js?v=36"></script>
+<script src="src/hides.js?v=36"></script>
+<script src="src/cache.js?v=36"></script>
+<script src="src/hut.js?v=36"></script>
+<script src="src/sim.js?v=36"></script>
+<script src="src/save.js?v=36"></script>
+<script src="src/icons.js?v=36"></script>
+<script src="src/render.js?v=36"></script>
+<script src="src/ui.js?v=36"></script>
+<script src="src/main.js?v=36"></script>
 </body></html>

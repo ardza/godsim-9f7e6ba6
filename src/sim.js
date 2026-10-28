@@ -236,6 +236,11 @@
     if (!o || o.version !== 34) return o; const s = JSON.parse(JSON.stringify(o));
     s.version = 35; return s;
   };
+  // v35 -> v36 (§39): People UI polish — UI-only; no world/seed change
+  Sim.migrate36 = function (o) {
+    if (!o || o.version !== 35) return o; const s = JSON.parse(JSON.stringify(o));
+    s.version = 36; return s;
+  };
   // One log line. who = the person(s) involved (person/body objects or ids): the line is tagged with their ids and also goes into each one's own
   // log (sim.plog[id], last log.personMax kept, saved). k = an optional kind for the personal log ("death", "birth", "disc").
   Sim.ids = who => (who == null ? [] : Array.isArray(who) ? who : [who]).map(w => w == null ? null : typeof w === "number" ? w : w.kind === "body" ? w.of : w.id).filter((v, i, a) => v != null && a.indexOf(v) === i);
@@ -337,6 +342,7 @@
     if (o && o.version === 32) o = Sim.migrate33(o);
     if (o && o.version === 33) o = Sim.migrate34(o);
     if (o && o.version === 34) o = Sim.migrate35(o);
+    if (o && o.version === 35) o = Sim.migrate36(o);
     if (!o || o.version !== CFG().saveVersion) throw new Error("unsupported save version " + (o && o.version));
     const s = JSON.parse(JSON.stringify(o));
     const world = { w: s.world.w, h: s.world.h, seed: s.seed, attempt: s.world.attempt, spawn: s.world.spawn, hills: s.world.hills, mountain: s.world.mountain || "0".repeat(s.world.w * s.world.h), info: s.world.info, tiles: s.world.tiles.split("").map(c => TILE_CH.indexOf(c)) };
