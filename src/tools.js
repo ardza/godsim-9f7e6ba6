@@ -108,6 +108,7 @@
   Tools.reachTiles = function (sim, a) {
     const it = G.Items.held(sim, a);
     if (!Tools.is(it, "spear") || !Tools.bonusLive(it)) return 0;
+    if (G.Injury && !G.Injury.canUseTools(a)) return 0;   // §40: broken arm, no spear reach
     return (TC().spear && TC().spear.reachTiles) != null ? TC().spear.reachTiles : 2;
   };
 

@@ -144,9 +144,14 @@
     // close and person stays inside: damage / rare kill
     p.needs.energy = r9(Math.max(0, p.needs.energy - T.damageEnergy));
     if (sim.arng.chance(T.killChance)) {
-      G.Sim.die(sim, p, "wolves");
+      const body = G.Sim.die(sim, p, "wolves");
       G.Sim.log(sim, Animal.name(a) + " brings down " + p.name);
-    } else if (sim.tick - (pack.chaseLog || -1e9) >= 0) {
+      if (G.WolfFear) G.WolfFear.onKill(sim, p, body);   // §40: only awake people close by saw it
+    } else {
+      if (G.WolfFear) G.WolfFear.onAttack(sim, p);   // §40: she knows; close watchers saw it
+      if (G.Injury) G.Injury.fromWolf(sim, p);       // §40: maybe a bite / gash / broken part
+    }
+    if (sim.agents.indexOf(p) >= 0 && sim.tick - (pack.chaseLog || -1e9) >= 0) {
       // driven-back is secondary to the chase log above; only add if chaseLog was just set this tick or older gap
       if (pack.chaseLog !== sim.tick) { pack.chaseLog = sim.tick; G.Sim.log(sim, p.name + " is driven back by Wolves", p); }
     }
@@ -208,6 +213,10 @@
     return false;
   }
   function stalkDeer(sim, a, H) {
+    // §40 / v37: THE wolf rain knob (animals.wolves.rainHuntX): in rain a wolf only starts a hunt with that chance (rolled on sim.arng only while it rains here)
+    if (a.species === "wolves" && G.Powers && G.Powers.rainStrAt && !(a.act && a.act.goal === "hunt")) { const rs = G.Powers.rainStrAt(sim, Math.round(a.pos.x), Math.round(a.pos.y)), X = AC().wolves.rainHuntX;
+      if (rs && X && X[rs] != null && X[rs] < 1 && !sim.arng.chance(X[rs])) { const ws = sim.wolfRain = sim.wolfRain || { rests: 0, hunts: 0 }; ws.rests++; return false; } }
+    if (a.species === "wolves") { const ws = sim.wolfRain = sim.wolfRain || { rests: 0, hunts: 0 }; ws.tries = (ws.tries || 0) + 1; }
     let best = null;
     for (const q of sim.animals) if (q.species === "grazer") { const d = Math.hypot(q.pos.x - a.pos.x, q.pos.y - a.pos.y);
       if (d <= H.stalkTiles && (!best || d < best.d)) best = { q, d }; }
@@ -422,8 +431,10 @@
   };
 
   Body.create = function (sim, a, cause) {
+    // §40 / v37: the wound type(s) a finder can see (cause + any open injuries), and a snapshot for Resurrect (dropped after its window)
+    const wb = (BC().woundByCause || {})[cause], wounds = []; if (wb) wounds.push(wb); for (const i of (a.injuries || [])) if (wounds.indexOf(i.type) < 0) wounds.push(i.type);
     return { id: sim.nextId++, kind: "body", of: a.id, name: a.name, look: a.look || 0, x: Math.round(a.pos.x), y: Math.round(a.pos.y), diedAt: sim.tick, cause, age: Math.floor(a.age),
-      stage: "fresh", stageAt: sim.tick, flesh: 100, eaten: 0, condition: 100, material: null, scavenged: false };
+      stage: "fresh", stageAt: sim.tick, flesh: 100, eaten: 0, condition: 100, material: null, scavenged: false, wounds, soul: JSON.parse(JSON.stringify(a)) };
   };
   Body.stageWord = b => b.stage === "bones" ? "bones" : b.stage;
   Body.yearsMinutes = () => 1440 * G.Time.daysPerYear();

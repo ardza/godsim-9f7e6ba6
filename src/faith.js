@@ -293,6 +293,22 @@
     const L = sim.prayers || (sim.prayers = []); L.push({ t: sim.tick, text, ids: [a.id], g: a.group == null ? null : a.group, need: need || null });
     const m = FC().feedMax; if (L.length > m) L.splice(0, L.length - m);
   };
+  // §40 / v37 Bless (Prayers tab): a partial answer to one prayer row, never a full fix (config.bless). Tired: a little energy, capped below full.
+  // Hungry: learns where the nearest ripe bush is (fullness untouched). Logs actions only. Returns what was given, or null.
+  Faith.bless = function (sim, entry) {
+    const B = G.data.config.bless, e = typeof entry === "number" ? (sim.prayers || [])[entry] : entry; if (!e || e.blessed != null) return null;
+    const a = sim.agents.find(q => q.id === (e.ids || [])[0]); if (!a) return null;
+    const out = { id: a.id, energy: 0, bush: null }, n = a.needs;
+    if (n.energy < B.tiredBelow) { const to = Math.min(B.energyCap, n.energy + B.energyAdd); if (to > n.energy) { out.energy = Math.round((to - n.energy) * 1e9) / 1e9; n.energy = to; } }
+    if (n.fullness < G.Agent.fullnessThreshold(a)) { let best = null;
+      for (const b of sim.bushes) { if (!b.ripe) continue; const d = Math.hypot(b.x - a.pos.x, b.y - a.pos.y); if (d <= B.bushTiles && (!best || d < best.d)) best = { b, d }; }
+      if (best) { a.knowledge = a.knowledge || {}; a.knowledge.bushes = a.knowledge.bushes || {}; a.knowledge.bushes[best.b.id] = { x: best.b.x, y: best.b.y, ripe: true, seen: sim.tick }; out.bush = best.b.id; } }
+    if (B.happinessAdd && a.moods && a.moods.happiness != null) a.moods.happiness = Math.min(100, a.moods.happiness + B.happinessAdd);
+    e.blessed = sim.tick;
+    const parts = []; if (out.energy) parts.push("rises a little more rested"); if (out.bush != null) parts.push("turns toward a ripe bush nearby");
+    G.Sim.log(sim, a.name + " " + (parts.length ? parts.join(" and ") : "lifts " + (a.sex === "m" ? "his" : "her") + " head and looks around"), a);
+    return out;
+  };
   // anyone within deathSeenTiles sees it (a sleeper finds the body on waking; the window is a day)
   Faith.onDeath = function (sim, a) {
     if (!sim.faith) return; const R = FC().deathSeenTiles;

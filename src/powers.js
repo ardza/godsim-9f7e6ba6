@@ -7,7 +7,7 @@
   const Powers = {};
   const PC = () => G.data.config.powers, TM = () => G.data.config.time.tickGameMinutes, mins = m => Math.max(1, Math.round(m / TM()));
   const fToC = f => f * 5 / 9;
-  Powers.KINDS = ["rain", "warm", "cool", "lightning", "spawn", "cure", "plague"];
+  Powers.KINDS = ["rain", "warm", "cool", "lightning", "spawn", "cure", "plague", "heal", "resurrect"];
   // step 23 stats: strikes (fires lit, killed, scared), spawned animals by species, prayers answered by a strike / spawn
   Powers.newStats = () => ({ casts: { rain: 0, warm: 0, cool: 0, lightning: 0, spawn: 0, cure: 0, plague: 0 }, putOut: 0, sticksOut: 0, covers: 0, faces: 0, puddleDrinks: 0,
     strikes: { fires: 0, scorched: 0, killed: 0, scared: 0, babies: 0 }, spawns: { grazer: 0, scavenger: 0, wolves: 0, watched: 0, backedAway: 0 }, answered: 0 });
@@ -39,11 +39,13 @@
     if (k === "spawn") return Powers.spawn(sim, x, y, opt || "grazer");
     if (k === "cure") return Powers.cure(sim, x, y);
     if (k === "plague") return Powers.plague(sim, x, y);
+    if (k === "heal") return Powers.heal(sim, x, y);
+    if (k === "resurrect") return Powers.resurrect(sim, x, y);
     const r = C.radiusTiles, place = Powers.place(sim, x, y, r), e = { id: S.next++, k, x, y, r, t: sim.tick, place };
     S.stats.casts[k] = (S.stats.casts[k] || 0) + 1;
     if (k === "rain") { const str = (opt && C.rain.strengths[opt]) ? opt : "medium", R = C.rain.strengths[str];
       e.str = str; e.end = sim.tick + mins(R.minutes); e.wetEnd = sim.tick + mins(R.wetMinutes); e.bushEnd = sim.tick + mins(R.bushMinutes);
-      e.bushX = R.bushX; e.lossX = R.lossX; e.chillC = R.chillC; e.douse = R.douse; e.holdOutMinutes = R.holdOutMinutes;
+      e.bushX = R.bushX; e.lossX = R.lossX; e.chillC = R.chillC; e.drainPerHour = R.drainPerHour || 0; e.climbX = R.climbX || 0; e.exposeX = R.exposeX || 1; e.douse = R.douse; e.holdOutMinutes = R.holdOutMinutes;
       e.pudEnd = sim.tick + mins(R.puddles.minutes); e.puddles = puddleTiles(sim, e, R.puddles.count); e.on = true;
       G.Sim.log(sim, "Rain falls near " + place); douse(sim, e); }
     else { const W = C[k]; e.end = sim.tick + mins(W.minutes); e.fade = mins(W.fadeMinutes); e.dC = fToC(W.deltaF);
@@ -67,6 +69,23 @@
     Powers.answer(sim, x, y);
     S.effects.push(e);
     return { ok: true, effect: e, cleared: n };
+  };
+  // §40 / v37: Heal — every living person in the circle has all injured body parts mended (+ powers.heal.healthAdd health)
+  Powers.heal = function (sim, x, y) {
+    const C = PC(), S = st(sim), r = C.radiusTiles, place = Powers.place(sim, x, y, r);
+    S.stats.casts.heal = (S.stats.casts.heal || 0) + 1;
+    const healed = G.Injury ? G.Injury.heal(sim, x, y, r) : [];
+    G.Sim.log(sim, healed.length ? "Wounds close on people near " + place : "A warm light passes over " + place);
+    Powers.answer(sim, x, y);
+    return { ok: true, effect: { k: "heal", x, y, r, place }, healed: healed.length, ids: healed.map(a => a.id) };
+  };
+  // §40 / v37: Resurrect — a person's body that died within powers.resurrect.windowMinutes rises; a long-dead body cannot
+  Powers.resurrect = function (sim, x, y) {
+    const C = PC(), S = st(sim), r = C.radiusTiles, place = Powers.place(sim, x, y, r);
+    const res = G.Injury ? G.Injury.resurrect(sim, x, y, r) : { raised: [], missed: [] };
+    if (!res.raised.length) return { ok: false, reason: res.missed.length ? "too long dead" : "no body", missed: res.missed.length };
+    S.stats.casts.resurrect = (S.stats.casts.resurrect || 0) + 1;
+    return { ok: true, effect: { k: "resurrect", x, y, r, place }, raised: res.raised.length, ids: res.raised.map(a => a.id) };
   };
   // v27: Plague — seed v25 sick on living people in the circle (instant, no cooldown)
   Powers.plague = function (sim, x, y) {
@@ -130,6 +149,13 @@
   Powers.bushX = function (sim, b) { if (!Powers.any(sim)) return 1; let x = 1; for (const e of sim.powers.effects) if (e.k === "rain" && sim.tick < e.bushEnd && inC(e, b.x, b.y)) x = Math.max(x, e.bushX != null ? e.bushX : 1); return x; };
   // warmth loss multiplier under rain at a tile (max of active rains there)
   Powers.lossXAt = function (sim, x, y) { if (!Powers.any(sim)) return 1; let v = 1; for (const e of sim.powers.effects) if (e.k === "rain" && e.on && sim.tick < e.end && inC(e, x, y)) v = Math.max(v, e.lossX != null ? e.lossX : 1); return v; };
+  // §40 / v37: per-strength rain numbers at a tile (strongest active rain there). Older saved effects fall back to their strength's config.
+  const strV = (e, k, d) => e[k] != null ? e[k] : (e.str && PC().rain.strengths[e.str] && PC().rain.strengths[e.str][k] != null ? PC().rain.strengths[e.str][k] : d);
+  Powers.rainStrAt = function (sim, x, y) { if (!Powers.any(sim)) return null; const O = PC().rain.strengthOrder || ["light", "medium", "heavy"]; let best = null;
+    for (const e of sim.powers.effects) if (e.k === "rain" && e.on && sim.tick < e.end && inC(e, x, y)) { const s = e.str || "medium"; if (best == null || O.indexOf(s) > O.indexOf(best)) best = s; } return best; };
+  Powers.drainAt = function (sim, x, y) { if (!Powers.any(sim)) return 0; let v = 0; for (const e of sim.powers.effects) if (e.k === "rain" && e.on && sim.tick < e.end && inC(e, x, y)) v = Math.max(v, strV(e, "drainPerHour", 0)); return v; };
+  Powers.climbXAt = function (sim, x, y) { if (!Powers.any(sim)) return 1; let v = 1; for (const e of sim.powers.effects) if (e.k === "rain" && e.on && sim.tick < e.end && inC(e, x, y)) v = Math.min(v, strV(e, "climbX", 0)); return v; };
+  Powers.exposeXAt = function (sim, x, y) { if (!Powers.any(sim)) return 1; let v = 1; for (const e of sim.powers.effects) if (e.k === "rain" && e.on && sim.tick < e.end && inC(e, x, y)) v = Math.max(v, strV(e, "exposeX", 1)); return v; };
   // v22: open-air chill °C from active rain (max of overlapping strengths); Climate.felt multiplies by exposure
   Powers.chillCAt = function (sim, x, y) { if (!Powers.any(sim)) return 0; let v = 0; for (const e of sim.powers.effects) if (e.k === "rain" && e.on && sim.tick < e.end && inC(e, x, y)) v = Math.max(v, e.chillC != null ? e.chillC : 0); return v; };
   // air temperature shift (°C) at a tile: sum of active Warm / Cool effects there, each fading out over its last fade minutes, capped
@@ -140,7 +166,7 @@
   Powers.exposure = function (sim, a) { if (!Powers.any(sim)) return 0;
     const x = Math.round(a.pos.x), y = Math.round(a.pos.y); if (!Powers.raining(sim, x, y)) return 0;
     const sh = (G.Shelter && G.Shelter.inside(sim, a)) || (G.Shelter && G.Shelter.at(sim, x, y)), SC = G.data.config.shelter;
-    if (sh) { const b = SC && SC[sh.type] && SC[sh.type].rain; if (b != null) return Math.max(0, 1 - b); }   // a thicket keeps half off, even in the woods
+    if (sh) { const b = SC && SC[sh.type] && SC[sh.type].rain != null ? SC[sh.type].rain : sh.rain; if (b != null) return Math.max(0, 1 - b); }   // a thicket keeps half off, even in the woods
     return G.World.tile(sim.world, x, y) === G.data.T.WOODS ? 0 : 1; };
   // active puddles within d tiles of (x, y): [{k, x, y, d, kind: "puddle"}]
   Powers.puddlesNear = function (sim, x, y, d) { const out = []; if (!Powers.any(sim)) return out;
@@ -153,10 +179,15 @@
     const R = PC().rain, range = tiles != null ? tiles : R.coverTiles, w = sim.world, t = G.Agent.tilePos(a), SC = G.data.config.shelter, c = [];
     for (let y = t.y - range; y <= t.y + range; y++) for (let x = t.x - range; x <= t.x + range; x++) {
       if (!G.World.inb(w, x, y) || !G.World.walkable(w, x, y)) continue; const d = Math.hypot(x - t.x, y - t.y); if (d > range || d === 0) continue;
-      const sh = G.Shelter && G.Shelter.at(sim, x, y), full = sh ? SC[sh.type] && SC[sh.type].rain >= 1 : G.World.tile(w, x, y) === G.data.T.WOODS;
+      const sh = G.Shelter && G.Shelter.at(sim, x, y), shr = sh ? (SC[sh.type] && SC[sh.type].rain != null ? SC[sh.type].rain : sh.rain || 0) : 0;
+      const full = sh ? shr >= (R.coverMinRain != null ? R.coverMinRain : 1) : G.World.tile(w, x, y) === G.data.T.WOODS;   // §40: huts (rain 0.85) count as cover
       if (full && !G.Agent.claimed(sim, a, x, y)) c.push({ x, y, d, sh }); }
+    // §40 / v37: a lit fire is cover too (its heat beats the rain): stand next to the flames
+    if (R.coverFire && G.Fire && G.Fire.flames) for (const [fx, fy] of G.Fire.flames(sim)) { if (Math.hypot(fx - t.x, fy - t.y) > range + 1) continue;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const x = fx + dx, y = fy + dy; if (!G.World.inb(w, x, y) || !G.World.walkable(w, x, y) || sim.fire[x + "," + y]) continue;
+        const d = Math.hypot(x - t.x, y - t.y); if (d <= range && d > 0 && !G.Agent.claimed(sim, a, x, y)) c.push({ x, y, d, sh: null, fire: true }); } }
     c.sort((p, q) => p.d - q.d || p.y - q.y || p.x - q.x);
-    for (const q of c.slice(0, 8)) { const p = G.World.findPath(w, t.x, t.y, q.x, q.y); if (p) return { p, sh: q.sh }; }
+    for (const q of c.slice(0, 8)) { const p = G.World.findPath(w, t.x, t.y, q.x, q.y); if (p) return { p, sh: q.sh, fire: !!q.fire }; }
     return null;
   }
   // 26b: ≥ exposeUrgentAt minutes exposed → cover outranks snacks (Agent.step checks this before snack)
@@ -185,7 +216,7 @@
       a.rainCoverLogged = true;
       G.Sim.log(sim, a.name + " has been in the rain too long and heads for cover", a);
     } else {
-      G.Sim.log(sim, a.name + " hurries out of the rain " + (c.sh ? "toward the " + G.Shelter.word(c.sh) : "toward the trees"), a);
+      G.Sim.log(sim, a.name + " hurries out of the rain " + (c.fire ? "toward the fire" : c.sh ? "toward the " + G.Shelter.word(c.sh) : "toward the trees"), a);
     }
     return true;
   };

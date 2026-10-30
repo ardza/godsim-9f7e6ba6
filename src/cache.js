@@ -117,6 +117,7 @@
     const it = G.Items.held(sim, a);
     if (!it || !Cache.cacheable(it)) return false;
     const kind = Cache.kindOf(it);
+    if (kind === "meat") it.stashedBy = a.name;   // §40 item 9: whose cache (stockpile) the meat sits in
     G.Items.drop(sim, a, "stash");
     // drop already logged "puts down"; add stash line
     G.Sim.log(sim, a.name + " stashes " + (kind === "meat" ? "meat" : "a " + kind) + " at a known place", a);
@@ -144,6 +145,7 @@
     }
     const kind = Cache.kindOf(it);
     if (!G.Items.pickUp(sim, a, it.id)) return false;
+    if (kind === "meat") it.src = { k: "stockpile", owner: it.stashedBy || null, prev: it.src || null };   // §40 item 9
     G.Sim.log(sim, a.name + " takes " + (kind === "meat" ? "meat" : "a " + kind) + " from a cache", a);
     Cache.remember(a, spot, [kind]);
     st(sim).retrieves++;

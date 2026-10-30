@@ -43,15 +43,24 @@
   #powers { position: absolute; left: 8px; bottom: 8px; z-index: 5; display: flex; gap: 4px; padding: 4px; line-height: 1.2; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; }
   #powers button { display: flex; align-items: center; gap: 6px; min-width: 44px; min-height: 48px; padding: 0 12px; font-size: 16px; background: transparent; border: 0; border-radius: 12px; }
   #powers button.on { background: var(--on); color: var(--on-text); }
+  /* §40 / v37 item 8 (Artist's v37_ui mock, approved): Powers menu in labelled categories, 84x64 buttons with icon + 16px label, hint line at the bottom */
+  #powers { flex-direction: column; gap: 6px; padding: 8px 10px; border-radius: 12px; max-width: min(calc(100% - 16px), 680px); box-sizing: border-box; }   /* 680: Weather + Healing on row 1, Creatures + Harm on row 2 (clear of the Log panel) */
+  #powers .pw-cats { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+  #powers .pw-cat h4 { margin: 0 0 4px; font-size: 16px; line-height: 20px; font-weight: 600; color: #b9a888; }
+  #powers .pw-row { display: flex; flex-wrap: wrap; gap: 6px; }
+  #powers button.pw { flex-direction: column; justify-content: center; gap: 4px; min-width: 84px; min-height: 64px; padding: 4px 8px; background: #4a3524; color: #f1e6cf; border-radius: 8px; }
+  #powers button.pw.on { background: #8a5a2e; color: #f1e6cf; outline: 2px solid #4fc3d9; }
+  #powers button.pw .cd:empty { display: none; }
+  #powers .pw-hint { margin: 2px 0 0; font-size: 16px; line-height: 20px; color: #b9a888; }
   #powers button.cooling { color: var(--dim); }
   #powers button .cd { font-size: 16px; font-variant-numeric: tabular-nums; } #powers button .cd:empty { display: none; }
   #powers button svg { width: 24px; height: 24px; flex: 0 0 24px; }
   /* step 23: Lightning / Spawn join the bar; the Spawn picker (Grazer / Predator) sits just above it. Phones in portrait: icons only (names in the toast and aria-label) */
-  #spawnpick { position: absolute; left: 8px; bottom: 72px; z-index: 6; display: flex; gap: 4px; padding: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; }
+  #spawnpick { position: absolute; left: 8px; bottom: 250px; z-index: 6; display: flex; gap: 4px; padding: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; }
   #spawnpick[hidden] { display: none; }
   #spawnpick button { display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 96px; min-height: 48px; padding: 0 14px; font-size: 16px; background: transparent; border: 0; border-radius: 12px; }
   #spawnpick button svg { width: 24px; height: 24px; flex: 0 0 24px; }
-  @media (max-width: 700px) { #powers button { padding: 0 10px; } #powers button .lbl { display: none; } }
+  @media (max-width: 700px) { #powers button { padding: 0 10px; } #powers button:not(.pw) .lbl { display: none; } }
   /* v19 (Director + Artist): portrait phones under 700px: no floating bar. The Powers tab in the bottom bar slides up one 56px row of power icons
      just above the bar; picking a power closes it (the whole map is free to tap the spot); the tab is highlighted while a power waits for its spot.
      Closed = hidden (nothing over the map). Desktop and landscape unchanged: the tab is not shown there. */
@@ -64,9 +73,20 @@
       transform: translateY(100%); visibility: hidden; transition: transform .2s cubic-bezier(.2,.8,.2,1), visibility 0s linear .2s; }
     body.pw-open #powers { transform: none; visibility: visible; transition: transform .2s cubic-bezier(.2,.8,.2,1), visibility 0s; }
     #powers button { flex: 1 1 0; justify-content: center; max-width: 88px; }
+    #powers { height: auto; max-width: none; flex-direction: column; align-items: stretch; justify-content: flex-start; padding: 8px 8px 6px; }   /* §40 categories: grows to fit */
+    #powers button.pw { flex: 0 0 auto; max-width: none; min-width: 84px; }
     #spawnpick { position: fixed; left: 8px; right: 8px; bottom: calc(var(--pbh, var(--bar)) + 8px); z-index: 19; justify-content: center; }
   }
   #cv.aiming { cursor: crosshair; }
+  /* §40 / v37: People sex dot (CSS only), Prayers Bless button (44px), person-card Health + body figure + injury list (Artist's v37_ui mock) */
+  .pp-sex { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; vertical-align: middle; flex: 0 0 10px; }
+  .pr-row { display: flex; align-items: center; gap: 8px; min-height: 52px; } .pr-row .pr-text { flex: 1; min-width: 0; }
+  .pr-bless { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; min-width: 44px; padding: 0 12px; font-size: 16px; background: #4a3524; color: #f1e6cf; border: 0; border-radius: 8px; flex: 0 0 auto; }
+  .pr-bless svg { width: 20px; height: 20px; } .pr-blessed { font-size: 16px; color: #b9a888; flex: 0 0 auto; }
+  .pp-health { margin: 4px 0 10px; } .pp-body { display: flex; gap: 14px; align-items: flex-start; margin-top: 8px; }
+  .pp-figure { width: 64px; height: 128px; flex: 0 0 64px; }
+  .pp-injuries { margin: 0; padding: 0; list-style: none; font-size: 16px; } .pp-injuries li { min-height: 22px; line-height: 22px; }
+  .pp-injuries li.hurt { color: #e0a84f; } .pp-injuries li.bad { color: #e05a6e; } .pp-injuries .pp-ok { color: #b9a888; }
   /* panels: the person card and the open tab's panel (Log / Discoveries / Prayers) */
   #side { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); min-height: 0; }
   #side.bare { display: none; }
@@ -198,7 +218,7 @@
     #info > * { flex-shrink: 0; }   /* the short card scrolls as a whole; her log follows the details */
   }
 </style>
-<link rel="stylesheet" href="data/ui/theme.css?v=36">
+<link rel="stylesheet" href="data/ui/theme.css?v=37">
 </head><body>
 <div id="top">
   <span class="grp"><button id="btn-menu" aria-expanded="false" aria-controls="files" title="World: save, load, new world"><span class="ico" data-icon="menu"></span><span class="wide">World</span></button></span>
@@ -218,40 +238,42 @@
 </div>
 <div id="panelbar" role="tablist" aria-label="panels"></div>
 <div id="toast"></div>
-<script src="data/config.js?v=36"></script>
-<script src="data/tiles.js?v=36"></script>
-<script src="data/names.js?v=36"></script>
-<script src="data/words.js?v=36"></script>
-<script src="data/group_names.js?v=36"></script>
-<script src="data/art.js?v=36"></script>
-<script src="data/materials.js?v=36"></script>
-<script src="src/rng.js?v=36"></script>
-<script src="src/world.js?v=36"></script>
-<script src="src/climate.js?v=36"></script>
-<script src="src/agent.js?v=36"></script>
-<script src="src/animal.js?v=36"></script>
-<script src="src/objects.js?v=36"></script>
-<script src="src/fire.js?v=36"></script>
-<script src="src/learn.js?v=36"></script>
-<script src="src/hunt.js?v=36"></script>
-<script src="src/cook.js?v=36"></script>
-<script src="src/social.js?v=36"></script>
-<script src="src/family.js?v=36"></script>
-<script src="src/faith.js?v=36"></script>
-<script src="src/shelter.js?v=36"></script>
-<script src="src/powers.js?v=36"></script>
-<script src="src/speech.js?v=36"></script>
-<script src="src/corpse.js?v=36"></script>
-<script src="src/moods.js?v=36"></script>
-<script src="src/disease.js?v=36"></script>
-<script src="src/tools.js?v=36"></script>
-<script src="src/hides.js?v=36"></script>
-<script src="src/cache.js?v=36"></script>
-<script src="src/hut.js?v=36"></script>
-<script src="src/sim.js?v=36"></script>
-<script src="src/save.js?v=36"></script>
-<script src="src/icons.js?v=36"></script>
-<script src="src/render.js?v=36"></script>
-<script src="src/ui.js?v=36"></script>
-<script src="src/main.js?v=36"></script>
+<script src="data/config.js?v=37"></script>
+<script src="data/tiles.js?v=37"></script>
+<script src="data/names.js?v=37"></script>
+<script src="data/words.js?v=37"></script>
+<script src="data/group_names.js?v=37"></script>
+<script src="data/art.js?v=37"></script>
+<script src="data/materials.js?v=37"></script>
+<script src="src/rng.js?v=37"></script>
+<script src="src/world.js?v=37"></script>
+<script src="src/climate.js?v=37"></script>
+<script src="src/agent.js?v=37"></script>
+<script src="src/animal.js?v=37"></script>
+<script src="src/objects.js?v=37"></script>
+<script src="src/fire.js?v=37"></script>
+<script src="src/learn.js?v=37"></script>
+<script src="src/hunt.js?v=37"></script>
+<script src="src/cook.js?v=37"></script>
+<script src="src/social.js?v=37"></script>
+<script src="src/family.js?v=37"></script>
+<script src="src/faith.js?v=37"></script>
+<script src="src/shelter.js?v=37"></script>
+<script src="src/powers.js?v=37"></script>
+<script src="src/injury.js?v=37"></script>
+<script src="src/wolffear.js?v=37"></script>
+<script src="src/speech.js?v=37"></script>
+<script src="src/corpse.js?v=37"></script>
+<script src="src/moods.js?v=37"></script>
+<script src="src/disease.js?v=37"></script>
+<script src="src/tools.js?v=37"></script>
+<script src="src/hides.js?v=37"></script>
+<script src="src/cache.js?v=37"></script>
+<script src="src/hut.js?v=37"></script>
+<script src="src/sim.js?v=37"></script>
+<script src="src/save.js?v=37"></script>
+<script src="src/icons.js?v=37"></script>
+<script src="src/render.js?v=37"></script>
+<script src="src/ui.js?v=37"></script>
+<script src="src/main.js?v=37"></script>
 </body></html>

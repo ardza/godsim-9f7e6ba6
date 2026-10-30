@@ -14,7 +14,8 @@
   Hunt.weapon = it => !!it && it.material !== "meat" && it.props.hardness >= H().minHardness;
   Hunt.sharp = it => G.Items.sharp(it);   // one shared threshold (config.physics.sharpAt)
   Hunt.learned = a => G.Learn.score(a, "hunt") >= H().learnedAt;
-  Hunt.odds = (a, it) => { const O = H().odds; const tipAdd = (G.Tools && G.Tools.huntOddsAdd) ? G.Tools.huntOddsAdd(it) : 0; return clamp((O.base + (Hunt.sharp(it) ? O.sharp : 0) + (Hunt.learned(a) ? O.learned : 0) + tipAdd) * (G.Family && G.Family.isYouth(a) ? G.data.config.child.youthKillX : 1), 0, 1); };   // step 20: a youth x0.5; §37 tip hunt bonus
+  Hunt.odds = (a, it) => { if (G.Injury && a.injuries && a.injuries.length) { const tx = G.Injury.toolX(a); if (tx < 1) return clamp(Hunt.odds0(a, it) * tx, 0, 1); } return Hunt.odds0(a, it); };   // §40: arm injuries
+  Hunt.odds0 = (a, it) => { const O = H().odds; const tipAdd = (G.Tools && G.Tools.huntOddsAdd) ? G.Tools.huntOddsAdd(it) : 0; return clamp((O.base + (Hunt.sharp(it) ? O.sharp : 0) + (Hunt.learned(a) ? O.learned : 0) + tipAdd) * (G.Family && G.Family.isYouth(a) ? G.data.config.child.youthKillX : 1), 0, 1); };   // step 20: a youth x0.5; §37 tip hunt bonus
   Hunt.edible = (sim, it) => !!it && it.material === "meat" && sim.tick < it.spoilAt;
   Hunt.isMeat = it => !!it && it.material === "meat";
   Hunt.pull = a => clamp(G.Learn.score(a, "hunt") / 50, 0, 2);
@@ -103,7 +104,7 @@
     const usedCut = !!(G.Tools && cutter && G.Tools.bonusLive(cutter) && (G.Tools.is(cutter, "flake") || G.Tools.is(cutter, "axe") || G.Tools.isTip(cutter)));
     if (usedCut) G.Tools.use(sim, a, cutter, "cut");
     if (a.carry != null) G.Items.drop(sim, a);
-    const it = G.Items.create(sim, "meat", b.x, b.y); it.spoilAt = b.diedAt + CF().body.freshMinutes; it.from = b.id; it.heat = b.heat || 0;   // step 17: meat off a roasted carcass is as cooked as the carcass
+    const it = G.Items.create(sim, "meat", b.x, b.y); it.spoilAt = b.diedAt + CF().body.freshMinutes; it.from = b.id; it.heat = b.heat || 0; it.src = Hunt.sourceOf(b, a);   // step 17: meat off a roasted carcass is as cooked as the carcass
     sim.items.push(it); it.heldBy = a.id; a.carry = it.id; a.carryUntil = sim.tick + sim.orng.int(CF().objects.carry[0], CF().objects.carry[1]);
     b.meat--; b.tookBy = a.id; b.tookAt = sim.tick; b.eaten = r9((b.eaten || 0) + M.fleshPerPiece); b.flesh = r9(Math.max(0, b.flesh - M.fleshPerPiece)); stats(sim).taken++;
     if (usedCut) G.Sim.log(sim, a.name + " cuts meat from " + b.name + "'s carcass", a);
@@ -112,6 +113,17 @@
     if (G.Agent.want(a) === "food") Hunt.seekFood(sim, a); else G.Agent.startIdle(sim, a, 0.5);
   };
 
+  // §40 / v37 item 9: where a piece of meat came from (kept on the item through carrying, caching and cooking).
+  //   hunted = off a carcass she killed herself; site = off a carcass someone else (person or animal) killed; scavenged = off a carcass nobody killed;
+  //   stockpile = taken out of a cache (owner = who stashed it, if known).
+  Hunt.sourceOf = function (b, a) { const an = b && b.species ? MC().sourceAnimal[b.species] || b.name : "animal";
+    if (b && b.cause === "killed" && b.killedBy && a && b.killedBy === a.name) return { k: "hunted", animal: an };
+    if (b && b.cause === "killed" && b.killedBy) return { k: "site", animal: an, by: b.killedBy };
+    return { k: "scavenged", animal: an }; };
+  // action-only words for an eat line: "from the deer she hunted", "found at Wolves' kill site", ...
+  Hunt.sourceWords = function (a, it) { const s = it && it.src, W = MC().sourceWords, pr = a && a.sex === "m" ? "he" : "she"; if (!s || !W[s.k]) return "";
+    return W[s.k].replace("{animal}", s.animal || "animal").replace("{pronoun}", pr).replace("{by}'s", s.by ? (/s$/.test(s.by) ? s.by + "'" : s.by + "'s") : "a").replace("{by}", s.by || "").replace("{owner}", s.owner ? (a && s.owner === a.name ? (a.sex === "m" ? "his own" : "her own") : s.owner + "'s") : "a")
+      .replace(/ +/g, " ").trim(); };
   Hunt.startEat = (sim, a, it) => startEat(sim, a, it);
   function startEat(sim, a, it) { a.act = { type: "eatMeat", item: it.id, t: 0, n: Math.max(1, Math.round(MC().eatMinutes / TM())), from: a.needs.fullness }; }
   Hunt.stepEat = function (sim, a) {
@@ -123,7 +135,8 @@
     a.needs.fullness = end; sim.items.splice(sim.items.indexOf(it), 1); a.carry = null; a.carryUntil = null;
     a.stats.meals++; a.stats.meat = (a.stats.meat || 0) + 1; stats(sim).eaten++;
     const lab = G.Cook.label(it), raw = G.Cook.of(it) === "raw";
-    G.Sim.log(sim, a.name + " eats the " + lab + " (" + G.Agent.fullnessWord(end) + ")", a);
+    const sw = Hunt.sourceWords(a, it);   // §40 item 9: raw and cooked eat lines name the source
+    G.Sim.log(sim, a.name + " eats the " + lab + (sw ? " " + sw : "") + " (" + G.Agent.fullnessWord(end) + ")", a);
     if (raw) G.Discoveries.note(sim, a, "eat", ["raw meat"], "fullness up");
     G.Cook.ate(sim, a, it);
     if (G.Speech) G.Speech.onEat(sim, a);

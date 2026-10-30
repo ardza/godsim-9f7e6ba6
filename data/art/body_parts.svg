@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 96" width="48" height="96" fill="#6b5a45" stroke="#16110c" stroke-width="1.5">
+<!-- body-part map for the person card. Colour each part by id: ok #6b5a45, hurt #e0a84f, bad #e05a6e, gone #2a2118 -->
+<circle id="head" cx="24" cy="10" r="8"/>
+<rect id="torso" x="14" y="20" width="20" height="30" rx="4"/>
+<rect id="armR" x="4" y="21" width="9" height="28" rx="4"/>
+<rect id="armL" x="35" y="21" width="9" height="28" rx="4"/>
+<rect id="legR" x="14" y="51" width="9" height="42" rx="4"/>
+<rect id="legL" x="25" y="51" width="9" height="42" rx="4"/>
+</svg>

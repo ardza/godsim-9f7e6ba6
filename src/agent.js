@@ -50,6 +50,7 @@
   Agent.minutesPerTile = a => {
     let m = P().walkMinutesPerTile / (0.5 + a.traits.speed / 100);
     const H = P().hypothermia; if (H && a.hypo >= 3) m /= H.moveX;   // clumsiness+: move speed × moveX
+    if (a.injuries && a.injuries.length && G.Injury) m /= G.Injury.moveX(a);   // §40: a leg gash / bite / break slows walking
     return m;
   };
   Agent.sight = a => P().sightTiles;
@@ -310,7 +311,7 @@
     const gd = G.Family.guardian(sim, a), near = (x, y) => !gd || Math.hypot(gd.pos.x - x, gd.pos.y - y) <= G.data.config.child.keepTiles;   // a child stays within reach
     if (G.Social.idleMove(sim, a, (x, y, g, ex) => walkTo(sim, a, x, y, g, ex), (x, y) => W.walkable(sim.world, x, y) && !Agent.claimed(sim, a, x, y) && near(x, y))) return;
     if (G.Corpse && G.Corpse.maybe(sim, a)) return;   // step 26: corpse choices (leave/drag/bury/burn/eat/ritual)
-    if (G.Tools && G.Tools.maybe(sim, a)) return;   // step 29: bind / chop / poke / ready long stick
+    if (G.Tools && (!G.Injury || G.Injury.canUseTools(a)) && G.Tools.maybe(sim, a)) return;   // §40: a broken arm blocks tool use   // step 29: bind / chop / poke / ready long stick
     if (G.Hides && G.Hides.maybe(sim, a)) return;   // v28: wear / sleep-under hide when cold
     if (G.Faith && G.Faith.maybeDriftSacred(sim, a)) return;   // §33: idle drift to known sacred marker
     if (G.Items.maybeTry(sim, a) || G.Items.maybePickUp(sim, a)) return;   // idle curiosity (step 9-10)
@@ -450,7 +451,9 @@
       if (!H || (z.warmth || 0) >= (H.unconsciousAt || 0)) return "cold";
     }
     if (D.energyZeroMinutes != null && (z.energy || 0) >= D.energyZeroMinutes) return "exhaustion";
-    if (a.age >= a.lifespan) return "old age"; return null; };
+    if (a.age >= a.lifespan) return "old age";
+    if (a.health != null && a.health <= 0) return "wounds";   // §40 / v37: health bar run out
+    return null; };
 
   // 26b hypothermia stage 0–5 from warmth + minutes at 0 (Director locked)
   Agent.hypoStage = a => {
@@ -490,7 +493,9 @@
     let wr = wr0;
     if (felt.wet > 0) {
       if (wr0 < 0) wr = wr0 * (1 + (lossX - 1) * felt.wet);
-      else if (wr0 > 0 && !(felt.heat > 0)) wr = 0;   // rain chill blocks day climb; fire may still warm
+      else if (wr0 > 0 && !(felt.heat > 0)) wr = wr0 * (G.Powers.climbXAt ? G.Powers.climbXAt(sim, ax, ay) : 0);   // rain chill blocks day climb (climbX, 0 = none); fire may still warm
+      // §40 / v37: soaked skin keeps losing warmth (drainPerHour by strength x exposure) unless fire heat reaches her
+      if (!(felt.heat > 0) && G.Powers.drainAt) { const d = G.Powers.drainAt(sim, ax, ay) * felt.wet / 60; if (d > 0) { wr -= d; felt.rainDrain = d; } }
     } else if (softWet) {
       if (wr0 < 0) wr = wr0 * 1.15;                    // residual damp ground: mild extra loss
       else if (wr0 > 0 && !(felt.heat > 0)) wr = 0;     // damp ground also blocks daytime climb without fire
@@ -507,7 +512,7 @@
     if (n.energy > 0) { a.energyConfused = false; a.energyHallucAt = null; }
     // 26b rain exposure clock (awake + exposed); reset under cover / when rain ends
     if (G.Powers) {
-      if (!asleep && G.Powers.exposure(sim, a) > 0) a.rainExposedMinutes = (a.rainExposedMinutes || 0) + tm;
+      if (!asleep && G.Powers.exposure(sim, a) > 0) a.rainExposedMinutes = (a.rainExposedMinutes || 0) + tm * (G.Powers.exposeXAt ? G.Powers.exposeXAt(sim, ax, ay) : 1);   // §40: heavy rain runs the clock faster
       else { a.rainExposedMinutes = 0; a.rainCoverLogged = false; }
     }
     G.Learn.stepWarmth(sim, a, felt, w0);   // steps 13-14: what warmed her when cold raises that action's score (and may be copied)

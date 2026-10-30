@@ -237,6 +237,16 @@
     s.version = 35; return s;
   };
   // v35 -> v36 (§39): People UI polish — UI-only; no world/seed change
+  // §40 / v37: health + injuries + wolf fear on everyone; meat gets a source tag (from its carcass if still known)
+  Sim.migrate37 = function (o) {
+    if (!o || o.version !== 36) return o; const s = JSON.parse(JSON.stringify(o)), C = G.data.config;
+    for (const a of s.agents || []) { if (a.health == null) a.health = C.health.max; if (!Array.isArray(a.injuries)) a.injuries = []; if (a.wolfFear == null) a.wolfFear = 0; }
+    for (const b of s.bodies || []) if (!b.wounds) { const w = (C.body.woundByCause || {})[b.cause]; b.wounds = w ? [w] : []; }
+    for (const it of s.items || []) if (it.material === "meat" && !it.src) { const b = (s.bodies || []).find(q => q.id === it.from);
+      const h = it.heldBy != null && (s.agents || []).find(q => q.id === it.heldBy);
+      it.src = b && G.Hunt ? G.Hunt.sourceOf(b, h || null) : { k: C.meat.migrateSource || "site", animal: "deer", by: null }; }
+    s.version = 37; return s;
+  };
   Sim.migrate36 = function (o) {
     if (!o || o.version !== 35) return o; const s = JSON.parse(JSON.stringify(o));
     s.version = 36; return s;
@@ -262,6 +272,8 @@
     for (const b of sim.bushes) if (!b.ripe && (b.regrow = Math.round((b.regrow + (pw ? rate * G.Powers.bushX(sim, b) : rate)) * 1e6) / 1e6) >= B.regrowMinutes / CFG().time.tickGameMinutes - 1e-9) { b.ripe = true; b.regrow = 0; b.burnt = false; sim.regrown = (sim.regrown || 0) + 1; }
     for (const a of sim.agents) { sim.prev[a.id] = { x: a.pos.x, y: a.pos.y }; G.Agent.step(sim, a); }
     G.Shelter.step(sim);   // step 21b: who is inside which shelter, step-ins, first warm night
+    if (G.Injury) { G.Injury.step(sim); G.Injury.bodyStep(sim); }   // §40 / v37: health + body-part injuries; Resurrect window
+    if (G.WolfFear) G.WolfFear.step(sim);   // §40 / v37: clear evidence of a wolf kill
     for (const a of sim.agents.slice()) { const c = G.Agent.deathCause(a); if (c) Sim.die(sim, a, c); }
     G.Faith.step(sim);   // step 21: prayer bouts (own stream prng)
     G.Social.step(sim);   // step 18: familiarity, liking, daily groups
@@ -343,6 +355,7 @@
     if (o && o.version === 33) o = Sim.migrate34(o);
     if (o && o.version === 34) o = Sim.migrate35(o);
     if (o && o.version === 35) o = Sim.migrate36(o);
+    if (o && o.version === 36) o = Sim.migrate37(o);
     if (!o || o.version !== CFG().saveVersion) throw new Error("unsupported save version " + (o && o.version));
     const s = JSON.parse(JSON.stringify(o));
     const world = { w: s.world.w, h: s.world.h, seed: s.seed, attempt: s.world.attempt, spawn: s.world.spawn, hills: s.world.hills, mountain: s.world.mountain || "0".repeat(s.world.w * s.world.h), info: s.world.info, tiles: s.world.tiles.split("").map(c => TILE_CH.indexOf(c)) };

@@ -144,9 +144,17 @@
   UI.spawnKind = null; UI.rainStr = null; UI.boltMode = null; UI.pickFor = null;
   function initPowers(app) {
     const box = $("powers"); if (!box || !PW()) return;
-    PW().order.forEach(k => { const b = document.createElement("button"), L = PW().labels[k];
-      b.id = "power-" + k; b.dataset.power = k; b.setAttribute("aria-pressed", "false"); b.title = L + ": tap, then tap the map (tap again to cancel)";
-      b.innerHTML = UI.icon(k) + '<span class="lbl">' + L + '</span><span class="cd"></span>'; b.onclick = () => UI.armPower(app, k); box.appendChild(b); });
+    // §40 / v37 item 8: labelled categories (config.powers.categories), icon + text label on every button, hint line under them
+    const mk = k => { const b = document.createElement("button"), L = PW().labels[k];
+      b.id = "power-" + k; b.className = "pw"; b.dataset.power = k; b.setAttribute("aria-pressed", "false"); b.title = L + ": " + ((PW().hints || {})[k] || "") + " (tap, then tap the map; tap again to cancel)";
+      b.innerHTML = UI.icon(k) + '<span class="lbl">' + L + '</span><span class="cd"></span>'; b.onclick = () => UI.armPower(app, k); return b; };
+    const cats = document.createElement("div"); cats.className = "pw-cats"; const done = {};
+    for (const c of (PW().categories || [{ key: "all", label: "Powers", powers: PW().order }])) { const g = document.createElement("div"), row = document.createElement("div");
+      g.className = "pw-cat"; g.id = "pwcat-" + c.key; g.setAttribute("role", "group"); g.setAttribute("aria-label", c.label);
+      g.innerHTML = '<h4>' + c.label + '</h4>'; row.className = "pw-row"; for (const k of c.powers) if (PW().order.indexOf(k) >= 0) { row.appendChild(mk(k)); done[k] = 1; }
+      g.appendChild(row); cats.appendChild(g); }
+    const rest = PW().order.filter(k => !done[k]); if (rest.length) { const g = document.createElement("div"), row = document.createElement("div"); g.className = "pw-cat"; g.innerHTML = "<h4>Other</h4>"; row.className = "pw-row"; rest.forEach(k => row.appendChild(mk(k))); g.appendChild(row); cats.appendChild(g); }
+    box.appendChild(cats); const hint = document.createElement("p"); hint.className = "pw-hint"; hint.id = "pw-hint"; hint.setAttribute("aria-live", "polite"); hint.textContent = "Pick a power"; box.appendChild(hint);
     // shared picker (Rain strengths / Lightning modes / Spawn kinds); id kept as spawnpick for the existing CSS
     const pk = document.createElement("div"); pk.id = "spawnpick"; pk.setAttribute("role", "group"); pk.setAttribute("aria-label", "power options"); pk.hidden = true;
     box.parentNode.appendChild(pk);
@@ -189,6 +197,9 @@
     if (!PW()) return; $("cv").classList.toggle("aiming", !!UI.power);
     const pt = $("ptab-powers"); if (pt) { const w = !!UI.power || pickOpen(); const wait = UI.power ? PW().labels[UI.power] + " waiting: tap the map" : UI.pickFor === "rain" ? "pick a rain strength" : UI.pickFor === "lightning" ? "pick a lightning mode" : "pick an animal";
       pt.classList.toggle("armed", w); pt.setAttribute("aria-label", UC().powersTab.label + (w ? ", " + wait : "")); }
+    const hint = $("pw-hint"); if (hint) { const k = UI.power || (pickOpen() && UI.pickFor);
+      hint.textContent = UI.power ? PW().labels[UI.power] + " waiting: tap " + (UI.power === "heal" ? "a person" : UI.power === "resurrect" ? "a body" : "the map")
+        : k ? PW().labels[k] + ": pick an option" : "Pick a power"; }
     for (const k of PW().order) { const b = $("power-" + k); if (!b) continue; const on = UI.power === k, picking = pickOpen() && UI.pickFor === k;
       b.classList.toggle("on", on || picking); b.classList.remove("cooling"); b.setAttribute("aria-pressed", on);
       const cd = b.querySelector(".cd"); if (cd && cd.textContent) cd.textContent = "";
@@ -196,6 +207,8 @@
   };
   UI.init = function (app) {
     const sp = $("speeds");
+    // §40 / v37: the Artist's body figure (parts coloured on the card); on file:// a fetch may fail and the plain figure image is shown instead
+    try { const BF = G.data.config.bodyFigure; if (BF && typeof fetch === "function") fetch(BF.src).then(r => r.ok ? r.text() : null).then(t => { if (t) UI.bodySvg = t.replace(/<!--[\s\S]*?-->/g, "").trim(); }).catch(() => {}); } catch (e) {}
     document.querySelectorAll(".ico[data-icon]").forEach(el => { el.outerHTML = UI.icon(el.dataset.icon); });   // static buttons in index.html
     G.data.config.time.speeds.forEach((s, i) => { const b = document.createElement("button"); b.innerHTML = UI.icon(UC().speedIcons[i]) + '<span class="lbl">' + (s ? s + "x" : "Pause") + '</span>'; b.dataset.speed = s; b.setAttribute("aria-label", s ? s + "x speed" : "Pause"); b.id = "speed-" + s; b.title = (s ? s + "x speed" : "Pause") + " (key " + G.data.config.time.speeds.indexOf(s) + (s ? ")" : ", Space toggles)"); b.onclick = () => app.setSpeed(s); sp.appendChild(b); });
     const tabs = $("tabs");
@@ -400,8 +413,17 @@
       const moodBit = (key, short, v) => md === key ? ("<b>" + short + " " + Math.round(v) + "</b>") : (short + " " + Math.round(v));
       const moodLine = '<div class="pp-mood">Mood: ' + moodBit("happiness", "Hap", mm.happiness) + " · " + moodBit("sadness", "Sad", mm.sadness) + " · " + moodBit("anger", "Ang", mm.anger) + "</div>";
       const sickLine = (G.Disease && G.Disease.isSick(a)) ? '<div class="pp-sub">Sick</div><div class="sub">drains faster · recovering</div>' : "";
+      // §40 / v37 item 5: Health bar + the Artist's body figure (data/art/body_parts.svg, parts coloured by injury) + the injury list (source of truth)
+      const HCF = G.data.config.health, BF = G.data.config.bodyFigure, BP = G.data.config.bodyParts, IT = G.data.config.injuryTypes, inj = a.injuries || [], hv = a.health == null ? HCF.max : a.health;
+      const partSev = p => { const l = inj.filter(i => i.part === p); return !l.length ? "ok" : l.some(i => (IT[i.type] || {}).sev === "bad") ? "bad" : "hurt"; };
+      const fig = UI.bodySvg ? UI.bodySvg.replace(/<svg /, '<svg class="pp-figure" width="' + BF.w + '" height="' + BF.h + '" role="img" aria-label="body: ' + Object.keys(BP).map(p => BP[p].label + " " + partSev(p)).join(", ") + '" ')
+          .replace(/ width="48" height="96"/, "").replace(/<([a-z]+) id="([A-Za-z]+)"/g, (m, t, id) => '<' + t + ' id="pp-part-' + id + '" fill="' + BF.fill[BP[id] ? partSev(id) : "ok"] + '"')
+        : '<img class="pp-figure" src="' + BF.src + '" width="' + BF.w + '" height="' + BF.h + '" alt="">';
+      const injList = '<ul class="pp-injuries">' + Object.keys(BP).map(p => { const l = inj.filter(i => i.part === p), sv = partSev(p);
+        return '<li class="' + sv + '" data-part="' + p + '">' + esc(BP[p].label) + (l.length ? ": " + l.map(i => esc((IT[i.type] || {}).label || i.type) + (G.Injury && G.Injury.effectWords(i).length ? " (" + G.Injury.effectWords(i).join(", ") + ")" : "")).join("; ") : ' <span class="pp-ok">ok</span>') + '</li>'; }).join("") + '</ul>';
+      const healthBox = '<div class="pp-health">' + ppMeter("Health", hv / HCF.max * 100, Math.round(hv / HCF.max * 100) + "%", hv < HCF.max * 0.5) + '<div class="pp-body">' + fig + injList + '</div></div>';
       const needsPane =
-        moodLine +
+        healthBox + moodLine +
         ppMeter("Fullness", n.fullness, A.fullnessWord(n.fullness), n.fullness < A.fullnessThreshold(a)) +
         ppMeter("Water", n.water, A.waterWord(n.water), n.water < A.waterThreshold(a)) +
         ppMeter("Energy", n.energy, A.energyWord(n.energy), n.energy < 25) +
@@ -414,6 +436,7 @@
         sickLine +
         '<div class="pp-sub">Moods</div>' +
         ppSkill("Happy", mm.happiness) + ppSkill("Sad", mm.sadness) + ppSkill("Angry", mm.anger) +
+        '<div class="pp-sub">Fears</div>' + ppSkill("Fear of wolves", (a.wolfFear || 0) / G.data.config.wolfFear.max * 100) +   // §40 / v37 item 2 (shown 0-100)
         '<div class="pp-sub">Experience</div>' +
         Object.keys(G.data.config.learn.actions).map(k => {
           const e = a.exp && a.exp[k], v = e ? e.score : G.data.config.learn.start;
@@ -474,14 +497,18 @@
   UI.panelRender.prayers = function (app, el) {
     const sim = app.sim, L = sim.prayers || [], last = L[L.length - 1], gs = (sim.groups || []).map(g => g.id);
     if (UI.prayFilter !== "all" && UI.prayFilter !== "none" && gs.indexOf(UI.prayFilter) < 0 && !L.some(e => e.g === UI.prayFilter)) UI.prayFilter = "all";
-    const key = L.length + "|" + (last && last.t) + "|" + sim.seed + "|" + UI.prayFilter + "|" + gs.join(",");
+    const nb = L.filter(e => e.blessed != null).length, alive = sim.agents.length;
+    const key = L.length + "|" + (last && last.t) + "|" + sim.seed + "|" + UI.prayFilter + "|" + gs.join(",") + "|" + nb + "|" + alive;
     if (el._key === key) return; el._key = key;
     const ids = []; for (const g of gs) ids.push(g); for (const e of L) if (e.g != null && ids.indexOf(e.g) < 0) ids.push(e.g);
     const btn = (v, t) => '<button data-pf="' + v + '"' + (UI.prayFilter === v ? ' class="on" aria-pressed="true"' : ' aria-pressed="false"') + '>' + esc(t) + '</button>';
     const rows = L.filter(e => UI.prayFilter === "all" || (UI.prayFilter === "none" ? e.g == null : e.g === UI.prayFilter)).slice().reverse();
     el.innerHTML = '<div class="sec">Prayers</div><div class="pfilt" role="group" aria-label="group filter">' + btn("all", "All") +
       ids.map(g => btn(g, "Group " + g)).join("") + btn("none", "No group") + '</div>' +
-      (rows.length ? rows.map(e => '<div class="prl"><time>' + G.Time.stamp(e.t) + '</time>' + esc(e.text) + '</div>').join("") : '<div class="empty">No one has prayed yet.</div>');
+      (rows.length ? rows.map(e => { const live = e.ids && sim.agents.some(q => q.id === e.ids[0]);   // §40 / v37: Bless = a partial answer (config.bless)
+        const bl = e.blessed != null ? '<span class="pr-blessed">Blessed</span>' : live ? '<button type="button" class="pr-bless" data-bless="' + L.indexOf(e) + '" aria-label="Bless this prayer">' + UI.icon("bless") + 'Bless</button>' : '';
+        return '<div class="prl pr-row"><span class="pr-text"><time>' + G.Time.stamp(e.t) + '</time>' + esc(e.text) + '</span>' + bl + '</div>'; }).join("") : '<div class="empty">No one has prayed yet.</div>');
+    el.querySelectorAll("button[data-bless]").forEach(b => b.onclick = () => { const r = G.Faith.bless(sim, +b.getAttribute("data-bless")); UI.toast(r ? "Blessed" : "Nothing to bless"); el._key = null; UI.panelRender.prayers(app, el); });
     el.querySelectorAll("button[data-pf]").forEach(b => b.onclick = () => { const v = b.getAttribute("data-pf"); UI.prayFilter = v === "all" || v === "none" ? v : +v; el._key = null; UI.panelRender.prayers(app, el); });
   };
   // ---- Discoveries tab (step 10): every first combination of action, materials and result, in order ----
@@ -504,6 +531,7 @@
     let rows = UI.peopleCycleList(sim);
     const dead = (sim.bodies || []).filter(b => !b.species).slice().sort((p, q) => q.diedAt - p.diedAt);
     const sx = a => a.sex === "f" ? "F" : a.sex === "m" ? "M" : "-";
+    const SD = UC().sexDot || {}, dot = a => a.sex === "f" || a.sex === "m" ? '<i class="pp-sex ' + a.sex + '" style="background:' + SD[a.sex] + '" role="img" aria-label="' + (a.sex === "f" ? "female" : "male") + '"></i>' : "";   // §40 item 3
     const tab = (key, label) => '<button type="button" role="tab" class="pp-tab' + (UI.peopleFilter === key ? " on" : "") + '" data-pf="' + key + '" aria-selected="' + (UI.peopleFilter === key) + '">' + esc(label) + "</button>";
     const tabs = '<div class="pp-groups" role="tablist" aria-label="people groups">' + tab("all", "All") +
       groups.map(g => tab(g.id, (S && S.groupName ? S.groupName(sim, g) : ("Group " + g.id)))).join("") + "</div>";
@@ -515,7 +543,7 @@
     const gLabel = a => { const g = S && S.group(sim, a); return g ? S.groupName(sim, g) : "Loner"; };
     const list = rows.length ? rows.map(a => {
       const on = app.selected === a.id ? " on" : "";
-      return '<button type="button" class="pp-row' + on + '" data-pid="' + a.id + '"><b>' + esc(a.name) + "</b><span>" + esc(gLabel(a)) + " · " + Math.floor(a.age) + "</span>" + mini(a) + "</button>";
+      return '<button type="button" class="pp-row' + on + '" data-pid="' + a.id + '"><b>' + dot(a) + esc(a.name) + "</b><span>" + esc(gLabel(a)) + " · " + Math.floor(a.age) + "</span>" + mini(a) + "</button>";
     }).join("") : '<div class="empty">No one here.</div>';
     el.innerHTML = '<div class="pp-list"><div class="pp-head">People <span class="pp-dim">(' + rows.length + (UI.peopleFilter === "all" ? "" : " in group") + ")</span></div>" + tabs +
       '<div class="pp-rows">' + list + "</div>" +

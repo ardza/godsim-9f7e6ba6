@@ -2,7 +2,7 @@
 (function (G) {
   G.data = G.data || {};
   G.data.config = {
-    saveVersion: 36,                // v36: People UI polish; v35: hard seasons; v34: hard tips; v33: ore finds; v32: built shelters; v31: group identity; v30: sacred places; v29: caching
+    saveVersion: 37,                // v37: §40 bundle (rain/wolves, wolf fear, sex dot, Bless, health+injuries, Resurrect, Heal, Powers menu); v36: People UI polish; v35: hard seasons; v34: hard tips; v33: ore finds; v32: built shelters; v31: group identity; v30: sacred places; v29: caching
     saveKey: "godsim.save",
     map: {
       w: 60, h: 40, tilePx: 16,      // map is 960x640 art px, scaled to fit the screen
@@ -144,6 +144,8 @@
       material: "bone",               // primitive material the bones are (data only for now)
       // step 23: "was struck by lightning". 26b Story: storyDeathLines[cause] = full predicates (picked by id); "=" in causeVerb also works.
       causeVerb: { "struck by lightning": "was" },
+      // §40 / v37: the wound a cause leaves on a body (what a finder can see). No entry = no sign of what killed them.
+      woundByCause: { wolves: "bite", "struck by lightning": "burn", wounds: "gash" },
       storyDeathLines: {
         cold: ["froze", "didn't wake from the cold"],
         exhaustion: ["never woke", "worn down to nothing"],
@@ -190,6 +192,9 @@
         denPrefer: ["hill", "woodsEdge"],  // hill or woods edge
         walkMinutesPerTile: 5, fleeMinutesPerTile: 3, fleeWithin: 0, fleeTo: 0,  // do not flee people (they threaten instead, in territory)
         huntDeer: { stalkTiles: 14, strikeTiles: 1.5, killChance: 0.55 },
+        // §40 / v37 THE wolf rain knob: chance a hungry wolf starts a hunt while rain falls on its tile (1 = as in clear weather).
+        // Heavy rain washes out scent and soaks fur: the wolf rests instead. Light small, heavy strong.
+        rainHuntX: { light: 0.8, medium: 0.5, heavy: 0.15 },
         threaten: { chaseTiles: 10, strikeTiles: 1.5, damageEnergy: 40, killChance: 0.25 },
         watchTiles: 8,
         fullness: { minutesFullToEmpty: 2880, feedBelow: 60, fillPerMinute: 1.2, fleshPerFullness: 0.12, start: [40, 80] },
@@ -399,7 +404,11 @@
     // A wildfire passing over a fresh carcass does not burn it to bones: the carcass heats like any meat (fire on or within fireTiles), so it roasts or chars.
     cook: { emberTiles: 1.5, fireTiles: 3, cookedAt: 30, charredAt: 120, fullness: { cooked: 70, charred: 20 }, sickChance: { cooked: 0, charred: 0 },
       sightTiles: 15, holdChance: 0.15, waitMinutes: 60, coldGiveUp: 10, gain: 20, charDrop: 10 },
-    meat: { pieces: { grazer: 4 }, fleshPerPiece: 20, takeMinutes: 10, fullness: 60, eatMinutes: 15, sickChance: 0.25, sickEnergy: 20 },
+    meat: { pieces: { grazer: 4 }, fleshPerPiece: 20, takeMinutes: 10, fullness: 60, eatMinutes: 15, sickChance: 0.25, sickEnergy: 20,
+      // §40 / v37 item 9: meat source tag words on eat lines (raw and cooked). {animal} {pronoun} {by} {owner}
+      sourceAnimal: { grazer: "deer", scavenger: "wild dog", wolves: "wolf" },
+      sourceWords: { hunted: "from the {animal} {pronoun} hunted", site: "found at {by}'s kill site", scavenged: "scavenged from a {animal} carcass", stockpile: "taken from {owner} cache" },
+      migrateSource: "site" },   // meat in a v36 save had no tag: off a known carcass it gets the carcass's tag, else this
     // §31 / v28: grazer hide — soft mass item; worn / sleep-under felt °C stacks with fire+shelter under shelter.capX × fire.heatC
     hides: {
       wornC: 8, sleepC: 6,           // felt °C while wearing / sleeping under (trimmed by shared warmth cap)
@@ -496,7 +505,19 @@
       foundersFear: [40, 70],
       gain: { leave: 8, drag: 12, bury: 18, burn: 18, eat: 15, ritual: 12 }
     },
-    powers: { radiusTiles: 8, order: ["rain", "warm", "cool", "lightning", "spawn", "cure", "plague"], labels: { rain: "Rain", warm: "Warm", cool: "Cool", lightning: "Lightning", spawn: "Spawn", cure: "Cure", plague: "Plague" },
+    powers: { radiusTiles: 8, order: ["rain", "lightning", "warm", "cool", "heal", "cure", "resurrect", "spawn", "plague"], labels: { rain: "Rain", warm: "Warm", cool: "Cool", lightning: "Lightning", spawn: "Spawn", cure: "Cure", heal: "Heal", resurrect: "Resurrect", plague: "Plague" },
+      // §40 / v37 Powers menu: categories (heading text + labelled buttons); every power in order sits in exactly one category
+      categories: [{ key: "weather", label: "Weather", powers: ["rain", "lightning", "warm", "cool"] },   // Artist's v37 mock (godsim-previews/v37_ui)
+                   { key: "healing", label: "Healing", powers: ["heal", "cure", "resurrect"] },
+                   { key: "creatures", label: "Creatures", powers: ["spawn"] },
+                   { key: "harm", label: "Harm", powers: ["plague"] }],
+      hints: { rain: "rain on an area", warm: "warm the air", cool: "cool the air", lightning: "strike with lightning", spawn: "add an animal", cure: "lift sickness",
+               heal: "mend injured body parts", resurrect: "raise someone who died recently", plague: "spread sickness" },
+      // §40 / v37 Heal: every living person in the circle has all injured body parts mended and gains healthAdd health (capped at health.max)
+      heal: { healthAdd: 30 },
+      // §40 / v37 Resurrect: only a person's body that died within windowMinutes (not buried / burned / eaten past minFlesh) rises; a long-dead body cannot.
+      //   They come back with these needs and health, no injuries. The snapshot kept on the body is dropped once the window passes.
+      resurrect: { windowMinutes: 720, minFlesh: 50, revive: { fullness: 40, water: 40, energy: 40, warmth: 50, health: 40 } },
       lightning: { modes: { single: { label: "Single bolt", count: [1, 1], scatterTiles: 0 }, barrage: { label: "Barrage", count: [2, 3], scatterTiles: 4 } },
                    modeOrder: ["single", "barrage"],
                    fire: { dry: 0.6, rain: 0.4, deepCold: 0.2, deepColdSeason: 3 }, cause: "struck by lightning", scareTiles: 6, fearAdd: 20, fearMinutes: 1440,
@@ -512,15 +533,18 @@
       // fire.brand.litMinutes past the flames. Every everyMinutes each free adult (idle / wandering, empty-handed) who can see one within seeTiles rolls
       // chance x clamp(0.5 + (curiosity - fireFear - fright) / 100, 0, 1) to walk over and pick it up (the walk does not turn back at the flee rule).
       boltStick: { everyMinutes: 30, seeTiles: 12, chance: 0.5 },
+      // §40 / v37 rain chill (per strength above): drainPerHour = warmth lost per game hour while out in the rain with no fire heat (soaked skin, x exposure),
+      //   on top of chillC / lossX; climbX = share of any warm-up kept while rained on (0 = none: heavy rain stops the climb even at ~75°F);
+      //   exposeX = how fast the rain-exposure clock runs (heavy rain sends people to cover or a fire much sooner). Cover search also takes a lit fire (coverFire).
       // 26b rain shelter: short OK; ≥exposeRaiseAt raise seek; ≥exposeForceAt force cover walk; ≥exposeUrgentAt cover outranks snacks.
       rain: { checkMinutes: 30, coverChance: 0.5, coverTiles: 10, coverTilesLong: 16, waitMinutes: 180, faceChance: 0.3,
               exposeRaiseAt: 30, exposeRaiseCheck: 10, exposeRaiseChance: 0.85,
-              exposeForceAt: 120, exposeUrgentAt: 240,
+              exposeForceAt: 120, exposeUrgentAt: 240, coverFire: true, coverMinRain: 0.85,
               strengthOrder: ["light", "medium", "heavy"],
               strengths: {
-                light:  { label: "Light",  minutes: 180, bushX: 1.5, bushMinutes: 1440, chillC: 3,  lossX: 1.25, wetMinutes: 720,  holdOutMinutes: null, douse: "small", puddles: { count: 2,   minutes: 720 } },
-                medium: { label: "Medium", minutes: 360, bushX: 3,   bushMinutes: 4320, chillC: 6,  lossX: 1.5,  wetMinutes: 1440, holdOutMinutes: 60,   douse: "fires", puddles: { count: 6,   minutes: 1440 } },
-                heavy:  { label: "Heavy",  minutes: 720, bushX: 5,   bushMinutes: 7200, chillC: 10, lossX: 2,    wetMinutes: 2880, holdOutMinutes: 0,    douse: "all",   puddles: { count: 200, minutes: 2880 } } } },
+                light:  { label: "Light",  minutes: 180, bushX: 1.5, bushMinutes: 1440, chillC: 3,  lossX: 1.25, drainPerHour: 0.5, climbX: 0, exposeX: 1,   wetMinutes: 720,  holdOutMinutes: null, douse: "small", puddles: { count: 2,   minutes: 720 } },
+                medium: { label: "Medium", minutes: 360, bushX: 3,   bushMinutes: 4320, chillC: 6,  lossX: 1.5,  drainPerHour: 2,   climbX: 0, exposeX: 1.5, wetMinutes: 1440, holdOutMinutes: 60,   douse: "fires", puddles: { count: 6,   minutes: 1440 } },
+                heavy:  { label: "Heavy",  minutes: 720, bushX: 5,   bushMinutes: 7200, chillC: 10, lossX: 2,    drainPerHour: 5,   climbX: 0, exposeX: 4,   wetMinutes: 2880, holdOutMinutes: 0,    douse: "all",   puddles: { count: 200, minutes: 2880 } } } },
       warm: { deltaF: 15, minutes: 1440, fadeMinutes: 120 }, cool: { deltaF: -15, minutes: 1440, fadeMinutes: 120 }, maxShiftF: 30,
       tint: { warm: "rgba(255,150,60,0.13)", cool: "rgba(90,170,255,0.15)", rain: "rgba(60,80,110,0.12)", lightning: "rgba(255,250,210,0.6)", cure: "rgba(120,220,160,0.18)", plague: "rgba(140,60,100,0.18)" }, rainFrameMs: 150 },
     // Step 25 local language (src/speech.js; own seeded stream wrng). Tokens are gesture+sound strings.
@@ -607,7 +631,35 @@
       band: { angerAvoidTiles: 5, sadSeekTiles: 15 },
       logCoolMinutes: 360
     },
+    // §40 / v37 fear of wolves (0..max per person). Only raised when the person knows a wolf did it: they saw an attack (seeTiles, awake),
+    //   saw a kill, were attacked and lived, or found clear evidence (a body with a bite wound, died within evidence.windowMinutes, with a wolf
+    //   within evidence.wolfTiles of the body or the body inside a pack territory). No witnesses / no sign = no fear. Kin count only under the
+    //   same rules (+kinAdd on top when the victim is kin). Each event adds a small gain (each far below max) so fear builds up step by step.
+    //   Stored and shown only (Mind tab); no behaviour change in v37.
+    wolfFear: { max: 100, gain: { sawAttack: 6, survived: 10, sawKill: 12, evidence: 5 }, kinAdd: 4, seeTiles: 8,
+      evidence: { tiles: 2, windowMinutes: 2880, wolfTiles: 10, needWolfSign: true }, logCoolMinutes: 120 },
+    // §40 / v37 health (0..max) + RimWorld-style body parts. Health falls lossPerZeroNeed per game hour for each need at 0 and by each injury's
+    //   bleedPerHour; it climbs regenPerHour when no need is under regenAbove and nothing bleeds. Health 0 = death ("wounds").
+    //   The older need-zero death timers still apply; the two coexist.
+    health: { max: 100, lossPerZeroNeed: 0.5, regenPerHour: 1, regenAbove: 30,
+      // where a wolf strike lands on a survivor: chance of an injury, then part (weights) and type (weights)
+      wolfInjury: { chance: 0.6, parts: { legR: 3, legL: 3, armR: 2, armL: 2, torso: 2, head: 1 }, types: { gash: 3, bite: 2, broken: 1 } } },
+    // ids = the part ids in the Artist's data/art/body_parts.svg (person's right drawn on the viewer's left); fills = that file's colour key
+    bodyParts: { head: { label: "Head", role: "head" }, torso: { label: "Torso", role: "torso" }, armR: { label: "R arm", role: "arm" }, armL: { label: "L arm", role: "arm" },
+                 legR: { label: "R leg", role: "leg" }, legL: { label: "L leg", role: "leg" } },
+    bodyFigure: { src: "data/art/body_parts.svg", w: 64, h: 128, fill: { ok: "#6b5a45", hurt: "#e0a84f", bad: "#e05a6e", gone: "#2a2118" }, health: "#4fc3d9" },
+    // per injury type: bleedPerHour (health), healMinutes (closes on its own), and per role: moveX (walk speed x; lowest leg wins), toolBlock (no tool use)
+    injuryTypes: {
+      gash:   { label: "gash",   sev: "hurt", bleedPerHour: 1,   healMinutes: 4320,  leg: { moveX: 0.6 }, arm: { toolX: 0.7 } },
+      bite:   { label: "bite",   sev: "hurt", bleedPerHour: 1.5, healMinutes: 5760,  leg: { moveX: 0.7 }, arm: { toolX: 0.8 } },
+      broken: { label: "broken", sev: "bad",  bleedPerHour: 0,   healMinutes: 20160, leg: { moveX: 0.35 }, arm: { toolBlock: true } },
+      burn:   { label: "burn",   sev: "hurt", bleedPerHour: 0.5, healMinutes: 7200 }
+    },
+    // §40 / v37 Bless (Prayers tab): a partial answer, never a full fix. Tired (energy < tiredBelow): +energyAdd, never above energyCap.
+    //   Hungry (fullness under her hunger line): learns where the nearest ripe bush within bushTiles is (no fullness added). happinessAdd on the existing Hap scale.
+    bless: { tiredBelow: 40, energyAdd: 15, energyCap: 60, bushTiles: 30, happinessAdd: 3 },
     ui: { prefsKey: "godsim.ui",
+      sexDot: { m: "#5aa9e6", f: "#e78ac3" },   // §40 / v37 People list: small coloured dot next to each name (Kin display unchanged)
       powersTab: { label: "Powers", icon: "powers" },   // v19: portrait phones (< 700px): the bottom-bar tab that slides up the power row (CSS in index.html)
       find: { label: "Find", icon: "locate", pulseMs: 3000, zoom: 2, ringScale: 1.7 },   // v19 (step 24): the Find button on a person's card: centre the map on them (zoom at least 2), pulse their group ring brighter and bigger for pulseMs, follow until a pan or a tap elsewhere
       personTabs: [   // v25: Needs / Mind / Kin / Knows / Log (personal events in Log tab only; header + Find outside; no under-card strip)
