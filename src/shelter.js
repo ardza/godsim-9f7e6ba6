@@ -106,7 +106,7 @@
         if (a.act.type === "sleep") a.denSlept = true;
         else if (a.denSlept) {   // woke inside: warm now? (the first one per seed goes into Discoveries)
           a.denSlept = false;
-          if (a.needs.warmth >= C.wokeWarm) { St.warmed++; const sh = Shelter.byId(sim, a.den);
+          if (a.needs.warmth >= C.wokeWarm) { St.warmed++; const sh = Shelter.byId(sim, a.den); if (sh && G.Hut && G.Hut.wokeWarm) G.Hut.wokeWarm(sim, a, sh);   // v38 (a): hide-roof success + copying
             if (!sim.shelterFirst && sh) { sim.shelterFirst = { who: a.name, id: a.id, type: sh.type, tick: sim.tick };
               const d = G.Discoveries.note(sim, a, "slept in", [C.articles[sh.type]], "woke warm"); if (d) d.title = "First shelter use"; } }
         }

@@ -16,7 +16,7 @@
 
   // One hide per grazer body, at the carcass when first meat is taken (skinning implied).
   Hides.maybeSpawn = function (sim, body) {
-    if (!body || body.species !== "grazer" || body.hideSpawned) return null;
+    if (!body || (HC().fromSpecies || ["grazer"]).indexOf(body.species) < 0 || body.hideSpawned) return null;   // v38 (f): wolves too
     body.hideSpawned = true;
     const it = G.Items.create(sim, "hide", body.x, body.y);
     it.from = body.id;

@@ -59,7 +59,11 @@
     return ev;
   };
   function evOf(sim, e) { return sim.fireStats.events[e.ev - 1]; }
+  // v38 (g): a tile with no fuel (sand, rock: no grass or litter) and no burnable thing lying on it cannot hold a flame
+  Fire.hasFuel = (sim, x, y) => { const t = W.tile(sim.world, x, y), T = G.data.T; if (t === T.MEADOW || t === T.WOODS) return true;
+    return sim.items.some(it => !it.heldBy && it.x === x && it.y === y && G.Items.props(it).burns); };
   function ignite(sim, x, y, evId) {
+    if (!Fire.hasFuel(sim, x, y)) return false;
     const ev = sim.fireStats.events[evId - 1], tl = W.tile(sim.world, x, y) === G.data.T.WOODS ? "woods" : "meadow";
     sim.fire[key(x, y)] = { s: "fire", t: sim.tick, end: sim.tick + mins(F().burnMinutes[tl]), ev: evId };
     ev.tiles++; sim.fireStats.tiles++;
@@ -172,7 +176,8 @@
         else if (sim.tick >= e.end) { delete sim.fire[k]; if (!ev.fired) { ev.end = sim.tick; ev.regrown = sim.tick; G.Sim.log(sim, "The ember goes out"); } }
       } else if (e.s === "fire") {
         catchNear(sim, x, y, e);   // step 20 call 2: sticks lying next to the flames catch
-        for (const [dx, dy] of N8) { const nx = x + dx, ny = y + dy; if (sim.fire[key(nx, ny)]) continue;
+        // v38 (g): burn budget - once this fire has burned fire.burnBudget tiles it spreads no further (the burning tiles still burn out)
+        for (const [dx, dy] of N8) { const nx = x + dx, ny = y + dy; if (sim.fire[key(nx, ny)]) continue; if (Fc.burnBudget > 0 && ev && ev.tiles >= Fc.burnBudget) break;
           const d = Fire.dryness(sim, nx, ny); if (d > Fc.minDryness && sim.orng.chance(Fc.spreadScale * dryFactor(d) * TM() * (dx && dy ? 0.7 : 1))) ignite(sim, nx, ny, e.ev); }
         if (sim.tick >= e.end) { e.s = "ash"; e.t = sim.tick; e.end = sim.tick + mins(Fc.ashMinutes); }
       } else if (e.s === "ash") { if (sim.tick >= e.end) { e.s = "scorched"; e.t = sim.tick; e.end = sim.tick + mins(Fc.regrowMinutes); } }
@@ -233,6 +238,35 @@
         if (!W.inb(sim.world, tx, ty) || !free(tx, ty) || sim.fire[key(tx, ty)] && sim.fire[key(tx, ty)].s === "fire") continue;
         let m = Infinity; for (const [fx, fy] of fl) m = Math.min(m, Math.hypot(fx - tx, fy - ty)); if (!best || m > best.m) best = { x: tx, y: ty, m }; } }
     return best;
+  };
+  // v38 (g) fixture (test / Tester; ?fixture=fire&kind=..., GS.debug.fireFixture). Moves the clock forward to the middle of the case's season,
+  // picks a tile of that case (seeded by opts.seed, its own rng so the sim's streams are untouched) and sets it alight (a new event; flames
+  // on sand do not take). kinds: meadow (High Sun dry meadow away from water, default), wet (rained on, rain over), rain (rain falling),
+  // nearwater (meadow next to a river or lake), shore (dry meadow beside such ground: flames reach near-water tiles), sand, cold (Deep Cold meadow), woods (High Sun woods). Returns { kind, x, y, ev } or null.
+  const KIND_SEASON = { meadow: 1, wet: 1, rain: 1, nearwater: 1, shore: 1, sand: 1, woods: 1, cold: 3 };
+  Fire.nearWaterTile = (w, x, y) => { const T = G.data.T; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const t = W.tile(w, x + dx, y + dy); if (t === T.RIVER || t === T.LAKE) return true; } return false; };
+  Fire.fixtureCase = function (sim, kind, x, y) { const w = sim.world, T = G.data.T, t = W.tile(w, x, y), nw = Fire.nearWaterTile(w, x, y);
+    if (kind === "sand") return t === T.SAND;
+    if (kind === "woods") return t === T.WOODS && !nw;
+    if (kind === "nearwater") return t === T.MEADOW && nw;
+    if (kind === "cold") return t === T.MEADOW && !nw;
+    if (kind === "shore") { if (t !== T.MEADOW || nw) return false; for (const [dx, dy] of N8) { const u = W.tile(w, x + dx, y + dy); if ((u === T.MEADOW || u === T.WOODS) && Fire.nearWaterTile(w, x + dx, y + dy)) return true; } return false; }
+    return t === T.MEADOW && !nw && G.Climate.groundDryness(w, x, y, sim.tick) > 0 && !(W.hillAt && W.hillAt(w, x, y)); };
+  Fire.fixture = function (sim, opts) {
+    opts = opts || {}; Fire.init(sim); const kind = KIND_SEASON[opts.kind] != null ? opts.kind : "meadow", Tm = CF().time, FX = F().fixture, w = sim.world;
+    const season = Tm.daysPerSeason * 1440 / TM(), year = season * Tm.seasons.length, off = Tm.startMinute / TM();
+    let t = Math.floor((sim.tick + off) / year) * year + KIND_SEASON[kind] * season + Math.round(season / 2) - off; if (t < sim.tick) t += year; sim.tick = t;
+    if (kind === "wet" || kind === "rain") { G.Powers.cast(sim, "rain", w.w >> 1, w.h >> 1, FX.rainStrength); const e = sim.powers.effects.find(q => q.k === "rain" && !q.done);
+      if (e) { e.r = w.w + w.h; e.wetEnd = 1e9; e.bushEnd = 1e9; if (kind === "rain") { e.on = true; e.end = 1e9; } else { e.on = false; e.end = sim.tick; } } }
+    const E = FX.edgeTiles, cand = [];
+    for (let y = E; y < w.h - E; y++) for (let x = E; x < w.w - E; x++) if (!sim.fire[key(x, y)] && Fire.fixtureCase(sim, kind, x, y)) cand.push([x, y]);
+    if (!cand.length) return null;
+    const r = new G.RNG(((opts.seed != null ? opts.seed : w.seed) * 7919) >>> 0), [x, y] = cand[r.int(0, cand.length - 1)], S = sim.fireStats;
+    const ev = { id: S.events.length + 1, start: sim.tick, x, y, by: null, byName: null, combo: null, fuel: Fire.fuelName(sim, x, y), tiles: 0, fired: true, end: null, regrown: null, fixture: kind };
+    S.events.push(ev); S.fires++;
+    if (ignite(sim, x, y, ev.id) === false) { ev.end = sim.tick; ev.regrown = sim.tick; G.Sim.log(sim, "A flame touches the bare sand and dies"); }
+    else G.Sim.log(sim, "Flames take hold in the " + ev.fuel);
+    return { kind, x, y, ev };
   };
   G.Fire = Fire;
 })(this.GS = this.GS || {});

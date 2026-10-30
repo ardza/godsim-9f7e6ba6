@@ -113,14 +113,18 @@
     }
   };
 
+  // v38 (c): a spot holds a small pile
+  Cache.pile = (sim, c) => Cache.itemsAt(sim, c.x, c.y).filter(Cache.cacheable).length;
+  Cache.full = (sim, c) => Cache.pile(sim, c) >= (CC().pileMax != null ? CC().pileMax : 4);
+
   Cache.doStash = function (sim, a, spot) {
     const it = G.Items.held(sim, a);
-    if (!it || !Cache.cacheable(it)) return false;
+    if (!it || !Cache.cacheable(it) || Cache.full(sim, spot)) { a.keepIntent = false; return false; }
     const kind = Cache.kindOf(it);
     if (kind === "meat") it.stashedBy = a.name;   // §40 item 9: whose cache (stockpile) the meat sits in
     G.Items.drop(sim, a, "stash");
-    // drop already logged "puts down"; add stash line
-    G.Sim.log(sim, a.name + " stashes " + (kind === "meat" ? "meat" : "a " + kind) + " at a known place", a);
+    // drop already logged "puts down"; add stash line (v38 (c): a deliberate shelter stash logs its own line)
+    if (!(kind === "meat" && G.Food && G.Food.onStash(sim, a, it, spot))) G.Sim.log(sim, a.name + " stashes " + (kind === "meat" ? "meat" : "a " + kind) + " at a known place", a);
     Cache.remember(a, spot, [kind]);
     st(sim).stashes++;
     a.stats = a.stats || {}; a.stats.stashes = (a.stats.stashes || 0) + 1;
@@ -146,7 +150,10 @@
     const kind = Cache.kindOf(it);
     if (!G.Items.pickUp(sim, a, it.id)) return false;
     if (kind === "meat") it.src = { k: "stockpile", owner: it.stashedBy || null, prev: it.src || null };   // §40 item 9
-    G.Sim.log(sim, a.name + " takes " + (kind === "meat" ? "meat" : "a " + kind) + " from a cache", a);
+    // v38 (c): from someone else's pile -> her liking of the taker drops a little (if she knows them). No fight.
+    const own = kind === "meat" && it.stashedBy && it.stashedBy !== a.name ? sim.agents.find(q => q.name === it.stashedBy) : null;
+    if (own && own.rel && own.rel[a.id] && G.Social) { G.Social.addLike(own, a, CC().takeLike != null ? CC().takeLike : -3); if (sim.foodStats) sim.foodStats.takenOthers++; }
+    G.Sim.log(sim, a.name + " takes " + (kind === "meat" ? "meat" : "a " + kind) + " from " + (own ? own.name + "'s" : "a") + " cache", own ? [a, own] : a);
     Cache.remember(a, spot, [kind]);
     st(sim).retrieves++;
     a.stats = a.stats || {}; a.stats.retrieves = (a.stats.retrieves || 0) + 1;
@@ -161,12 +168,13 @@
     const it = G.Items.held(sim, a);
     if (!Cache.cacheable(it)) return false;
     // already walking to stash
-    if (a.act && a.act.type === "walk" && a.act.goal === "stash") return true;
+    if (a.act && a.act.type === "walk" && (a.act.goal === "stash" || a.act.goal === "dryFood")) return true;
+    if (G.Food && G.Food.tryKeep(sim, a, it)) return true;   // v38 (c): learned urge: dry it by a fire / keep it in a shelter
     const t = G.Agent.tilePos(a);
-    // already on a candidate spot → stash now
-    const here = Cache.candidates(sim, a).find(c => c.x === t.x && c.y === t.y);
+    // already on a candidate spot → stash now (v38 (c): unless its pile is full)
+    const here = Cache.candidates(sim, a).find(c => c.x === t.x && c.y === t.y && !Cache.full(sim, c));
     if (here) { Cache.doStash(sim, a, here); return true; }
-    const n = Cache.nearest(sim, a, null, CC().walkTiles != null ? CC().walkTiles : 18);
+    const n = Cache.nearest(sim, a, c => !Cache.full(sim, c), CC().walkTiles != null ? CC().walkTiles : 18);
     if (!n) return false;
     // same tile path empty → stash
     if (!n.path.length) { Cache.doStash(sim, a, n.spot); return true; }

@@ -257,6 +257,7 @@
   Powers.strikeOne = function (sim, x, y, parent) {
     const L = PC().lightning, S = st(sim), key = x + "," + y, g = Powers.ground(sim, x, y), place = Powers.place(sim, x, y, 2), F = sim.fireStats;
     const e = { id: S.next++, k: "lightning", x, y, r: 0, t: sim.tick, place, ground: g, mode: parent && parent.mode }; sim.fx.push({ k: "bolt", x, y, t: sim.tick, id: e.id });
+    if (G.Hut && G.Hut.bolt) G.Hut.bolt(sim, x, y);   // v38 (a): a bolt on / next to a hut damages it
     const p = Powers.strikeChance(sim, x, y), cur = sim.fire[key], fire = !(cur && (cur.s === "fire" || cur.s === "ember")) && p > 0 && Powers.roll(sim) < p;
     const what = g === "water" ? "the water near " + place : g === "forest" ? "a tree near " + place : g === "grass" ? "the grass near " + place : g === "rock" ? "the rocks near " + place : "the bare ground near " + place;
     if (fire) {
@@ -270,8 +271,10 @@
     }
     const babyHere = b => b.orphanAt == null ? sim.agents.some(a => a.id === b.carrier && Math.round(a.pos.x) === x && Math.round(a.pos.y) === y) : Math.round(b.pos.x) === x && Math.round(b.pos.y) === y;
     const doomed = (sim.babies || []).filter(babyHere);
-    for (const a of sim.agents.slice()) if (Math.round(a.pos.x) === x && Math.round(a.pos.y) === y) { G.Sim.die(sim, a, L.cause); S.stats.strikes.killed++; }
-    for (const b of doomed) if (G.Family.babyDie(sim, b, L.cause)) { S.stats.strikes.killed++; S.stats.strikes.babies = (S.stats.strikes.babies || 0) + 1; }
+    const LK = G.data.config.lightningKill || {}, cookP = LK.people !== false && G.Hunt && G.Hunt.boltCook;   // v38 (d): the struck dead are cooked remains
+    for (const a of sim.agents.slice()) if (Math.round(a.pos.x) === x && Math.round(a.pos.y) === y) { const bd = G.Sim.die(sim, a, L.cause); if (cookP) G.Hunt.boltCook(bd); S.stats.strikes.killed++; }
+    for (const b of doomed) { const bd = G.Family.babyDie(sim, b, L.cause); if (bd) { if (cookP && typeof bd === "object") G.Hunt.boltCook(bd); S.stats.strikes.killed++; S.stats.strikes.babies = (S.stats.strikes.babies || 0) + 1; } }
+    if (G.Hunt && G.Hunt.lightningKill) { const ks = G.Hunt.lightningKill(sim, x, y); if (ks.length) { S.stats.strikes.animals = (S.stats.strikes.animals || 0) + ks.length; e.animals = ks.map(b => b.id); } }   // v38 (d): animals on the tile
     for (const a of sim.agents) { const d = Math.hypot(a.pos.x - x, a.pos.y - y); if (d > L.scareTiles) continue;
       const slept = a.act.type === "sleep"; frighten(sim, a, L.fearAdd, L.fearMinutes); S.stats.strikes.scared++;
       if (slept) a.wokeEarly = true;
@@ -321,18 +324,23 @@
       if (d > R + 1e-9 || !Wd().inb(w, tx, ty) || !Wd().walkable(w, tx, ty) || G.Animal.occupied(sim, null, tx, ty) || G.Agent.claimed(sim, null, tx, ty) || sim.fire[tx + "," + ty] && sim.fire[tx + "," + ty].s === "fire") continue;
       if (!best || d < best.d) best = { x: tx, y: ty, d }; }
     return best; };
-  Powers.spawnRoom = function (sim, species) { const A = G.data.config.animals; if (sim.animals.length >= G.data.config.pop.maxAnimals) return false;
+  Powers.spawnRoom = function (sim, species, x, y) { const A = G.data.config.animals; if (sim.animals.length >= G.data.config.pop.maxAnimals) return false;
     if (species === "grazer" && A.grazer.births && sim.animals.filter(o => o.species === "grazer").length >= A.grazer.births.cap) return false;
-    if (species === "wolves" && (sim.animals.filter(o => o.species === "wolves").length >= (A.wolves.packSize && A.wolves.packSize[1] || 5))) return false; return true; };
+    // v38 (f): the Wolves cap is per pack (packSize[1]): full only when the pack this wolf would join is full
+    if (species === "wolves") { if (G.WolfFight && x != null) return G.WolfFight.spawnRoom(sim, x, y);
+      if (sim.animals.filter(o => o.species === "wolves").length >= (A.wolves.packSize && A.wolves.packSize[1] || 5)) return false; } return true; };
   Powers.spawn = function (sim, x, y, kind) {
     const C = PC(), SP = C.spawn, S = st(sim), species = SP.kinds[kind]; if (!species) return { ok: false, reason: "unknown animal" };
     if (!G.World.walkable(sim.world, x, y)) return { ok: false, reason: "needs land" };
-    if (!Powers.spawnRoom(sim, species)) return { ok: false, reason: "no room for more " + species + "s" };
-    const q = Powers.spawnTile(sim, x, y); if (!q) return { ok: false, reason: "no free spot there" };
+    const q = Powers.spawnTile(sim, x, y);
+    if (!Powers.spawnRoom(sim, species, q ? q.x : x, q ? q.y : y)) { const A = G.data.config.animals[species] || {};
+      return { ok: false, reason: species === "wolves" ? "that pack is full (" + ((A.packSize || [0, 5])[1]) + " Wolves)" : "no room for more " + (A.labelPlural || species) }; }
+    if (!q) return { ok: false, reason: "no free spot there" };
     S.stats.casts.spawn = (S.stats.casts.spawn || 0) + 1;
     let herd = null; if (species === "grazer") { let bd = Infinity; for (const h of sim.herds || []) { const d = Math.hypot(h.x - q.x, h.y - q.y); if (d < bd) { bd = d; herd = h.id; } }
       if (herd == null) { sim.herds = sim.herds || []; herd = sim.herds.length; sim.herds.push({ id: herd, x: q.x, y: q.y, next: sim.tick + mins(60) }); } }
     const r = new G.RNG(S.rs), c = G.Animal.create(sim, species, q.x, q.y, herd, r); S.rs = r.s; c.spawned = sim.tick;
+    let joined = null; if (species === "wolves" && G.WolfFight) joined = G.WolfFight.joinPack(sim, c, q.x, q.y);   // v38 (f): nearest pack within spawnJoinTiles, else a new pack + den here
     sim.animals.push(c); sim.prev[c.id] = { x: c.pos.x, y: c.pos.y }; S.stats.spawns[species] = (S.stats.spawns[species] || 0) + 1;
     const place = Powers.place(sim, q.x, q.y, 2), e = { id: S.next++, k: "spawn", x: q.x, y: q.y, r: 0, t: sim.tick, place, species, animal: c.id };
     sim.fx.push({ k: "shimmer", x: q.x, y: q.y, t: sim.tick, id: e.id });
@@ -344,7 +352,7 @@
       if (scared) { frighten(sim, a, P.fearAdd, P.fearMinutes); Powers.run(sim, a, q.x, q.y, P.runTiles, P.runMinutes); S.stats.spawns.backedAway++; G.Sim.log(sim, a.name + " stares at the new " + ((G.Animal.label && G.Animal.label(species)) || species) + " and backs away", [a, c]); }
       else G.Sim.log(sim, a.name + " stares at the new " + lab, [a, c]); }
     Powers.answer(sim, q.x, q.y);
-    return { ok: true, effect: e, animal: c };
+    return { ok: true, effect: e, animal: c, pack: joined ? joined.pack.id : null, joined: joined ? joined.joined : null };
   };
   // ---- step 24 (v19, Director): the spawn watcher's curiosity bump fades back, 1 point at a time, evenly over fadeMinutes after the latest watch.
   // a.curioFade = { left: points still to take off, step: ticks between points, next: tick of the next one } (saved with the person; no random draws)

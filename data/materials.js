@@ -19,6 +19,7 @@
     bone:  { label: "bone",  hardness: 55, sharpness: 10, dryness: 85,  durability: 75, flex: 15, burns: false },  // bone chars but does not burn away
     reed:  { label: "reed",  hardness: 15, sharpness: 5,  dryness: 35,  durability: 35, flex: 70, burns: true },   // step 26b: river-bank only
     meat:  { label: "meat",  hardness: 5,  sharpness: 0,  dryness: 10,  durability: 20, flex: 30, burns: false },  // step 16: raw flesh (wet: does not catch)
+    rotten: { label: "rotten food", hardness: 3, sharpness: 0, dryness: 5, durability: 5, flex: 20, burns: false },  // v38 (c): spoiled meat
     hide:  { label: "hide",  hardness: 8,  sharpness: 0,  dryness: 40,  durability: 45, flex: 65, burns: false },  // §31 / v28: soft grazer skin; wear / sleep-under for warmth
     ore:   { label: "ore",   hardness: 88, sharpness: 15, dryness: 100, durability: 85, flex: 3,  burns: false }   // §36 / v33: harder than rock; hill/mountain deposits; pickup/strike only
   };

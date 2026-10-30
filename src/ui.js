@@ -229,6 +229,11 @@
     const personTabLink = e => { const b = e.target.closest && e.target.closest("[data-ptab]"); if (!b) return; e.preventDefault();
       const k = b.getAttribute("data-ptab"); if (!k || k === UI.personTab) return; UI.personTab = k; UI._personCardKey = null; UI.update(app); };
     $("info-body").addEventListener("pointerup", personTabLink); $("info-body").addEventListener("click", e => { if (e.detail === 0) personTabLink(e); });
+    // v38 (e): a name on the Kin / Log tab opens "A & B"; Back returns to that tab
+    const pairLink = e => { const b = e.target.closest && e.target.closest("[data-pair],[data-pairback]"); if (!b) return; e.preventDefault(); e.stopPropagation();
+      if (b.hasAttribute("data-pairback")) UI.pair = null; else UI.pair = { a: app.selected, b: +b.getAttribute("data-pair"), tab: UI.personTab };
+      UI._personCardKey = null; UI.update(app); };
+    $("info-body").addEventListener("pointerup", pairLink, true); $("info-body").addEventListener("click", e => { if (e.detail === 0) pairLink(e); }, true);
     // v36 §39: ← → on inspect card
     const cycleLink = e => { const b = e.target.closest && e.target.closest("[data-pcycle]"); if (!b) return; e.preventDefault(); UI.cyclePerson(app, +b.getAttribute("data-pcycle")); };
     $("info-body").addEventListener("pointerup", cycleLink); $("info-body").addEventListener("click", e => { if (e.detail === 0) cycleLink(e); });
@@ -262,16 +267,39 @@
     for (const id of e.ids) { const w = G.Family.who(sim, id); if (!w) continue; const n = esc(w.name);
       h = h.replace(new RegExp("(^|[^\\w>])(" + reEsc(n) + ")(?![\\w<])"), '$1<button class="logn" data-sel="' + w.id + '">$2</button>'); }
     return h; }
-  function who(sim, id, name) { const w = G.Family.who(sim, id);
+  function who(sim, id, name, pairOf) { const w = G.Family.who(sim, id);
     if (!w) return '<span class="lnk-gone">' + esc(name || "?") + ' (gone)</span>';
+    if (pairOf != null) return pairBtn(sim, pairOf, id, "lnk", esc(w.name) + (w.alive ? '' : ' (died)'));   // v38 (e): on a person's Kin tab a name opens "A & B"
     return '<button class="lnk" data-sel="' + w.id + '">' + esc(w.name) + (w.alive ? '' : ' (died)') + '</button>'; }
-  function familyRows(sim, a) {
+  // ---- v38 (e) two-person history ("A & B"): a name on A's Kin or Log tab opens A's log entries that also name B, newest first ----
+  const PV = () => UC().pairView || {};
+  const fill = (t, o) => String(t || "").replace(/\{(\w+)\}/g, (m, k) => o[k] != null ? o[k] : m);
+  const nameOf = (sim, id) => { const w = G.Family.who(sim, id); return w ? w.name : "?"; };
+  function pairBtn(sim, aId, bId, cls, inner) {
+    return '<button type="button" class="' + cls + '" data-pair="' + bId + '" aria-label="' + esc(fill(PV().nameAria, { a: nameOf(sim, aId), b: nameOf(sim, bId) })) + '">' + inner + '</button>'; }
+  // a personal-log line with the other people it names as "A & B" buttons (the person whose log it is stays plain text)
+  function plogNames(sim, e, selfId) { let h = esc(e.text); if (!e.ids) return h;
+    for (const id of e.ids) { if (id === selfId) continue; const w = G.Family.who(sim, id); if (!w) continue; const n = esc(w.name);
+      h = h.replace(new RegExp("(^|[^\\w>])(" + reEsc(n) + ")(?![\\w<])"), (m, p1, p2) => p1 + pairBtn(sim, selfId, id, "logn", p2)); }
+    return h; }
+  UI._kinHtml = (sim, a) => familyRows(sim, a, a.id) + relRows(sim, a, a.id);   // for tests (the Kin pane body)
+  UI._plogHtml = (sim, id) => plogHtml(sim, id);
+  UI.pair = null;   // { a, b, tab }: session only, cleared when the card changes person
+  UI.pairHtml = function (sim, aId, bId, tab) {
+    const V = PV(), an = nameOf(sim, aId), bn = nameOf(sim, bId), L = G.Social.shared(sim, aId, bId), tl = ((UC().personTabs || []).find(x => x.key === tab) || {}).label || tab || "";
+    return '<div class="pp-pair" data-pair-a="' + aId + '" data-pair-b="' + bId + '">' +
+      '<div class="pp-pairhead"><button type="button" class="pp-back" data-pairback="1" aria-label="' + esc(fill(V.backAria, { a: an, tab: tl.toLowerCase() })) + '">\u2190 ' + esc(V.back || "Back") + '</button>' +
+      '<b class="pp-pairnames">' + esc(fill(V.title || "{a} & {b}", { a: an, b: bn })) + '</b></div>' +
+      (L.length ? '<div class="plog in-tab" role="log">' + L.map(e => '<div class="ev' + (e.k ? " " + e.k : "") + '"><time>' + G.Time.stamp(e.t) + '</time>' + esc(e.text) + '</div>').join("") + '</div>'
+        : '<div class="empty">' + esc(V.empty || "Nothing yet.") + '</div>') + '</div>';
+  };
+  function familyRows(sim, a, pairOf) {
     const m = a.mate != null && sim.agents.find(q => q.id === a.mate), kids = a.children || [];
     return '<div class="sec">Family</div><div class="sub">' + G.Family.sexWord(a) + (a.preg ? ' · with child, due ' + G.Time.stamp(a.preg.due) : '') + '</div>' +
-      '<div class="row fam"><span>Partner</span><div class="lnks">' + (m ? who(sim, m.id) : '<span class="dim">none</span>') + '</div></div>' +
-      '<div class="row fam"><span>Parents</span><div class="lnks">' + (a.parents ? a.parents.map((id, i) => who(sim, id, a.parentNames && a.parentNames[i])).join("") : '<span class="dim">none (founder)</span>') + '</div></div>' +
-      '<div class="row fam"><span>Children</span><div class="lnks">' + (kids.length ? kids.map(id => who(sim, id)).join("") : '<span class="dim">none</span>') + '</div></div>' +
-      (G.Family.isChild(a) ? '<div class="row fam"><span>Keeps close to</span><div class="lnks">' + (a.guard != null ? who(sim, a.guard) : '<span class="dim">no one (on ' + G.Family.poss(a) + ' own)</span>') + '</div></div>' : '');
+      '<div class="row fam"><span>Partner</span><div class="lnks">' + (m ? who(sim, m.id, null, pairOf) : '<span class="dim">none</span>') + '</div></div>' +
+      '<div class="row fam"><span>Parents</span><div class="lnks">' + (a.parents ? a.parents.map((id, i) => who(sim, id, a.parentNames && a.parentNames[i], pairOf)).join("") : '<span class="dim">none (founder)</span>') + '</div></div>' +
+      '<div class="row fam"><span>Children</span><div class="lnks">' + (kids.length ? kids.map(id => who(sim, id, null, pairOf)).join("") : '<span class="dim">none</span>') + '</div></div>' +
+      (G.Family.isChild(a) ? '<div class="row fam"><span>Keeps close to</span><div class="lnks">' + (a.guard != null ? who(sim, a.guard, null, pairOf) : '<span class="dim">no one (on ' + G.Family.poss(a) + ' own)</span>') + '</div></div>' : '');
   }
   // step 20: "Learned from: Zol (fire), Lom (huddling)" - who she copied or watched, per action
   function learnedRow(sim, a) {
@@ -286,14 +314,14 @@
     const L = o.inh && o.inh.lifespan;
     return T + (L ? '<div class="sub">lifespan ' + Math.round(L.v) + ' years' + (L.v > L.avg ? ' ▲' : L.v < L.avg ? ' ▼' : '') + (L.mut ? '*' : '') + ' (parents\' average ' + Math.round(L.avg) + ')</div>' : '');
   }
-  function relRows(sim, a) {
+  function relRows(sim, a, pairOf) {
     const S = G.Social, g = S.group(sim, a), top = S.top(sim, a);
     const speechLbl = G.Speech ? G.Speech.cardLabel(sim, a) : "Speech: none";
     const grp = g ? '<div class="row rel"><span><i class="ring" style="border-color:' + S.color(sim, g) + '"></i>' + esc(S.groupName(sim, g)) + '</span><b>' + g.members.length + ' people</b></div>' +
         '<div class="sub">keeps with ' + esc(g.members.filter(id => id !== a.id).map(id => (sim.agents.find(b => b.id === id) || {}).name).filter(Boolean).join(", ")) + ' · knows: ' + (S.skills(sim, g).map(k => esc(G.Learn.label(k))).join(", ") || "nothing yet") + ' · ' + esc(speechLbl) + '</div>'
       : '<div class="sub">no group · keeps to no one yet · ' + esc(speechLbl) + '</div>';
     return '<div class="sec">Relations (familiarity / liking, 0-100, 50 = avg liking)</div>' + grp +
-      (top.length ? top.map(r => '<div class="row rel"><span>' + esc(r.name) + '</span><em class="w-' + r.word + '">' + r.word + '</em><b>' + r.f + ' / ' + r.l + '</b></div>').join("") : '<div class="sub">has met no one yet</div>');
+      (top.length ? top.map(r => '<div class="row rel"><span>' + (pairOf != null ? pairBtn(sim, pairOf, r.id, "lnk", esc(r.name)) : esc(r.name)) + '</span><em class="w-' + r.word + '">' + r.word + '</em><b>' + r.f + ' / ' + r.l + '</b></div>').join("") : '<div class="sub">has met no one yet</div>');
   }
   function expRows(sim, a) {
     return Object.keys(G.data.config.learn.actions).map(k => { const e = a.exp && a.exp[k], v = e ? e.score : G.data.config.learn.start;
@@ -307,7 +335,7 @@
     if (id == null) return '<div class="empty">Nothing yet.</div>';
     const L = G.Sim.plogOf(sim, id);
     return L.length
-      ? '<div class="plog in-tab" role="log">' + L.slice().reverse().map(e => '<div class="ev' + (e.k ? " " + e.k : "") + '"><time>' + G.Time.stamp(e.t) + '</time>' + esc(e.text) + '</div>').join("") + '</div>'
+      ? '<div class="plog in-tab" role="log">' + L.slice().reverse().map(e => '<div class="ev' + (e.k ? " " + e.k : "") + '"><time>' + G.Time.stamp(e.t) + '</time>' + plogNames(sim, e, id) + '</div>').join("") + '</div>'
       : '<div class="empty">Nothing yet.</div>';
   }
   function hidePlogStrip() {
@@ -344,10 +372,20 @@
     if (!a && !an && !bd && app.selected != null) { bd = (sim.bodies || []).find(q => q.of === app.selected); if (bd) app.selected = bd.id; }   // the selected person died: follow to their body
     const bb = !a && !an && !bd && !it && G.Family && G.Family.babyById(sim, app.selected);   // step 19: a baby
     const sp = !a && !an && !bd && !it && !bb && G.Faith && G.Faith.byId(sim, app.selected);   // §33 sacred / prayer spot
-    info.hidden = !a && !an && !bd && !it && !bb && !sp;
+    const hu = !a && !an && !bd && !it && !bb && !sp && G.Hut && G.Hut.fromSel(sim, app.selected);   // v38 (a): a hut
+    info.hidden = !a && !an && !bd && !it && !bb && !sp && !hu;
     info.classList.toggle("people-ui", !!a);   // v36 §39: Artist dense People inspect styles
     const need = (label, v, cls, word, tip) => '<div class="row need" title="' + tip + '"><span>' + label + '</span>' + bar(v, 100, cls).replace('</div>', '<em>' + word + '</em></div>') + '<b>' + Math.round(v) + '/100</b></div>';
-    if (sp) {   // §33: sacred / prayer spot — decorative inspect only
+    if (hu) {   // v38 (a): hut tier, what went in, durability bar, rain kept off, who is inside
+      const I = G.Hut.info(sim, hu);
+      $("info-body").innerHTML = '<h3>' + esc(I.label.replace(/^./, ch => ch.toUpperCase())) + '</h3>' +
+        '<div class="sub">built of ' + esc(I.mats) + (I.worn ? ' · worn' : '') + '</div>' +
+        '<div class="sec">Durability (0-100)</div>' +
+        '<div class="row" title="falls slowly with weather (faster in rain, storms, frost) and with lightning, fire and trampling; patching restores it; at 0 it falls in"><span>Durability</span>' + bar(I.dur, 100, I.worn ? "hot" : "trait") + '<b>' + I.dur + '/100</b></div>' +
+        '<div class="sub">' + (I.worn ? 'worn below ' + I.wornBelow + ': keeps less warmth, lets some rain in' : 'sound') + ' · wearing about ' + I.wearPerDay + '/day now' + (I.raining ? ' (' + esc(I.raining) + ' rain)' : '') + '</div>' +
+        '<div class="sec">Shelter</div><div class="sub">warmth ' + I.warmX + '× a fire · keeps off ' + I.rainPct + '% of rain · room for ' + I.cap + '</div>' +
+        '<div class="sub">' + (I.inside.length ? 'inside: ' + esc(I.inside.join(", ")) : 'nobody inside') + '</div>';
+    } else if (sp) {   // §33: sacred / prayer spot — decorative inspect only
       const knownG = (sim.groups || []).filter(g => (g.sacred || []).some(q => q.x === sp.x && q.y === sp.y)).length;
       $("info-body").innerHTML = '<h3>' + (sp.marker ? 'Worn ground' : 'Prayer spot') + '</h3>' +
         '<div class="sub">' + sp.n + ' prayer' + (sp.n === 1 ? '' : 's') + ' here' + (sp.marker ? ' · marked' : '') +
@@ -359,6 +397,7 @@
       $("info-body").innerHTML = '<h3>' + esc(G.Items.matLabel(it).replace(/^./, ch => ch.toUpperCase())) + '</h3><div class="sub">' + (it.form === "shard" ? "a broken piece" : "whole") + ' · ' + (holder ? 'carried by ' + esc(holder.name) : 'on the ground') + (P.burns ? ' · burns' : '') + '</div>' +
         '<div class="sec">Properties (0-100)</div>' + prop("hardness", "harder things break softer ones; hard on hard can spark") + prop("sharpness", "a keen edge can cut") +
         prop("dryness", "dry things catch a spark") + prop("durability", "how much wear and striking it takes") + prop("flex", "how much it bends (sticks and reeds high, rocks near 0)") +
+        (G.Food && (it.material === "meat" || it.material === "rotten") ? '<div class="sub">' + esc(G.Food.card(sim, it)) + '</div>' : '') +
         (it.material === "meat" ? '<div class="sec">Food</div><div class="sub">' + G.Cook.of(it) + ' · ' + (sim.tick < it.spoilAt ? 'fresh for ' + Math.max(1, Math.round((it.spoilAt - sim.tick) * G.data.config.time.tickGameMinutes / 60)) + ' h more · +' + G.Cook.fullness(it) + ' fullness' : 'spoiled') + '</div><div class="sub">heat: ' + Math.round(it.heat || 0) + ' min by a fire (cooked at ' + G.data.config.cook.cookedAt + ', charred after ' + G.data.config.cook.charredAt + ')</div>' : '');
     } else if (an) {
       const S = G.data.config.animals[an.species], f = an.needs.fullness, low = an.species === "grazer" ? S.fullness.grazeBelow : S.fullness.feedBelow, np = G.Animal.nearestPerson(sim, an.pos.x, an.pos.y);
@@ -376,6 +415,7 @@
       const pyreLine = bd.pyre ? '<div class="sub">pyre: ' + esc(bd.pyre.stage) + (bd.burned ? ' · ash bones' : '') + '</div>' : (bd.burned ? '<div class="sub">ash bones</div>' : '');
       $("info-body").innerHTML = '<h3>' + (bd.burial ? 'Burial of ' : bd.stage === "bones" ? 'Bones of ' : bd.species ? 'Carcass of ' : 'Body of ') + esc(bd.name) + '</h3><div class="sub">' + bd.stage + (bd.species ? ' · ' + (bd.killedBy ? 'killed by ' + esc(bd.killedBy) : bd.cause) : ' · ' + ((G.data.config.body.causeVerb || {})[bd.cause] ? '' : 'died of ') + bd.cause + ' at ' + bd.age + ' years') + '</div>' + burialLine + pyreLine +
         (bd.species && bd.stage !== "bones" ? '<div class="sub">meat left: ' + (bd.meat || 0) + ' of ' + (MC.pieces[bd.species] || 0) + ' pieces' + (bd.stage === "fresh" ? ' (can be taken while fresh)' : ' (spoiled)') + '</div>' : '') +
+        (bd.lightning && bd.stage !== "bones" ? '<div class="sub">cooked through by the strike (' + G.Cook.state(bd.heat || 0) + ')</div>' : '') +   // v38 (d)
         '<div class="sub">' + G.Time.stamp(bd.diedAt) + ' · ' + (days ? days + ' d ' : '') + hrs + ' h ago</div>' +
         (bd.stage === "bones"
           ? '<div class="sec">Object</div><div class="sub">material: ' + esc(bd.material) + '</div>' + need("Condition", bd.condition, "trait", "weathering", "100 = new bones; weathers to 0 over " + BC.bonesWeatherYears + " years")
@@ -445,13 +485,14 @@
         '<div class="pp-sub">Traits</div>' +
         Object.entries(a.traits).map(([k, v]) => ppSkill(traitName(k), v)).join("") +
         speechRows(sim, a) + prayRows(a);
-      const kinPane = familyRows(sim, a) + relRows(sim, a);
+      const kinPane = familyRows(sim, a, a.id) + relRows(sim, a, a.id);
       const knowsPane =
         '<div class="pp-sub">Knows</div><div class="chips">' + chip(known + " berry bush" + (known === 1 ? "" : "es")) + chip(waterKnown(a)) + chip("Known shelters: " + (a.shelters || []).length) + chip("Caches: " + (a.caches || []).length) + chip("Sacred places: " + (a.sacred || []).length) +
           chip("carrying " + (G.Items.held(sim, a) ? esc(G.Items.label(G.Items.held(sim, a))) : "nothing")) +
           (sim.discoveries || []).filter(d => d.who === a.name).map(d => chip(esc(d.action + " " + d.materials.slice(0, 2).join(" / ") + " → " + d.result), "disc")).join("") + "</div>";
       const logPane = '<div class="pp-sub">' + esc(a.name) + "'s log</div>" + plogHtml(sim, a.id);
-      const pane = UI.personTab === "mind" ? mindPane : UI.personTab === "kin" ? kinPane : UI.personTab === "knows" ? knowsPane : UI.personTab === "log" ? logPane : needsPane;
+      if (UI.pair && (UI.pair.a !== a.id || UI.pair.tab !== UI.personTab)) UI.pair = null;   // v38 (e): another person or tab -> back to the normal pane
+      const pane = UI.pair ? UI.pairHtml(sim, a.id, UI.pair.b, UI.pair.tab) : UI.personTab === "mind" ? mindPane : UI.personTab === "kin" ? kinPane : UI.personTab === "knows" ? knowsPane : UI.personTab === "log" ? logPane : needsPane;
       const Sg = G.Social, grp = Sg && Sg.group(sim, a);
       const gname = grp ? Sg.groupName(sim, grp) : "Loner";
       const head = '<div class="pp-cardhead">' +

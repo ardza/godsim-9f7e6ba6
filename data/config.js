@@ -2,7 +2,7 @@
 (function (G) {
   G.data = G.data || {};
   G.data.config = {
-    saveVersion: 37,                // v37: §40 bundle (rain/wolves, wolf fear, sex dot, Bless, health+injuries, Resurrect, Heal, Powers menu); v36: People UI polish; v35: hard seasons; v34: hard tips; v33: ore finds; v32: built shelters; v31: group identity; v30: sacred places; v29: caching
+    saveVersion: 38,                // v38: Living off the land (a huts tiers+durability ...); v37: §40 bundle (rain/wolves, wolf fear, sex dot, Bless, health+injuries, Resurrect, Heal, Powers menu); v36: People UI polish; v35: hard seasons; v34: hard tips; v33: ore finds; v32: built shelters; v31: group identity; v30: sacred places; v29: caching
     saveKey: "godsim.save",
     map: {
       w: 60, h: 40, tilePx: 16,      // map is 960x640 art px, scaled to fit the screen
@@ -155,6 +155,11 @@
     // Animals (no names; grazers die only when hunted and are born in Greening, step 17). All count toward pop.maxAnimals (40). They flee people: when a person is within fleeWithin tiles
     // they run (at fleeMinutesPerTile) to a tile at least fleeTo tiles from every person.
     animals: {
+      // v38 (f): deer and wild dogs run (same flee move as from people) from any wolf within this many tiles, before it can strike;
+      // wild dogs never walk, wander or go to a body within it of a wolf (+1 tile margin in the target pick).
+      fleeWolfWithin: 5,
+      eatOwnKill: true,             // v38 (f): a predator that brings an animal down settles to eat it at once (killFill on the strike, then feeds to full)
+      killFill: 40,                 // fullness a predator gets at the strike itself (was a hard 40 in code), before it feeds on the body
       // Step 26b: species ids stay grazer/scavenger/wolves; UI/logs/Discoveries/spawn labels are deer / wild dog / Wolves.
       grazer: {
         label: "deer", labelPlural: "deer",
@@ -177,9 +182,10 @@
         walkMinutesPerTile: 6, fleeMinutesPerTile: 3, fleeWithin: 4, fleeTo: 6,   // flees people within fleeWithin
         noticeTiles: 15,              // notices a body with flesh within this many tiles (and goes to eat it unless a person is within fleeWithin of it)
         corpsePreferTiles: 8,         // 26b: prefers corpses within 8 over hunting live deer
-        huntDeer: { fullnessBelow: 40, stalkTiles: 12, strikeTiles: 1.5, killChance: 0.35 },  // hunts living deer when hungry and no nearby corpse; never hunts people
+        huntDeer: { fullnessBelow: 15, stalkTiles: 12, strikeTiles: 1.5, killChance: 0.15 },  // hunts living deer when hungry and no nearby corpse; never hunts people
+        // v38 (f) ecology tune (was fullnessBelow 40, killChance 0.35): a wild dog mostly scavenges and tackles a grown deer only when near starving, and rarely brings one down
         watchTiles: 8,                // people within this of a kill get hunt_score bump
-        fullness: { minutesFullToEmpty: 1440, feedBelow: 70, fillPerMinute: 1, fleshPerFullness: 0.15, start: [20, 60] }, // fullness 0-100; feeds on flesh at +1/min until 100, each point taking 0.15 of the body's flesh (0-100); holds at 0, no death.
+        fullness: { minutesFullToEmpty: 10080, feedBelow: 70, fillPerMinute: 1, fleshPerFullness: 0.15, start: [20, 60] },  /* v38 (f): was 1440 - a gorged dog goes ~a week on one meal; with 1440 four dogs ate the herd in a season */ // fullness 0-100; feeds on flesh at +1/min until 100, each point taking 0.15 of the body's flesh (0-100); holds at 0, no death.
                                       // Tuned so a body the scavengers find is bones ~2 days into rotting (10-seed mean ~1.7 d, range 0.3-3.6 d) instead of 7
         wanderRadius: 8, idleMin: 30, idleMax: 120, nightIdleScale: 1
       },
@@ -192,12 +198,22 @@
         denPrefer: ["hill", "woodsEdge"],  // hill or woods edge
         walkMinutesPerTile: 5, fleeMinutesPerTile: 3, fleeWithin: 0, fleeTo: 0,  // do not flee people (they threaten instead, in territory)
         huntDeer: { stalkTiles: 14, strikeTiles: 1.5, killChance: 0.55 },
+        // v38 (f): wolves also take wild dogs (same stalk + strike). Deer first: a dog only when no deer is within huntDeer.stalkTiles,
+        // or a dog is within closeTiles (and nearer than the nearest deer). A dog is quick and bites back: lower kill chance than a deer.
+        huntDog: { stalkTiles: 10, strikeTiles: 1.5, killChance: 0.3, closeTiles: 4 },
+        // v38 (f): no automatic respawn - a pack that is wiped out stays gone; only Spawn (Wolves) brings wolves back.
+        // A spawned wolf within spawnJoinTiles of any pack wolf joins the nearest wolf's pack (same pack id + den); farther than that it
+        // starts a new pack with its own den at the spawn spot. Cap: packSize[1] wolves per pack (was: in all).
+        spawnJoinTiles: 12,
         // §40 / v37 THE wolf rain knob: chance a hungry wolf starts a hunt while rain falls on its tile (1 = as in clear weather).
         // Heavy rain washes out scent and soaks fur: the wolf rests instead. Light small, heavy strong.
         rainHuntX: { light: 0.8, medium: 0.5, heavy: 0.15 },
         threaten: { chaseTiles: 10, strikeTiles: 1.5, damageEnergy: 40, killChance: 0.25 },
         watchTiles: 8,
-        fullness: { minutesFullToEmpty: 2880, feedBelow: 60, fillPerMinute: 1.2, fleshPerFullness: 0.12, start: [40, 80] },
+        // v38 (f) ecology tune (was minutesFullToEmpty 2880, feedBelow 60): wolves gorge on a kill and go ~10 days on it; any wolf below carrionBelow joins a
+        // carcass within corpseTiles (the pack shares one kill), and a wolf only starts a hunt below feedBelow. With 2880 the herd was gone by season 4 on all seeds.
+        fullness: { minutesFullToEmpty: 14400, feedBelow: 45, carrionBelow: 85, fillPerMinute: 1.2, fleshPerFullness: 0.12, start: [40, 80] },
+        corpseTiles: 14,
         wanderRadius: 5, idleMin: 20, idleMax: 80, nightIdleScale: 1.2
       }
     },
@@ -246,16 +262,20 @@
         stormX: [1, 1.1, 1.4, 2.5]       // lightning rate × at full ramp (Deep Cold storms)
       },
       // ground dryness 0-100 by season (Greening, High Sun, Leaffall, Deep Cold), plus a fixed per-tile patchiness +-patch, minus wetC near water
-      dryness: { meadow: [35, 70, 55, 25], woods: [30, 50, 50, 20], sand: [0, 0, 0, 0], patch: 25, nearWaterTiles: 2, nearWater: -45 } },   // v37 fire hotfix (Judge Oct 30): nearWater -30 -> -45
+      dryness: { meadow: [35, 70, 55, 25], woods: [30, 50, 50, 20], sand: [0, 0, 0, 0], patch: 25, nearWaterTiles: 2, nearWater: -45 } },   // v38 fire hotfix (Judge, final): was -30, a firebreak by water
     // Step 12 fire. A spark lands on the target's tile: it catches if the fuel there (ground grass/litter, or a stick lying there) is dry enough:
     //   p(ember) = igniteScale x (dryness - minDryness)/(100 - minDryness). An ember smoulders, then flares into fire (or dies out).
     // A burning tile spreads each minute to each dry 8-neighbour with p = spreadScale x (dryness - minDryness)/(100 - minDryness), burns out to ash,
     // and the scorched ground regrows (fuel back, bushes ripen again) within about a season.
     fire: {
-      minDryness: 30, igniteScale: 0.5,   // v37 fire hotfix (Commissioner Oct 30): 45 -> 30
+      minDryness: 30, igniteScale: 0.5,   // v38 hotfix (Director/Judge): was 45; tuned in /workspace/godsim-fire
       emberMinutes: [20, 60], emberToFire: 0.04,          // per minute while smouldering, x dryness factor; else it goes out at the end
       burnMinutes: { meadow: 40, woods: 120 },              // how long a tile burns
-      spreadScale: 0.016,                                   // v37 fire hotfix: 0.012 -> 0.016 (with nearWater -45; see tests/headless_fire_hotfix.js)
+      spreadScale: 0.024,   // v38 (g): raised from 0.016 (v38 fire hotfix, Judge) with burnBudget below; was 0.012 in v37, 0.035 in the first hotfix pass
+      // v38 (g) burn limit (Commissioner Oct 30): one fire (one event) burns at most burnBudget tiles; once it has, its flames burn out where
+      // they are and spread no further (stands in for the wind dropping and the fuel running into breaks). 0 = no limit. Sand / rock holds no
+      // flame unless a burnable thing lies there (Fire.hasFuel). fixture: ?fixture=fire&kind=..., GS.debug.fireFixture (edgeTiles from the map edge)
+      burnBudget: 40, fixture: { edgeTiles: 3, rainStrength: "heavy" },
       ashMinutes: 1440, regrowMinutes: 8640,                // ash 1 day, then scorched ground; fuel and grass back 6 more days later (a season = 7 days)
       heatC: 25, heatTiles: 4,                              // a fire adds up to 25 C to the felt temperature, falling to 0 at 4 tiles (ember: a third)
       fleeTiles: 2.5, fleeTo: 5,                            // people and animals move away from flames within 2.5 tiles (no burn damage yet)
@@ -368,7 +388,12 @@
       actions: { fire: { label: "sitting by the fire", short: "fire", fear: "fireFear" }, huddle: { label: "huddling up", short: "huddling", fear: null }, shelter: { label: "sheltering under the trees", short: "shelter", fear: null },
         den: { label: "sleeping in a cave, overhang or thicket", short: "shelters", fear: null },
         hide: { label: "wearing a hide", short: "hide", fear: null },
+        hutHide: { label: "covering a hut with a hide", short: "hut hide", fear: null },   // v38 (a)
+        dryFood: { label: "drying meat by a fire", short: "drying", fear: "fireFear" },   // v38 (c)
+        keepFood: { label: "keeping meat in a shelter", short: "keeping food", fear: null },   // v38 (c)
+        plant: { label: "dropping berries on soft ground", short: "planting", fear: null },   // v38 (b)
         hunt: { label: "going after deer", short: "hunting", fear: null },
+        wolf_hunt: { label: "going after Wolves with others", short: "wolf hunting", fear: null },   // v38 (f)
         cook: { label: "holding meat to the fire", short: "cooking", fear: "fireFear" },
         leave: { label: "leaving a body where it lies", short: "leaving bodies", fear: "corpseFear" },
         drag: { label: "dragging a body", short: "dragging bodies", fear: "corpseFear" },
@@ -404,13 +429,23 @@
     // A wildfire passing over a fresh carcass does not burn it to bones: the carcass heats like any meat (fire on or within fireTiles), so it roasts or chars.
     cook: { emberTiles: 1.5, fireTiles: 3, cookedAt: 30, charredAt: 120, fullness: { cooked: 70, charred: 20 }, sickChance: { cooked: 0, charred: 0 },
       sightTiles: 15, holdChance: 0.15, waitMinutes: 60, coldGiveUp: 10, gain: 20, charDrop: 10 },
-    meat: { pieces: { grazer: 4 }, fleshPerPiece: 20, takeMinutes: 10, fullness: 60, eatMinutes: 15, sickChance: 0.25, sickEnergy: 20,
+    meat: { pieces: { grazer: 4, scavenger: 1, wolves: 2 },   /* v38 (d): wild dog ~15 kg, wolf ~40 kg, deer ~70 kg dressed weight (only lightning kills them for now) */
+      fleshPerPiece: 20, takeMinutes: 10, fullness: 60, eatMinutes: 15, sickChance: 0.25, sickEnergy: 20,
       // §40 / v37 item 9: meat source tag words on eat lines (raw and cooked). {animal} {pronoun} {by} {owner}
       sourceAnimal: { grazer: "deer", scavenger: "wild dog", wolves: "wolf" },
-      sourceWords: { hunted: "from the {animal} {pronoun} hunted", site: "found at {by}'s kill site", scavenged: "scavenged from a {animal} carcass", stockpile: "taken from {owner} cache" },
-      migrateSource: "site" },   // meat in a v36 save had no tag: off a known carcass it gets the carcass's tag, else this
+      sourceWords: { hunted: "from the {animal} {pronoun} hunted", site: "found at {by}'s kill site", scavenged: "scavenged from a {animal} carcass", stockpile: "taken from {owner} cache", lightning: "from the lightning-struck {animal}" },
+      migrateSource: "site" },
+    // v38 (d) Commissioner Oct 30: a bolt (Lightning power, Single or each Barrage hit) kills the animals on the struck tile, the same one-tile
+    // rule it uses on people. Every body a bolt makes (animal, person, baby) is cooked through: heat = cookHeat (cook.cookedAt 30 < 45 < charredAt 120),
+    // so meat cut from it is cooked meat (cook.sickChance.cooked / cook.fullness.cooked; a person's body uses corpse.sickChance.cooked) on the
+    // food.spoilDays clock from the strike. A fire that also starts on that tile keeps heating the carcass, so it can char. Meat source tag:
+    // meat.sourceWords.lightning. The first meal of it is one Discoveries entry. Natural storm strikes (fire.lightning) kill nobody, as before.
+    lightningKill: { animals: true, people: true, species: ["grazer", "scavenger", "wolves"], cookHeat: 45, cause: "struck by lightning",
+      line: "Lightning strikes a {animal} and it drops dead, its hide seared",   // {animal} = meat.sourceAnimal word
+      disc: { action: "eat", mats: ["lightning-struck meat"], result: "cooked by the strike", title: "First lightning-cooked meal" } },   // meat in a v36 save had no tag: off a known carcass it gets the carcass's tag, else this
     // §31 / v28: grazer hide — soft mass item; worn / sleep-under felt °C stacks with fire+shelter under shelter.capX × fire.heatC
     hides: {
+      fromSpecies: ["grazer", "wolves"],   // v38 (f): a wolf carcass also leaves a hide
       wornC: 8, sleepC: 6,           // felt °C while wearing / sleeping under (trimmed by shared warmth cap)
       reachTiles: 1.5,               // ground hide in reach to wear or sleep under
       tryEveryMinutes: 30,
@@ -425,10 +460,27 @@
     cache: {
       walkTiles: 18,                 // max walk to prefer stash / retrieve over random drop
       copyChance: 0.55,              // watcher within sightTiles copies the spot
-      includeHide: true              // hide counts as stashable (optional per spec)
+      includeHide: true,             // hide counts as stashable (optional per spec)
+      pileMax: 4,                    // v38 (c): a spot holds a small pile (cacheable items on that tile); full -> another spot
+      takeLike: -3                   // v38 (c): taking food from someone else's pile: her liking of the taker (if she knows them)
     },
+    // v38 (c) Food storage, spoilage, preservation. Meat lasts spoilDays from the kill (folds in the old 1-day raw-meat timer), carried or
+    //   stored. Past that it turns into "rotten food" (same item: source tag, heat, dried kept): fullness rottenFullness, sick chance
+    //   meat.sickChance x rottenSickX (the same sickness as raw meat). Only eaten when fullness < rottenEatBelow; it falls apart after rottenGoneDays.
+    //   Keeping: dried meat spoils driedX slower; meat lying in a shelter (hut, cave, overhang, thicket) shelteredX slower (they multiply).
+    //   Drying: meat lying (not held) within dryTiles of a burning fire for dryMinutes turns dried (closer than cook.fireTiles it also cooks/chars).
+    //   Learning from need: someone who lost food to rot (her carried / stashed meat rotted) and then takes or eats a dried piece gains
+    //   dryFood; takes meat that sat sheltered >= keepNoticeMinutes gains keepFood (gain). Above learn.start each is an urge:
+    //   p = urgeChance x (score - learn.start) / 50 when she is about to put meat down: dry -> lay it by a burning fire within dryWalkTiles;
+    //   keep -> stash it only in a shelter within walkTiles x keepWalkX. Anyone awake within copyTiles may copy it (Learn copy rules).
+    food: { fixture: { tiles: 4, clear: 2 },   // v38 pre-freeze: ?fixture=cache puts a fresh, a dried and a rotten piece of meat in person 1's cache, within this many tiles
+      spoilDays: 7, rottenSickX: 2, rottenFullness: 30, rottenEatBelow: 15, rottenGoneDays: 3, driedX: 3, shelteredX: 1.5,
+      dryTiles: 5, dryMinutes: 180, gain: 15, keepNoticeMinutes: 1440, urgeChance: 0.6, dryWalkTiles: 12, keepWalkX: 1.5, copyTiles: 5,
+      lines: { rot: "A piece of meat turns rotten", rotHeld: "The meat {name} carries turns rotten", dried: "A piece of meat by the fire dries hard",
+        lay: "lays meat out near the fire to dry", keep: "stashes meat inside the {shelter}" } },
     // §35 / v32: crude hut from sticks/reeds/hides on known ground; warmX > cave; no villages
     hut: {
+      fixture: { tiers: [{ stick: 3 }, { stick: 3, reed: 2 }, { stick: 3, reed: 2, hide: 1 }], gap: 2, clear: 2, tiles: 10 },   // ?fixture=hut&kind=tiers: one fresh hut per tier in a row near person 1, gap tiles apart, clear of people
       salt: 0xB017532,
       needPile: 3,                   // sticks + reeds (+ hide weight) to finish one footprint
       hideWeight: 1,                 // optional hide counts toward needPile
@@ -439,13 +491,60 @@
       cap: 3,
       tryEveryMinutes: 60,
       tryChance: 0.45,               // × curiosity/50 × den factor
-      scoreFloor: 40                 // den Learn score floor (same idea as shelter.goChance)
+      scoreFloor: 40,                // den Learn score floor (same idea as shelter.goChance)
+      // ---- v38 (a) better shelter from materials. A hut remembers what went in (mats) and its durability (0-100). ----
+      // Tier = the LAST entry whose need is met (counts per material, total = all mats). Each tier sets warmth (x one fire's heat, still
+      // capped by shelter.capX), rain kept off (1 = none gets in: no rain chill), and how fast weather wears it (decayX).
+      tiers: [
+        { k: "sticks", label: "crude hut",  need: {},                   warmX: 1.2,  rain: 0.85, decayX: 1.0, art: "sticks", artWorn: "sticks_worn" },
+        { k: "reeds",  label: "reed hut",   need: { reed: 2 },          warmX: 1.35, rain: 0.95, decayX: 0.8, art: "reeds",  artWorn: "reeds_worn" },
+        { k: "hide",   label: "sturdy hut", need: { hide: 1, total: 4 }, warmX: 1.5,  rain: 1.0,  decayX: 0.6, art: "hide",   artWorn: "hide_worn" }
+      ],
+      maxMats: 10,                   // past this an add only patches (durability), the pile stops growing
+      dur: {
+        start: 80,                   // a freshly piled hut
+        migrate: 100,                // 37->38: existing huts come over at full
+        wornBelow: 50,               // worn look + worn penalties below this
+        wornWarmX: 0.85, wornRainX: 0.85,   // a worn hut keeps less warmth and lets some rain in
+        patchBelow: 50,              // people who notice a hut under this patch it (spec: under 50)
+        decayPerDay: 3,              // clear weather, per game day, x tier decayX
+        rainX: { light: 1.5, medium: 2, heavy: 3 },   // x decay while it rains on the hut (Director: softened from 3/5/8)
+        stormX: 2,                   // extra x when a bolt struck within stormTiles in the last stormMinutes while raining
+        stormTiles: 12, stormMinutes: 60,
+        coldBelowF: 32, coldX: 1.5,  // frost cracks it: x decay below this air temp
+        lightning: 60, lightningNear: 20, lightningNearTiles: 1,   // a bolt on / next to it
+        firePerMinute: 1.5,          // flames on its tile (a 40-120 min burn finishes it)
+        trample: { grazer: 0.5, scavenger: 0.2, wolves: 0.3 },     // per minute an animal stands on it
+        collapseScatter: 2           // at 0 its mats drop as items within this many tiles
+      },
+      patch: { stick: 12, reed: 18, hide: 30 },   // durability each added piece restores (same act as building)
+      tend: { everyMinutes: 30, noticeTiles: 6, upgradeChance: 0.25, hideChance: 0.3 },   // idle tending odds (x curiosity/50); hide x hutHide score/50
+      addLines: { stick: "wedges a stick into the hut wall", reed: "weaves reeds into the hut roof", hide: "stretches a hide over the hut" },
+      patchLines: { stick: "patches the worn hut with a stick", reed: "patches the worn hut with reeds", hide: "patches the worn hut with a hide" },
+      tendLines: { walk: "carries material to the hut" },
+      collapseLine: "falls in, scattering its",
+      // copying a hide roof: those who saw the hide go on (within copyTiles) and then see the doer wake warm inside copy her hutHide score
+      copy: { tiles: 5, windowMinutes: 2880, gain: 10 }
     },
     bushes: { count: 60, minCount: 15, moistBase: 0.5, dry: { below: -0.1, at: -0.3, fewer: [0.3, 0.5] }, regrowMinutes: 1440, startRipe: 0.85, minSpacing: 4,   // eaten bush is ripe again 1 game day later (Greening; see season)
       // Step 15 seasons (Greening, High Sun, Leaffall, Deep Cold): a meal gives mealAdds x yield; an eaten bush ripens again after regrowMinutes
       // (people still expect it back after the base regrowMinutes, so in winter they find more bushes bare)
       season: { yield: [1, 1.25, 1.25, 0.8], regrowMinutes: [1440, 1080, 1080, 2160] },   // tuned (5 seeds x 1 year): 0.8 / 36 h -> 3% of winter minutes hungry, avg fullness 53; 0.6 / 72 h was 38% hungry and 17 deaths
       weights: { edge: 8, meadow: 0.6, woods: 1.2 } }, // 26b: denser near woods (edge + woods up, open meadow down)
+    // v38 (b) berry sprouting. After a berry meal a seed may fall near the bush (seedChance, within dropTiles). A seed only takes on soft
+    //   ground: a tile in soil (meadow grass 1, woods 0.5; sand / rock (hills) / water never) within nearWaterTiles of water. After seedDays it
+    //   sprouts with sproutChance x soil x (wetX if rained-on ground) x (pressX if pressed in on purpose), else it is gone: most don't.
+    //   sprout -> sapling after sproutDays, sapling -> a normal bush (bare, ripens on the bush clock) after saplingDays; growth runs at
+    //   seasonGrowX per season (Deep Cold 0 = waits). Flames on the tile kill a seed, sprout or sapling.
+    //   Learning (Learn "plant", starts at learn.start): the eater who later finds the new bush where she ate gains findGain; anyone who saw
+    //   that seed fall (within copyTiles, awake) and later sees the bush may copy her (Learn copy rules). Above learn.start the score is an
+    //   urge: after a meal p = urgeChance x (score - learn.start) / 50 she presses berries into the best soft tile within plantTiles (deliberate).
+    farm: { salt: 0xBE5EED, seedChance: 0.25, dropTiles: 2, nearWaterTiles: 5, soil: { meadow: 1, woods: 0.5 },
+      seedDays: 2, sproutChance: 0.2, wetX: 1.5, pressX: 2, sproutDays: 3, saplingDays: 5, seasonGrowX: [1, 1, 0.6, 0],
+      spacingTiles: 1, maxPlants: 40, maxBushesX: 1.6,
+      fixture: { tiles: 8, clear: 2, stages: ["seed", "sprout", "sapling"] },   // v38 pre-freeze: ?fixture=sprout puts one plant per stage near person 1 (soft ground only)   // no seed on/next to a bush or plant; cap live plants; total bushes <= count x maxBushesX
+      findGain: 15, copyTiles: 5, urgeChance: 0.6, plantTiles: 3,
+      lines: { press: "presses berries into the wet ground", pressDry: "presses berries into the soft ground", bush: "A new berry bush has grown from dropped berries" } },
     log: { max: 200, personMax: 200,   // personMax: each person's own log keeps their last 200 events (saved)
       // log line colours: first matching rule wins, else "info". Tabs filter the log; a tab with no match shows everything.
       kinds: [{ kind: "birth", match: "gives birth|stay close by night|carries the baby" }, { kind: "warn", match: "has died|froze|didn't wake from the cold|never woke|worn down to nothing|is shivering|is stumbling|looks lost|is moving slow|drops what they were carrying|is nodding off|is slowing further|has collapsed|is not getting up|is confused from lack of sleep|sees things that are not there|has been in the rain too long|catches fire|burns|burned|is sick|is starving|is hungry|bush bare|bush was bare|bush taken|is thirsty|is parched|is dehydrated|is exhausted|is delirious|woke up (hungry|thirsty)" }],
@@ -636,8 +735,27 @@
     //   within evidence.wolfTiles of the body or the body inside a pack territory). No witnesses / no sign = no fear. Kin count only under the
     //   same rules (+kinAdd on top when the victim is kin). Each event adds a small gain (each far below max) so fear builds up step by step.
     //   Stored and shown only (Mind tab); no behaviour change in v37.
-    wolfFear: { max: 100, gain: { sawAttack: 6, survived: 10, sawKill: 12, evidence: 5 }, kinAdd: 4, seeTiles: 8,
-      evidence: { tiles: 2, windowMinutes: 2880, wolfTiles: 10, needWolfSign: true }, logCoolMinutes: 120 },
+    wolfFear: { baseline: 10,   // v38: innate floor (full rule in piece f); 37->38 migration lifts everyone to it
+      max: 100, gain: { sawAttack: 6, survived: 10, sawKill: 12, evidence: 5 }, kinAdd: 4, seeTiles: 8,
+      evidence: { tiles: 2, windowMinutes: 2880, wolfTiles: 10, needWolfSign: true }, logCoolMinutes: 120,
+      // v38 (f): founders start at baseline. A newborn: baseline + inheritShare x (parents' mean fear - baseline), the inherited part
+      // capped at inheritMax (never below baseline). Fear never falls below baseline.
+      inheritShare: 0.3, inheritMax: 30 },
+    // v38 (f) facing wolves. Readiness (computed, never stored or shown) = held[tool in hand] + hide (if wearing one) + perAlly x able adults
+    //   within allyTiles (not children, not injured, not exhausted = energy < exhaustedBelow, not asleep). When a wolf chases or strikes
+    //   and readiness > wolfFear she stands (idles standMinutes, no running) and, armed and within strikeTiles, strikes with the others;
+    //   otherwise she runs (as v37). A lone person with nothing in hand always runs (readiness 0 < baseline).
+    // Strike: one roll for the group = mean hunt odds (Hunt.odds) x oddsX x attackers (armed, able, ready adults within allyTiles), capped at maxChance.
+    //   A miss: the wolf bites one attacker with biteChance (v37 wolf injury + fear 'survived'). A kill: body (meat "killed by people") + hide.
+    // Group hunt: an armed, able, ready adult with >= hunt.minAllies armed able allies within allyTiles, a pack wolf within seekTiles and inside
+    //   its territory, rolls startChance x (pullBase + wolf_hunt score / pullPer) every checkMinutes; then the group walks at the wolf
+    //   (goal wolfHunt) until it falls, gets away (giveUpMinutes) or someone needs food or water. Cooldown per person after a try.
+    // Kill: +learnGain wolf_hunt score to each attacker, success (watchers copy like hunting), first one a Discoveries entry;
+    //   awake people within wolves.watchTiles lose killWatchDrop fear (never below baseline).
+    wolfFight: { held: { spear: 25, tip_stick: 25, tip_bone: 25, axe: 20, flake: 10 }, hide: 5, perAlly: 10, allyTiles: 3, exhaustedBelow: 20,
+      standMinutes: 20, heldOffMinutes: 15, strikeTiles: 1.5, oddsX: 0.8, maxChance: 0.8, biteChance: 0.35,
+      hunt: { minAllies: 2, seekTiles: 12, checkMinutes: 10, startChance: 0.05, pullBase: 0.5, pullPer: 50, giveUpMinutes: 120, cooldownMinutes: 720, repathMinutes: 10 },
+      killWatchDrop: 5, learnGain: 15 },
     // §40 / v37 health (0..max) + RimWorld-style body parts. Health falls lossPerZeroNeed per game hour for each need at 0 and by each injury's
     //   bleedPerHour; it climbs regenPerHour when no need is under regenAbove and nothing bleeds. Health 0 = death ("wounds").
     //   The older need-zero death timers still apply; the two coexist.
@@ -659,6 +777,10 @@
     //   Hungry (fullness under her hunger line): learns where the nearest ripe bush within bushTiles is (no fullness added). happinessAdd on the existing Hap scale.
     bless: { tiredBelow: 40, energyAdd: 15, energyCap: 60, bushTiles: 30, happinessAdd: 3 },
     ui: { prefsKey: "godsim.ui",
+      // v38 (e) two-person history: tapping a name in a person's Kin or Log tab opens "A & B" = A's personal log (sim.plog[A], log.personMax kept)
+      // filtered to the entries whose ids include B, newest first. No new tab, no filters; back returns to the tab it came from.
+      pairView: { title: "{a} & {b}", back: "Back", backAria: "Back to {a}'s {tab}", empty: "Nothing logged with both of them yet.",
+        nameAria: "Show what {a} and {b} did together", fixtureGapMinutes: 20 },
       sexDot: { m: "#5aa9e6", f: "#e78ac3" },   // §40 / v37 People list: small coloured dot next to each name (Kin display unchanged)
       powersTab: { label: "Powers", icon: "powers" },   // v19: portrait phones (< 700px): the bottom-bar tab that slides up the power row (CSS in index.html)
       find: { label: "Find", icon: "locate", pulseMs: 3000, zoom: 2, ringScale: 1.7 },   // v19 (step 24): the Find button on a person's card: centre the map on them (zoom at least 2), pulse their group ring brighter and bigger for pulseMs, follow until a pan or a tap elsewhere

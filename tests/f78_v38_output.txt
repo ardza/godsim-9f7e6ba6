@@ -1,0 +1,35 @@
+# godsim v38 — headless output for Tester checklist spec tests 7/8 (2 game years)
+# generated 2026-10-30 1:51 PM PDT from /workspace/godsim (saveVersion 38, ?v=38); 1 tick = 1 game min, 1 season = 10080 ticks, 1 year = 4 seasons
+
+## f7 — wiped-out pack, 2 game years, no powers; then Spawn join / nearest / far / cap
+$ node tests/f7_2yr_v38.js
+v38 (f) test 7, 2-year run, seed 3873, saveVersion 38
+PASS (f) 7: a wiped-out pack leaves no wolves and no pack
+  season ends after the wipe: Y1 Greening: 16 deer, 4 dogs, 0 wolves, 6 people | Y1 High Sun: 15 deer, 4 dogs, 0 wolves, 6 people | Y1 Leaffall: 13 deer, 4 dogs, 0 wolves, 6 people | Y1 Deep Cold: 13 deer, 4 dogs, 0 wolves, 4 people | Y2 Greening: 19 deer, 4 dogs, 0 wolves, 3 people | Y2 High Sun: 19 deer, 4 dogs, 0 wolves, 3 people | Y2 Leaffall: 16 deer, 4 dogs, 0 wolves, 1 people | Y2 Deep Cold: 16 deer, 4 dogs, 0 wolves, 0 people
+PASS (f) 7: 0 Wolves and no pack at every season end for 2 game years, no powers used  max 0, day 56
+PASS (f) 7: still 0 wolves after 2 game years (no respawn)
+PASS (f) 7: spawning 3 gives one pack with a den  {"n":3,"packs":1,"den":{"x":30,"y":20}}
+PASS (f) 7: a spawn next to a member makes 4, same pack id and den
+PASS (f) 7: the pack stops at 5; a 6th spawn is refused  that pack is full (5 Wolves)
+PASS (f) 7: a spawn more than 12 tiles away starts a new pack with its den there  {"x":45,"y":20}
+PASS (f) 7: with two packs in range, a spawn joins the nearer one  {"dA":11,"dB":3,"joined":2}
+PASS (f) 7: deer flee the spawned Wolves  {"grazer":226,"scavenger":41}
+PASS (f) 7: the spawned Wolves hunt (a kill within a week)  kill bodies 1
+
+10 PASS, 0 FAIL
+exit 0
+
+## f8 — 8 seeds x 2 game years: deer or wild dogs wiped out on at most 1 seed
+$ node tests/pop_v38f.js
+seed 1  season ends deer/dogs/wolves/people: 13/4/5/1  13/4/5/0  8/3/5/0  8/3/5/0  8/3/5/0  8/2/5/0  6/1/5/0  6/1/5/0  kills {"grazer<Wolves":5,"grazer<wild dog 24":3,"grazer<wild dog 21":2,"scavenger<Wolves":3,"grazer<wild dog 22":2}  wolf dog hunt {"tries":8,"kills":3}  people vs wolves {"stands":0,"runs":6,"strikes":0,"kills":0,"bites":0,"hunts":0}  people deaths {"wolves":2,"thirst":3}
+seed 2  season ends deer/dogs/wolves/people: 17/4/3/5  16/4/3/5  15/4/3/4  13/4/3/1  11/4/3/0  11/4/3/0  7/4/3/0  6/4/3/0  kills {"grazer<wild dog 26":3,"grazer<Wolves":7,"grazer<wild dog 25":2,"grazer<Tull":1,"grazer<wild dog 23":3}  wolf dog hunt {"tries":10,"kills":0}  people vs wolves {}  people deaths {"thirst":7}
+seed 3  season ends deer/dogs/wolves/people: 15/3/3/3  15/3/3/3  13/3/3/3  11/3/3/3  12/3/3/2  12/3/3/2  10/2/3/2  8/2/3/2  kills {"grazer<wild dog 21":3,"scavenger<Wolves":2,"grazer<wild dog 24":1,"grazer<Wolves":3,"grazer<wild dog 23":2}  wolf dog hunt {"tries":3,"kills":2}  people vs wolves {"stands":0,"runs":7,"strikes":0,"kills":0,"bites":0,"hunts":0}  people deaths {"wolves":2,"thirst":1}
+seed 4  season ends deer/dogs/wolves/people: 16/4/4/2  14/4/4/0  12/4/4/0  9/4/4/0  10/4/4/0  6/4/4/0  2/4/4/0  2/4/4/0  kills {"grazer<wild dog 24":4,"grazer<wild dog 23":4,"grazer<Wolves":5,"grazer<wild dog 21":3,"grazer<wild dog 22":1}  wolf dog hunt {"tries":2,"kills":0}  people vs wolves {"stands":0,"runs":4,"strikes":0,"kills":0,"bites":0,"hunts":0}  people deaths {"wolves":2,"thirst":3}
+seed 5  season ends deer/dogs/wolves/people: 19/4/5/3  19/4/5/0  17/4/5/0  14/3/5/0  14/3/5/0  12/3/5/0  9/3/5/0  9/3/5/0  kills {"grazer<Wolves":7,"grazer<wild dog 21":4,"grazer<wild dog 24":3,"grazer<wild dog 22":1,"scavenger<Wolves":1}  wolf dog hunt {"tries":2,"kills":1}  people vs wolves {"stands":0,"runs":9,"strikes":0,"kills":0,"bites":0,"hunts":0}  people deaths {"wolves":4,"thirst":1}
+seed 6  season ends deer/dogs/wolves/people: 17/3/5/5  17/3/5/4  15/3/5/2  15/3/5/2  15/3/5/0  15/3/5/0  13/1/5/0  14/1/5/0  kills {"scavenger<Wolves":3,"grazer<Esk":1,"grazer<Wolves":2,"grazer<wild dog 25":4,"grazer<Mirt":1,"grazer<wild dog 24":1}  wolf dog hunt {"tries":8,"kills":3}  people vs wolves {"stands":0,"runs":21,"strikes":0,"kills":0,"bites":0,"hunts":0}  people deaths {"wolves":6,"thirst":2}
+seed 7  season ends deer/dogs/wolves/people: 17/4/5/1  16/4/5/0  16/4/5/0  14/4/5/0  13/4/5/0  9/4/5/0  8/4/5/0  7/4/5/0  kills {"grazer<Wolves":6,"grazer<wild dog 21":3,"grazer<wild dog 24":3,"grazer<wild dog 23":3}  wolf dog hunt {}  people vs wolves {"stands":0,"runs":19,"strikes":0,"kills":0,"bites":0,"hunts":0}  people deaths {"wolves":5}
+seed 8  season ends deer/dogs/wolves/people: 19/4/3/4  18/4/3/3  17/4/3/3  16/4/3/2  21/4/3/1  19/3/3/1  17/3/3/1  16/3/3/0  kills {"grazer<Wolves":3,"grazer<wild dog 25":1,"grazer<wild dog 22":3,"grazer<wild dog 23":3,"grazer<wild dog 24":1,"scavenger<Wolves":1}  wolf dog hunt {"tries":2,"kills":1}  people vs wolves {"stands":0,"runs":25,"strikes":0,"kills":0,"bites":0,"hunts":0}  people deaths {"wolves":5,"thirst":1}
+wiped-pack seed 3873  season ends deer/dogs/wolves/people: 16/4/0/6  15/4/0/6  13/4/0/6  13/4/0/4  19/4/0/3  19/4/0/3  16/4/0/1  16/4/0/0  kills {"grazer<wild dog 25":2,"grazer<wild dog 22":3,"grazer<wild dog 23":2}  wolf dog hunt {}  people vs wolves {}  people deaths {"thirst":6}
+PASS deer or wild dogs wiped out on 0 of 8 seeds (allowed 1)
+PASS wiped-out pack: 0 Wolves at every season end for 2 years (max 0)
+exit 0

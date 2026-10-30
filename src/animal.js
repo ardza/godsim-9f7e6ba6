@@ -24,6 +24,8 @@
     return o;
   };
   Animal.fullnessDrainPerTick = a => 100 / AC()[a.species].fullness.minutesFullToEmpty * TM();
+  Animal.packOf = (sim, a) => packOf(sim, a);
+  Animal.flee = (sim, a, from) => flee(sim, a, from);
   Animal.doing = a => ({ graze: "grazing", feed: "feeding on a body", hunt: "hunting", threaten: "threatening" })[a.act.type]
     || ({ flee: "fleeing", wander: "wandering", meadow: "looking for grass", body: "going to a body", hunt: "stalking prey", threaten: "chasing", pack: "staying with the pack", den: "near the den" })[a.act.goal] || "resting";
 
@@ -35,6 +37,10 @@
   function free(sim, a, x, y) { return W.walkable(sim.world, x, y) && !Animal.occupied(sim, a, x, y); }
   Animal.nearestPerson = function (sim, x, y) { let p = null, d = Infinity; for (const q of sim.agents) { const e = Math.hypot(q.pos.x - x, q.pos.y - y); if (e < d) { d = e; p = q; } } return { p, d }; };
   const personDist = (sim, x, y) => Animal.nearestPerson(sim, x, y).d;
+  // v38 (f): every other animal keeps away from Wolves (animals.fleeWolfWithin)
+  Animal.nearestWolf = function (sim, x, y, not) { let w = null, d = Infinity; for (const q of sim.animals) { if (q.species !== "wolves" || q === not) continue; const e = Math.hypot(q.pos.x - x, q.pos.y - y); if (e < d) { d = e; w = q; } } return { w, d }; };
+  const wolfDist = (sim, x, y) => Animal.nearestWolf(sim, x, y).d;
+  const FWW = () => AC().fleeWolfWithin || 0;
 
   function walkTo(sim, a, x, y, goal, extra) {
     const t = tileOf(a), p = W.findPath(sim.world, t.x, t.y, x, y); if (!p) return false;
@@ -46,14 +52,16 @@
     a.act = { type: "idle", until: sim.tick + Math.round(sim.arng.range(S.idleMin, S.idleMax) * night * (scale == null ? 1 : scale)) }; }
 
   function flee(sim, a, from) {
-    const S = AC()[a.species], t = tileOf(a); let best = null;
+    const S = AC()[a.species], t = tileOf(a), byWolf = from && from.species === "wolves"; let best = null;
+    // v38 (f): from a wolf it runs to the spot farthest from every wolf (and still away from people); otherwise as before
     for (let k = 0; k < 24; k++) { const ang = k / 24 * Math.PI * 2;
       for (const d of [S.fleeTo, S.fleeTo + 3]) { const x = Math.round(t.x + Math.cos(ang) * d), y = Math.round(t.y + Math.sin(ang) * d);
-        if (!free(sim, a, x, y)) continue; const sc = personDist(sim, x, y); if (!best || sc > best.sc) best = { x, y, sc }; } }
+        if (!free(sim, a, x, y)) continue; const sc = byWolf ? Math.min(wolfDist(sim, x, y), personDist(sim, x, y) + FWW()) : personDist(sim, x, y); if (!best || sc > best.sc) best = { x, y, sc }; } }
     if (!best || !walkTo(sim, a, best.x, best.y, "flee")) return false;
     a.stats.flees++;
     if (a.species === "grazer") { const h = sim.herds[a.herd]; if (h) { h.x = best.x; h.y = best.y; h.next = sim.tick + AC().grazer.drift.everyMinutes;
-        if (sim.tick - (h.logged == null ? -1e9 : h.logged) >= 120) { h.logged = sim.tick; G.Sim.log(sim, "Deer scatter from " + from.name, from); } } }
+        if (sim.tick - (h.logged == null ? -1e9 : h.logged) >= 120) { h.logged = sim.tick; G.Sim.log(sim, "Deer scatter from " + (byWolf ? LABEL("wolves") : from.name), from); } } }
+    else if (byWolf) { if (sim.tick - (a.logged == null ? -1e9 : a.logged) >= 240) { a.logged = sim.tick; G.Sim.log(sim, "A " + LABEL(a.species) + " runs from the " + LABEL("wolves")); } }
     else if (sim.tick - (a.logged == null ? -1e9 : a.logged) >= 240) { a.logged = sim.tick; G.Sim.log(sim, Animal.name(a) + " runs from " + from.name, from); }
     return true;
   }
@@ -89,28 +97,32 @@
   function killPrey(sim, predator, prey) {
     const ix = sim.animals.indexOf(prey); if (ix < 0) return null;
     sim.animals.splice(ix, 1); delete sim.prev[prey.id];
-    const b = G.Body.createAnimal(sim, prey, { name: Animal.name(predator) });
+    const b = G.Body.createAnimal(sim, prey, { name: predator.species === "wolves" ? LABEL("wolves") : Animal.name(predator) });   // v38 (f): meat source reads "killed by Wolves"
     sim.bodies.push(b);
     G.Sim.log(sim, Animal.name(predator) + " brings down " + b.name);
     const S = AC()[predator.species];
     watchHunt(sim, b.x, b.y, S.watchTiles || 8);
     predator.stats.kills = (predator.stats.kills || 0) + 1;
     predator.stats.meals = (predator.stats.meals || 0) + 1;
-    predator.needs.fullness = r9(Math.min(100, predator.needs.fullness + 40));
+    predator.needs.fullness = r9(Math.min(100, predator.needs.fullness + AC().killFill));
     return b;
   }
 
+  const d0 = (a, b) => Math.hypot(a.pos.x - b.pos.x, a.pos.y - b.pos.y);
   function tryKill(sim, a, prey) {
-    const S = AC()[a.species], H = S.huntDeer; if (!H || !prey) { idle(sim, a); return; }
+    const S = AC()[a.species], H = (prey && prey.species === "scavenger" && S.huntDog) || S.huntDeer; if (!H || !prey) { idle(sim, a); return; }
+    if (prey.species === "scavenger" && a.species === "wolves") { const ws = sim.wolfDog = sim.wolfDog || { tries: 0, kills: 0 }; if (d0(a, prey) <= H.strikeTiles + 0.2) ws.tries++; }
     const d = Math.hypot(prey.pos.x - a.pos.x, prey.pos.y - a.pos.y);
     if (d > H.strikeTiles + 0.2) {
       const tx = Math.round(prey.pos.x), ty = Math.round(prey.pos.y);
       if (!walkTo(sim, a, tx, ty, "hunt", { prey: prey.id })) idle(sim, a);
       return;
     }
-    if (sim.arng.chance(H.killChance)) { killPrey(sim, a, prey); idle(sim, a, 0.5); }
-    else { // miss: prey flees a little; predator idles briefly
-      if (prey.species === "grazer") flee(sim, prey, { name: Animal.name(a) });
+    if (sim.arng.chance(H.killChance)) { if (prey.species === "scavenger" && sim.wolfDog) sim.wolfDog.kills++; const kb = killPrey(sim, a, prey);
+      // v38 (f): the killer settles to eat its kill (no kill left to rot while it wanders off)
+      if (!(kb && AC().eatOwnKill && a.needs.fullness < 100 && goFeed(sim, a, { b: kb, d: Math.hypot(kb.x - a.pos.x, kb.y - a.pos.y) }))) idle(sim, a, 0.5); }
+    else { // miss: prey flees a little; predator idles briefly (v38 (f): a dog missed by a wolf runs too)
+      if (prey.species === "grazer" || a.species === "wolves") flee(sim, prey, a.species === "wolves" ? a : { name: Animal.name(a) });
       idle(sim, a, 0.4);
     }
   }
@@ -129,14 +141,19 @@
       pack.chaseLog = sim.tick;
       G.Sim.log(sim, Animal.name(a) + " chases " + p.name + " near the den", p);
     }
+    if (G.WolfFight && G.WolfFight.confront(sim, p, a)) return true;   // v38 (f): ready enough → stands / strikes instead of running
     if (G.Moods) G.Moods.onWolfChase(sim, p, pack);
+    return false;
   }
   function tryThreaten(sim, a, p) {
     const S = AC().wolves, T = S.threaten, pack = packOf(sim, a); if (!p || !pack) { idle(sim, a); return; }
     const inTerr = Math.hypot(p.pos.x - pack.den.x, p.pos.y - pack.den.y) <= S.territory;
     if (!inTerr) { idle(sim, a); return; }   // outside territory: ignore people
     const d = Math.hypot(p.pos.x - a.pos.x, p.pos.y - a.pos.y);
-    markChaseFright(sim, a, p, pack);
+    const stood = markChaseFright(sim, a, p, pack);
+    if (sim.animals.indexOf(a) < 0) return;   // v38 (f): the people standing their ground brought it down
+    // v38 (f): an armed person standing her ground holds the wolf off - it does not press its own strike (it can still bite on the group's misses), backs off a while
+    if (stood && d <= T.strikeTiles + 0.2 && G.WolfFight.armed(sim, p)) { idle(sim, a); if (a.act.type === "idle") { a.act.until = sim.tick + Math.max(1, Math.round(CF().wolfFight.heldOffMinutes / TM())); a.act.goal = "heldOff"; } return; }
     if (d > T.strikeTiles + 0.2) {
       if (!walkTo(sim, a, Math.round(p.pos.x), Math.round(p.pos.y), "threaten", { target: p.id })) idle(sim, a);
       return;
@@ -176,7 +193,7 @@
     }
     const h = sim.herds[a.herd] || { x: t.x, y: t.y }, R = S.herdRadius;
     for (let k = 0; k < 16; k++) { const x = h.x + sim.arng.int(-R, R), y = h.y + sim.arng.int(-R, R);
-      if ((k < 10 && !isMeadow(w, x, y)) || (x === t.x && y === t.y) || !free(sim, a, x, y) || personDist(sim, x, y) < S.fleeTo) continue;
+      if ((k < 10 && !isMeadow(w, x, y)) || (x === t.x && y === t.y) || !free(sim, a, x, y) || personDist(sim, x, y) < S.fleeTo || wolfDist(sim, x, y) <= FWW() + 1) continue;
       if (walkTo(sim, a, x, y, "wander")) return; }
     idle(sim, a);
   }
@@ -199,9 +216,9 @@
 
   // Find nearest flesh body within tiles, preferring closer; skip if person too close.
   function nearestCorpse(sim, a, tiles, fleeW) {
-    let best = null;
+    let best = null; const fw = a.species === "wolves" ? 0 : FWW();
     for (const b of sim.bodies) { if (b.flesh <= 0) continue; const d = Math.hypot(b.x - a.pos.x, b.y - a.pos.y);
-      if (d <= tiles && personDist(sim, b.x, b.y) >= fleeW && (!best || d < best.d)) best = { b, d }; }
+      if (d <= tiles && personDist(sim, b.x, b.y) >= fleeW && (!fw || wolfDist(sim, b.x, b.y) > fw + 1) && (!best || d < best.d)) best = { b, d }; }
     return best;
   }
   function goFeed(sim, a, best) {
@@ -217,9 +234,13 @@
     if (a.species === "wolves" && G.Powers && G.Powers.rainStrAt && !(a.act && a.act.goal === "hunt")) { const rs = G.Powers.rainStrAt(sim, Math.round(a.pos.x), Math.round(a.pos.y)), X = AC().wolves.rainHuntX;
       if (rs && X && X[rs] != null && X[rs] < 1 && !sim.arng.chance(X[rs])) { const ws = sim.wolfRain = sim.wolfRain || { rests: 0, hunts: 0 }; ws.rests++; return false; } }
     if (a.species === "wolves") { const ws = sim.wolfRain = sim.wolfRain || { rests: 0, hunts: 0 }; ws.tries = (ws.tries || 0) + 1; }
-    let best = null;
+    let best = null; const fw = a.species === "wolves" ? 0 : FWW();
     for (const q of sim.animals) if (q.species === "grazer") { const d = Math.hypot(q.pos.x - a.pos.x, q.pos.y - a.pos.y);
-      if (d <= H.stalkTiles && (!best || d < best.d)) best = { q, d }; }
+      if (d <= H.stalkTiles && (!fw || wolfDist(sim, q.pos.x, q.pos.y) > fw + 1) && (!best || d < best.d)) best = { q, d }; }
+    const HD = a.species === "wolves" && AC().wolves.huntDog;   // v38 (f): deer first; a dog when no deer is in reach or a dog is close
+    if (HD) { let dog = null;
+      for (const q of sim.animals) if (q.species === "scavenger") { const d = d0(a, q); if (d <= HD.stalkTiles && (!dog || d < dog.d)) dog = { q, d }; }
+      if (dog && (!best || (dog.d <= HD.closeTiles && dog.d < best.d))) best = dog; }
     if (!best) return false;
     if (best.d <= H.strikeTiles + 0.2 && whole(a)) { tryKill(sim, a, best.q); return true; }
     return walkTo(sim, a, Math.round(best.q.pos.x), Math.round(best.q.pos.y), "hunt", { prey: best.q.id });
@@ -241,14 +262,14 @@
     }
     const R = S.wanderRadius;
     for (let k = 0; k < 12; k++) { const x = t.x + sim.arng.int(-R, R), y = t.y + sim.arng.int(-R, R);
-      if ((x === t.x && y === t.y) || !free(sim, a, x, y) || personDist(sim, x, y) < S.fleeTo) continue;
+      if ((x === t.x && y === t.y) || !free(sim, a, x, y) || personDist(sim, x, y) < S.fleeTo || wolfDist(sim, x, y) <= FWW() + 1) continue;
       if (walkTo(sim, a, x, y, "wander")) return; }
     idle(sim, a);
   }
   function feed(sim, a) {
     const Sp = AC()[a.species] || AC().scavenger, F = Sp.fullness, b = sim.bodies.find(q => q.id === a.act.body);
     if (!b || b.flesh <= 0 || a.needs.fullness >= 100) { if (b && a.needs.fullness >= 100) a.stats.meals++; idle(sim, a); return; }
-    if (!b.scavenged) { b.scavenged = true; G.Sim.log(sim, "A " + LABEL(a.species) + " feeds on " + b.name + "'s body", b); }
+    if (!b.scavenged) { b.scavenged = true; G.Sim.log(sim, (a.species === "wolves" ? Animal.name(a) : "A " + LABEL(a.species)) + " feeds on " + b.name + "'s body", b); }
     const add = Math.min(100 - a.needs.fullness, F.fillPerMinute * TM());
     a.needs.fullness = r9(a.needs.fullness + add); b.eaten = r9((b.eaten || 0) + add * F.fleshPerFullness); b.flesh = r9(Math.max(0, b.flesh - add * F.fleshPerFullness));
   }
@@ -280,10 +301,10 @@
       a.act = { type: "idle", until: sim.tick, goal: "threaten", target: intruder.p.id };
       tryThreaten(sim, a, intruder.p); return;
     }
-    if (a.needs.fullness < S.fullness.feedBelow) {
-      const c = nearestCorpse(sim, a, 12, 0); if (c && goFeed(sim, a, c)) return;
-      if (stalkDeer(sim, a, S.huntDeer)) return;
-    }
+    // v38 (f): wolves gorge on any carcass in reach (the pack shares a kill) before they need to hunt; hunt only below feedBelow
+    if (a.needs.fullness < S.fullness.carrionBelow) {
+      const c = nearestCorpse(sim, a, S.corpseTiles, 0); if (c && goFeed(sim, a, c)) return; }
+    if (a.needs.fullness < S.fullness.feedBelow && stalkDeer(sim, a, S.huntDeer)) return;
     // pack cohesion: stay within packRadius of center; otherwise wander near den
     const ctr = packCenter(sim, pack), R = S.packRadius, WR = S.wanderRadius;
     if (Math.hypot(a.pos.x - ctr.x, a.pos.y - ctr.y) > R) {
@@ -311,6 +332,11 @@
     if (S.fleeWithin > 0) {
       const np = Animal.nearestPerson(sim, a.pos.x, a.pos.y);
       if (np.p && np.d < S.fleeWithin && a.act.goal !== "flee") flee(sim, a, np.p);
+    }
+    // v38 (f): deer and wild dogs run from any wolf within fleeWolfWithin, before it strikes (same flee move as from people)
+    if (a.species !== "wolves" && FWW() > 0 && a.act.goal !== "flee" && a.act.goal !== "fleeFire") {
+      const nw = Animal.nearestWolf(sim, a.pos.x, a.pos.y);
+      if (nw.w && nw.d <= FWW()) { const st = sim.wolfFlee = sim.wolfFlee || {}; st[a.species] = (st[a.species] || 0) + 1; flee(sim, a, nw.w); }
     }
     if (a.act.goal !== "fleeFire" && G.Fire.burning(sim) && G.Fire.nearestFlame(sim, a.pos.x, a.pos.y) < CF().fire.fleeTiles) {
       const t = tileOf(a), b = G.Fire.awayTile(sim, t.x, t.y, (x, y) => free(sim, a, x, y)); if (b && walkTo(sim, a, b.x, b.y, "fleeFire")) { a.stats.fireFlees = (a.stats.fireFlees || 0) + 1;
@@ -343,7 +369,7 @@
     if (act.type === "feed") return feed(sim, a);
     const hungry = n.fullness < (a.species === "grazer" ? S.fullness.grazeBelow : S.fullness.feedBelow);
     // do not overwrite an active threaten engagement with pack/den roam
-    if (act.goal !== "threaten" && (sim.tick >= act.until || (hungry && sim.tick % 10 === 0))) decide(sim, a);
+    if ((act.goal !== "threaten" && (sim.tick >= act.until || (hungry && sim.tick % 10 === 0))) || (act.goal === "threaten" && act.type === "idle" && sim.tick >= act.until)) decide(sim, a);   // v38 (f) fix: a wolf no longer freezes after a strike
     if (a.act.type === "walk") move(sim, a);
   };
   Animal.stepAll = function (sim) {

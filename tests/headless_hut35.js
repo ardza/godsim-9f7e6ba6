@@ -75,7 +75,7 @@ function forceDen(a, score) {
   ok((s.hutStats && s.hutStats.built) >= 1, "hutStats.built++", s.hutStats && s.hutStats.built);
   ok((s.discoveries || []).some(d => d.title === "First crude hut" || (d.action === "build" && (d.materials || []).indexOf("hut") >= 0)),
     "Discoveries First crude hut", (s.discoveries || []).filter(d => d.action === "build").map(d => d.title || d.key).join(","));
-  ok(s.log.some(e => /piles sticks and reeds into a crude hut/.test(e.text)), "action-only build log");
+  ok(s.log.some(e => /piles \d+ (sticks?|reeds?|hides?)(, \d+ (sticks?|reeds?|hides?))* into a crude hut/.test(e.text)), "action-only build log");
   ok((a.shelters || []).indexOf(hut.id) >= 0 && a.den === hut.id, "builder knows + occupies hut");
 }
 

@@ -11,6 +11,7 @@ for (const f of ["data/config.js", "data/tiles.js", "data/names.js", "data/words
 const G = ctx.GS, C = G.data.config, F = C.fire, W = G.World, T = G.data.T;
 if (process.env.FIRE_MIN) F.minDryness = +process.env.FIRE_MIN;
 if (process.env.FIRE_SCALE) F.spreadScale = +process.env.FIRE_SCALE;
+if (process.env.FIRE_BUDGET) F.burnBudget = +process.env.FIRE_BUDGET;
 if (process.env.FIRE_NEARWATER) C.climate.dryness.nearWater = +process.env.FIRE_NEARWATER;
 const CAP = +(process.env.FIRE_CAP || 300), N = +(process.env.FIRE_N || 30), DAY = 1440, SEASON = C.time.daysPerSeason * DAY;
 const tickIn = si => si * SEASON + Math.round(SEASON / 2) - C.time.startMinute;   // middle of season si (0 Greening, 1 High Sun, 3 Deep Cold)

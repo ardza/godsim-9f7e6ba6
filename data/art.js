@@ -74,6 +74,10 @@
     sacred: { src: "data/art/sacred_16.png", frame: 16, cols: ["sacred"] },
     // §35 / v32 (Artist): crude piled hut overlay (pile = in-progress, hut = done lean-to)
     hut: { src: "data/art/hut_16.png", frame: 16, cols: ["pile", "hut"] },   // 32x16
+    // v38 (Artist): hut quality tiers (sticks < reeds < hide = sturdy); *_worn shown when dur < 50, food keeping, berry seed -> sprout -> sapling (then bush)
+    hutTier: { src: "data/art/hut_tiers_16.png", frame: 16, cols: ["sticks", "reeds", "hide", "sticks_worn", "reeds_worn", "hide_worn"] },   // 96x16
+    foodKeep: { src: "data/art/food_keep_16.png", frame: 16, cols: ["rotten", "dried"] },   // 32x16
+    sprout: { src: "data/art/sprout_16.png", frame: 16, cols: ["seed", "sprout", "sapling"] },   // 48x16
     // §36 / v33 (Artist): ore ground material + struck shard (ochre veins; distinct from rock/flint)
     ore: { src: "data/art/ore_16.png", frame: 16, cols: ["ore", "ore_shard"] },   // 32x16
     // §37 / v34 (Artist): hard tip on stick/bone — hand overlays at person origin; bigger tip than spear_16 poke

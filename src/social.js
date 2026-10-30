@@ -189,5 +189,44 @@
     return out.sort((p, q) => q.f - p.f || q.l - p.l || p.id - q.id).slice(0, n || C.cardTop);
   };
 
+  // v38 (e) two-person history: A's personal log entries that also name B (e.ids includes B), newest first. Reuses sim.plog, nothing new is stored.
+  Social.shared = function (sim, aId, bId) {
+    if (aId == null || bId == null || aId === bId) return [];
+    return G.Sim.plogOf(sim, aId).filter(e => Array.isArray(e.ids) && e.ids.indexOf(bId) >= 0).slice().reverse();
+  };
+  // v38 (e) fixture (GS.debug.historyFixture / ?fixture=history): A and B share a quarrel over food (Social.took), a food take from B's cache
+  // (Cache.doRetrieve) and a kin event (pairing, Family daily check), all through the game's own code; A also logs things alone and with C,
+  // and B logs one thing alone. Game time moves on ui.pairView.fixtureGapMinutes between events (no sim steps, so nothing else gets logged).
+  Social.historyFixture = function (sim) {
+    const BD = G.data.config.family.bond, gap = Math.max(1, Math.round((G.data.config.ui.pairView.fixtureGapMinutes || 20) / G.data.config.time.tickGameMinutes));
+    const adults = sim.agents.filter(p => p.kind === "person" && !(G.Family && G.Family.isChild(p)));
+    const A = adults[0]; if (!A) return null;
+    const B = adults.find(p => p !== A && p.sex !== A.sex) || adults[1], Cp = adults.find(p => p !== A && p !== B);
+    if (!B || !Cp) return null;
+    if (B.sex === A.sex) B.sex = A.sex === "m" ? "f" : "m";   // the pairing rule is man + woman (family.bond.mixedOnly)
+    for (const p of [A, B]) { p.age = Math.min(Math.max(p.age, BD.age[0]), BD.age[1]); }
+    for (const p of sim.agents) if (p.mate != null && (p === A || p === B || p.mate === A.id || p.mate === B.id)) p.mate = null;
+    const know = (p, q, l, f) => { const e = Social.addLike(p, q, 0); e.l = l; e.f = f; };
+    know(A, B, 100, 100); know(B, A, 100, 100); know(A, Cp, 50, 30); know(Cp, A, 50, 30);
+    for (const p of sim.agents) if (p !== A && p !== B && p.rel) { if (p.rel[A.id]) p.rel[A.id].l = Math.min(p.rel[A.id].l, BD.like - 1); if (p.rel[B.id]) p.rel[B.id].l = Math.min(p.rel[B.id].l, BD.like - 1); }
+    const step = () => { sim.tick += gap; };
+    step(); G.Sim.log(sim, A.name + " drinks at the lake", A);                                     // A alone
+    step(); Social.took(sim, A, B, "last of the meat");                                            // A & B: quarrel over food
+    step(); Social.took(sim, A, Cp, "bush");                                                       // A & C (not B)
+    step(); const t = G.Agent.tilePos(A);
+    // B is away for the cache take, so B does not watch it (a watched take would be a 4th shared line: Cache.notifyWatchers tags both)
+    let far = null, fd = 0; for (let y = 0; y < sim.world.h; y += 3) for (let x = 0; x < sim.world.w; x += 3) { const d = Math.hypot(x - t.x, y - t.y);
+      if (d > fd && d <= 40 && G.World.walkable(sim.world, x, y) && !G.World.isWater(sim.world, x, y)) { fd = d; far = { x, y }; } }
+    const bWas = { x: B.pos.x, y: B.pos.y }; if (far) B.pos = { x: far.x, y: far.y }; if (A.carry != null) G.Items.drop(sim, A);
+    const it = G.Items.create(sim, "meat", t.x, t.y); it.spoilAt = sim.tick + G.Food.spoilMinutes(); it.from = "a deer"; it.heat = 0; it.stashedBy = B.name;
+    it.src = { k: "hunted", animal: "deer", by: B.name }; sim.items.push(it);
+    G.Cache.doRetrieve(sim, A, { key: "t:" + t.x + "," + t.y, kind: "spot", x: t.x, y: t.y }, true);   // A & B: food from B's cache
+    B.pos = bWas;
+    step(); G.Sim.log(sim, A.name + " lies down to sleep", A);                                     // A alone
+    step(); G.Family._daily(sim);                                                                  // A & B: kin (they pair up)
+    step(); G.Sim.log(sim, B.name + " found a berry bush", B);                                     // B alone
+    return { a: A.id, b: B.id, c: Cp.id };
+  };
+
   G.Social = Social;
 })(this.GS = this.GS || {});

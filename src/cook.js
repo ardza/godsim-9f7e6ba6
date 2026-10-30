@@ -13,9 +13,10 @@
 
   Cook.state = heat => heat > K().charredAt ? "charred" : heat >= K().cookedAt ? "cooked" : "raw";
   Cook.of = it => Cook.state(it && it.heat || 0);
-  Cook.fullness = it => { const s = Cook.of(it); return s === "raw" ? CF().meat.fullness : K().fullness[s]; };
-  Cook.sickChance = it => { const s = Cook.of(it); return s === "raw" ? CF().meat.sickChance : K().sickChance[s]; };
-  Cook.label = it => Cook.of(it) + " meat";
+  Cook.fullness = it => { if (it && it.material === "rotten") return CF().food.rottenFullness; const s = Cook.of(it); return s === "raw" ? CF().meat.fullness : K().fullness[s]; };
+  // v38 (c): rotten food = rottenSickX x the raw-meat chance (same sickness); dried meat keeps the odds of its cook state
+  Cook.sickChance = it => { if (it && it.material === "rotten") return Math.min(1, CF().meat.sickChance * CF().food.rottenSickX); const s = Cook.of(it); return s === "raw" ? CF().meat.sickChance : K().sickChance[s]; };
+  Cook.label = it => it && it.material === "rotten" ? "rotten food" : it && it.dried ? (Cook.of(it) === "raw" ? "dried meat" : "dried " + Cook.of(it) + " meat") : Cook.of(it) + " meat";
   // close enough to cook: an ember within emberTiles or a fire within fireTiles (people keep fire.fleeTiles from flames, so that ring is "next to" a fire)
   Cook.hot = function (sim, x, y) {
     const e = G.Learn.nearestFire(sim, x, y, ["ember"]); if (e && e.d <= K().emberTiles + 1e-9) return e;
@@ -69,6 +70,7 @@
   };
   // after a meal of meat: cooked is a success others may copy; charred lowers the score (raw changes nothing here)
   Cook.ate = function (sim, a, it) {
+    if (it && it.material === "rotten") return;   // v38 (c)
     const s = Cook.of(it); stats(sim).eaten[s]++;
     if (s === "cooked") { const e = G.Learn.add(a, "cook", K().gain); e.n++; G.Discoveries.note(sim, a, "eat", ["cooked meat"], "fullness up, not sick"); G.Learn.success(sim, a, "cook"); if (G.Disease) G.Disease.onEatCooked(sim, a); }
     else if (s === "charred") { G.Learn.add(a, "cook", -K().charDrop); G.Discoveries.note(sim, a, "eat", ["charred meat"], "little fullness"); }

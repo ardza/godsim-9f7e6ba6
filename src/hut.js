@@ -150,10 +150,11 @@
   function consumeMats(sim, a, x, y) {
     const need = HC().needPile != null ? HC().needPile : 3;
     const R = HC().gatherTiles != null ? HC().gatherTiles : 2;
-    let got = 0;
+    let got = 0; const mats = {};
     const take = (it) => {
       if (!it || got >= need) return;
       const w = Hut.matWeight(it); if (!w) return;
+      mats[it.material] = (mats[it.material] || 0) + 1;
       if (it.heldBy === a.id) { a.carry = null; a.carryUntil = null; it.heldBy = null; }
       const ix = sim.items.indexOf(it); if (ix >= 0) sim.items.splice(ix, 1);
       got += w;
@@ -168,7 +169,7 @@
       const more = Hut.groundNear(sim, Math.round(a.pos.x), Math.round(a.pos.y), R);
       for (const it of more) take(it);
     }
-    return got >= need;
+    return got >= need ? mats : null;
   }
 
   Hut.invalidate = function (sim) {
@@ -181,7 +182,7 @@
     return m + 1;
   };
 
-  Hut.create = function (sim, x, y, who) {
+  Hut.create = function (sim, x, y, who, mats) {
     const C = HC(), Sc = SC();
     const hut = {
       id: Hut.nextId(sim),
@@ -194,8 +195,11 @@
       built: true,
       stage: "hut",
       builtAt: sim.tick,
-      builtBy: who ? who.id : null
+      builtBy: who ? who.id : null,
+      mats: Object.assign({}, mats || { stick: C.needPile != null ? C.needPile : 3 }),   // v38: what went in
+      dur: (C.dur && C.dur.start != null) ? C.dur.start : 80                              // v38: 0-100
     };
+    Hut.refresh(hut);
     if (!sim.shelters) sim.shelters = [];
     sim.shelters.push(hut);
     Hut.invalidate(sim);
@@ -206,14 +210,14 @@
     if (!a || Hut.hutOccupied(sim, x, y)) return null;
     if (!G.World.walkable(sim.world, x, y)) return null;
     if (G.World.tile(sim.world, x, y) === G.data.T.WATER) return null;
-    if (!consumeMats(sim, a, x, y)) return null;
-    const hut = Hut.create(sim, x, y, a);
+    const mats = consumeMats(sim, a, x, y); if (!mats) return null;
+    const hut = Hut.create(sim, x, y, a, mats);
     st(sim).built++;
     a.stats = a.stats || {}; a.stats.huts = (a.stats.huts || 0) + 1;
     if (G.Shelter && G.Shelter.know) G.Shelter.know(sim, a, hut);
     // enter immediately if idle/cold
     a.den = hut.id; a.denW0 = a.needs.warmth; a.denSlept = a.act.type === "sleep";
-    G.Sim.log(sim, a.name + " piles sticks and reeds into a crude hut", a);
+    G.Sim.log(sim, a.name + " piles " + Hut.matsText(hut.mats) + " into " + (Hut.tier(hut).k === "sticks" ? "a crude hut" : "a " + Hut.tier(hut).label), a);
     const d = G.Discoveries.note(sim, a, "build", ["hut"], "crude shelter");
     if (d) { d.title = "First crude hut"; st(sim).firsts++; }
     return hut;
@@ -275,6 +279,224 @@
     if (!hut) { a.act = { type: "idle", until: sim.tick + 30 }; return false; }
     a.act = { type: "idle", until: sim.tick + 60 };
     return true;
+  };
+
+  // ================= v38 (a): tiers from materials, durability, tending, collapse =================
+  const DC = () => HC().dur || {};
+  const MAT_WORD = { stick: ["stick", "sticks"], reed: ["reed", "reeds"], hide: ["hide", "hides"] };
+  Hut.matsText = function (m) {
+    const out = [];
+    for (const k of ["stick", "reed", "hide"]) { const n = (m && m[k]) || 0; if (n) out.push(n + " " + MAT_WORD[k][n === 1 ? 0 : 1]); }
+    return out.length ? out.join(", ") : "nothing";
+  };
+  Hut.total = h => { let n = 0; for (const k in (h.mats || {})) n += h.mats[k] || 0; return n; };
+  // the last tier in config.hut.tiers whose need is met
+  Hut.tier = function (h) {
+    const T = HC().tiers || []; let best = T[0] || { k: "sticks", label: "crude hut", warmX: HC().warmX || 1.2, rain: HC().rain || 0.85, decayX: 1 };
+    const m = (h && h.mats) || {}, tot = h ? Hut.total(h) : 0;
+    for (const t of T) { let okT = true; for (const k in (t.need || {})) { const have = k === "total" ? tot : (m[k] || 0); if (have < t.need[k]) { okT = false; break; } } if (okT) best = t; }
+    return best;
+  };
+  Hut.tierIndex = h => Math.max(0, (HC().tiers || []).indexOf(Hut.tier(h)));
+  Hut.worn = h => (h.dur != null ? h.dur : 100) < (DC().wornBelow != null ? DC().wornBelow : 50);
+  // push tier + wear onto the shelter fields every other system already reads (warmX for Shelter.warmC, rain for Powers.exposure / cover)
+  Hut.refresh = function (h) {
+    const t = Hut.tier(h), D = DC(), w = Hut.worn(h);
+    h.tier = t.k;
+    h.warmX = Math.round(t.warmX * (w ? (D.wornWarmX != null ? D.wornWarmX : 1) : 1) * 1000) / 1000;
+    h.rain = Math.round(t.rain * (w ? (D.wornRainX != null ? D.wornRainX : 1) : 1) * 1000) / 1000;
+    return h;
+  };
+  Hut.artCol = function (h) {   // Render: hutTier column name for this hut (per-tier worn frame from config)
+    const t = Hut.tier(h); return Hut.worn(h) ? (t.artWorn || t.art || t.k) : (t.art || t.k);
+  };
+  const clampD = v => Math.max(0, Math.min(100, Math.round(v * 1e6) / 1e6));
+
+  // damage from anything (lightning / fire / trample / test); collapses at 0
+  Hut.damage = function (sim, h, amt, why) {
+    if (!h || !(amt > 0)) return h;
+    const was = Hut.worn(h); h.dur = clampD((h.dur != null ? h.dur : 100) - amt);
+    const St = st(sim); St.damage = Math.round(((St.damage || 0) + amt) * 1000) / 1000;
+    if (h.dur <= 0) { Hut.collapse(sim, h, why); return null; }
+    if (Hut.worn(h) !== was) Hut.refresh(h);
+    return h;
+  };
+  // collapse: the shelter entry goes, people inside are out, its mats drop as items on nearby walkable tiles
+  Hut.collapse = function (sim, h, why) {
+    const ix = (sim.shelters || []).indexOf(h); if (ix < 0) return [];
+    sim.shelters.splice(ix, 1); Hut.invalidate(sim);
+    for (const a of sim.agents) { if (a.den === h.id) { a.den = null; a.denW0 = null; a.denSlept = false; } if (a.shelters) { const k = a.shelters.indexOf(h.id); if (k >= 0) a.shelters.splice(k, 1); } }
+    const [x0, y0] = h.tiles[0], R = DC().collapseScatter != null ? DC().collapseScatter : 2, tiles = [];
+    for (let r = 0; r <= R; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+      if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; const x = x0 + dx, y = y0 + dy;
+      if (G.World.inb(sim.world, x, y) && G.World.walkable(sim.world, x, y) && !G.World.isWater(sim.world, x, y)) tiles.push([x, y]); }
+    const out = []; let i = 0; const MAT = { stick: "stick", reed: "reed", hide: "hide" };
+    for (const k of ["stick", "reed", "hide"]) for (let n = 0; n < ((h.mats && h.mats[k]) || 0); n++) {
+      if (!G.data.materials[MAT[k]]) continue; const [x, y] = tiles.length ? tiles[i++ % tiles.length] : [x0, y0];
+      const it = G.Items.create(sim, MAT[k], x, y); sim.items.push(it); out.push(it); }
+    st(sim).collapsed = (st(sim).collapsed || 0) + 1;
+    G.Sim.log(sim, "The " + Hut.tier(h).label + " " + (HC().collapseLine || "falls in, scattering its") + " " + Hut.matsText(h.mats));
+    return out;
+  };
+  // per-minute wear rate (points per minute) at this hut right now: weather x tier
+  Hut.decayRate = function (sim, h) {
+    const D = DC(), [x, y] = h.tiles[0]; let r = (D.decayPerDay != null ? D.decayPerDay : 3) / 1440;
+    const P = G.Powers, rs = P && P.rainStrAt ? P.rainStrAt(sim, x, y) : null;
+    if (rs) { r *= (D.rainX && D.rainX[rs] != null) ? D.rainX[rs] : 1;
+      const sm = (D.stormMinutes != null ? D.stormMinutes : 60) / TM(), stT = D.stormTiles != null ? D.stormTiles : 12;
+      if ((sim._hutBolts || []).some(b => sim.tick - b.t <= sm && Math.hypot(b.x - x, b.y - y) <= stT)) r *= D.stormX != null ? D.stormX : 1; }
+    const airF = G.Climate.airAt(sim, x, y) * 9 / 5 + 32; if (airF < (D.coldBelowF != null ? D.coldBelowF : 32)) r *= D.coldX != null ? D.coldX : 1;
+    return r * (Hut.tier(h).decayX != null ? Hut.tier(h).decayX : 1) * TM();
+  };
+  Hut.bolt = function (sim, x, y) {   // a lightning bolt landed at (x, y): remember it for storm wear, hit huts on / next to it
+    const B = sim._hutBolts || (Object.defineProperty(sim, "_hutBolts", { value: [], enumerable: false, writable: true, configurable: true }), sim._hutBolts);
+    B.push({ x, y, t: sim.tick }); if (B.length > 50) B.splice(0, B.length - 50);
+    const D = DC(), nt = D.lightningNearTiles != null ? D.lightningNearTiles : 1;
+    for (const h of Hut.huts(sim).slice()) { const [hx, hy] = h.tiles[0], d = Math.max(Math.abs(hx - x), Math.abs(hy - y));
+      if (d === 0) Hut.damage(sim, h, D.lightning != null ? D.lightning : 60, "lightning");
+      else if (d <= nt) Hut.damage(sim, h, D.lightningNear != null ? D.lightningNear : 20, "lightning"); }
+  };
+  // every minute (after fire): weather wear, flames, trampling, natural lightning
+  Hut.step = function (sim, bolt) {
+    if (bolt) Hut.bolt(sim, bolt.x, bolt.y);   // natural strike this minute (Sim.step reads it off Fire.lightning's fx)
+    const huts = Hut.huts(sim); if (!huts.length) return;
+    const D = DC(), Tr = D.trample || {};
+    for (const h of huts) {
+      if (h.dur == null) { h.dur = D.migrate != null ? D.migrate : 100; Hut.refresh(h); }
+      const [x, y] = h.tiles[0]; let dmg = Hut.decayRate(sim, h);
+      const f = sim.fire && sim.fire[x + "," + y]; if (f && f.s === "fire") dmg += (D.firePerMinute != null ? D.firePerMinute : 1.5) * TM();
+      for (const an of sim.animals || []) if (!an.dead && Tr[an.species] && Math.round(an.pos.x) === x && Math.round(an.pos.y) === y) dmg += Tr[an.species] * TM();
+      Hut.damage(sim, h, dmg, f ? "fire" : "wear");
+    }
+  };
+
+  // one piece onto an existing hut: grows the pile (to maxMats), restores durability, may raise the tier. Same act as building.
+  Hut.addTo = function (sim, a, h, it) {
+    if (!h || !it || !Hut.isPileMat(it)) return false;
+    const m = it.material, before = Hut.tier(h), wasWorn = (h.dur != null ? h.dur : 100) < (DC().patchBelow != null ? DC().patchBelow : 50);
+    if (it.heldBy === a.id) { a.carry = null; a.carryUntil = null; it.heldBy = null; }
+    const ix = sim.items.indexOf(it); if (ix >= 0) sim.items.splice(ix, 1);
+    h.mats = h.mats || {}; if (Hut.total(h) < (HC().maxMats != null ? HC().maxMats : 10)) h.mats[m] = (h.mats[m] || 0) + 1;
+    h.dur = clampD((h.dur != null ? h.dur : 100) + ((HC().patch || {})[m] || 0));
+    Hut.refresh(h);
+    const S = st(sim); S.adds = (S.adds || 0) + 1; if (wasWorn) S.patches = (S.patches || 0) + 1;
+    G.Sim.log(sim, a.name + " " + ((wasWorn ? HC().patchLines : HC().addLines) || {})[m], a);
+    const after = Hut.tier(h);
+    if (after !== before && after === (HC().tiers || [])[(HC().tiers || []).length - 1]) {
+      const d = G.Discoveries.note(sim, a, "build", ["sturdy hut"], "hide-covered shelter"); if (d) { d.title = "First sturdy hut"; S.firsts++; } }
+    if (m === "hide") {   // remember who saw the hide go on, for copying when she wakes warm inside
+      const Cp = HC().copy || {}, seen = sim.agents.filter(b => b !== a && b.act.type !== "sleep" && Math.hypot(b.pos.x - a.pos.x, b.pos.y - a.pos.y) <= (Cp.tiles != null ? Cp.tiles : 5)).map(b => b.id);
+      h.hideAdd = { by: a.id, t: sim.tick, seen };
+    }
+    return true;
+  };
+  // she woke warm inside (Shelter.step): if she put the hide on, that's her success, and those who saw it may copy
+  Hut.wokeWarm = function (sim, a, h) {
+    if (!Hut.isHut(h) || !h.hideAdd || h.hideAdd.by !== a.id) return 0;
+    const Cp = HC().copy || {}, win = (Cp.windowMinutes != null ? Cp.windowMinutes : 2880) / TM();
+    if (sim.tick - h.hideAdd.t > win) { h.hideAdd = null; return 0; }
+    const L = G.Learn; L.add(a, "hutHide", Cp.gain != null ? Cp.gain : 10); L.bump(sim, "successes", "hutHide");
+    const sa = L.score(a, "hutHide"); let n = 0;
+    for (const id of h.hideAdd.seen || []) { const b = sim.agents.find(q => q.id === id); if (!b || b.act.type === "sleep") continue;
+      const own = L.score(b, "hutHide"); if (sa <= own) continue;
+      if (!hrng(sim).chance(L.copyChance(b, "hutHide"))) continue;
+      const e = L.rec(b, "hutHide"); e.score = Math.round((own + (sa - own) * G.data.config.learn.copyShare) * 100) / 100; e.copied = { from: a.id, name: a.name, t: sim.tick };
+      L.bump(sim, "copies", "hutHide"); n++; st(sim).hideCopies = (st(sim).hideCopies || 0) + 1;
+      G.Sim.log(sim, b.name + " watched " + a.name + " and copied: " + L.label("hutHide"), [b, a]); }
+    h.hideAdd = null; return n;
+  };
+  // which piece she could add to h (held first, then ground near the hut / near her); null if none or she'd rather not
+  function tendPiece(sim, a, h, upgradeOnly) {
+    const R = HC().gatherTiles != null ? HC().gatherTiles : 2, [x, y] = h.tiles[0], held = G.Items.held(sim, a);
+    const cands = []; if (held && Hut.isPileMat(held)) cands.push(held);
+    for (const it of Hut.groundNear(sim, x, y, R)) cands.push(it);
+    if (!upgradeOnly) return cands[0] || null;
+    // upgrade: a piece that would move the tier up (reed on sticks, hide on sticks/reeds)
+    const ti = Hut.tierIndex(h);
+    for (const it of cands) { const test = { mats: Object.assign({}, h.mats) }; test.mats[it.material] = (test.mats[it.material] || 0) + 1; if (Hut.tierIndex(test) > ti) return it; }
+    return null;
+  }
+  // idle: notice a worn known hut close by and patch it, or add a better piece to it (hide odds rise with the hutHide score)
+  Hut.tend = function (sim, a) {
+    if (!a || !sim || !Hut.huts(sim).length) return false;
+    if (G.Family && G.Family.isChild && G.Family.isChild(a)) return false;
+    const T = HC().tend || {}, every = (T.everyMinutes != null ? T.everyMinutes : 30) / TM();
+    if (a.hutTend != null && sim.tick - a.hutTend < every) return false;
+    a.hutTend = sim.tick;
+    const pb = DC().patchBelow != null ? DC().patchBelow : 50, nt = T.noticeTiles != null ? T.noticeTiles : 6, t = G.Agent.tilePos(a);
+    let best = null;
+    for (const h of Hut.huts(sim)) { if ((a.shelters || []).indexOf(h.id) < 0) continue; const [x, y] = h.tiles[0], d = Math.hypot(x - t.x, y - t.y); if (d > nt) continue;
+      const worn = (h.dur != null ? h.dur : 100) < pb; if (!best || (worn && !best.worn) || (worn === best.worn && d < best.d)) best = { h, d, worn, x, y }; }
+    if (!best) return false;
+    let it = tendPiece(sim, a, best.h, !best.worn);
+    if (!it) return false;
+    if (!best.worn) {   // upgrading is optional: curiosity, and for a hide the learned hutHide score
+      const cur = (a.traits && a.traits.curiosity != null ? a.traits.curiosity : 50) / 50;
+      let p = (T.upgradeChance != null ? T.upgradeChance : 0.25) * cur;
+      if (it.material === "hide") p = (T.hideChance != null ? T.hideChance : 0.3) * cur * G.Learn.score(a, "hutHide") / 50;
+      if (!hrng(sim).chance(Math.max(0, Math.min(1, p)))) return false;
+    }
+    const R = HC().gatherTiles != null ? HC().gatherTiles : 2;
+    const nearHut = Math.hypot(best.x - a.pos.x, best.y - a.pos.y) <= 1.5;
+    if (nearHut && (it.heldBy === a.id || Math.hypot(it.x - best.x, it.y - best.y) <= R)) return Hut.addTo(sim, a, best.h, it);
+    if (it.heldBy !== a.id) return false;   // she brings what she holds; ground pieces are used once she's there
+    if (!G.Agent.walkTo(sim, a, best.x, best.y, "hutTend", { hutId: best.h.id })) return false;
+    st(sim).tendWalks = (st(sim).tendWalks || 0) + 1;
+    G.Sim.log(sim, a.name + " " + ((HC().tendLines || {}).walk || "carries material to the hut"), a);
+    return true;
+  };
+  Hut.arriveTend = function (sim, a) {
+    const h = Hut.huts(sim).find(q => q.id === (a.act && a.act.hutId));
+    if (h) { const it = tendPiece(sim, a, h, false); if (it) Hut.addTo(sim, a, h, it); }
+    G.Agent.startIdle(sim, a, 0.5);
+    return !!h;
+  };
+  Hut.byId = (sim, id) => Hut.huts(sim).find(q => q.id === id) || null;
+  Hut.selId = h => "hut:" + h.id;
+  Hut.fromSel = (sim, sel) => typeof sel === "string" && sel.indexOf("hut:") === 0 ? Hut.byId(sim, +sel.slice(4)) : null;
+  // what the inspect card shows (UI renders it; headless tests read it)
+  Hut.info = function (sim, h) {
+    const t = Hut.tier(h), D = DC(), inside = sim.agents.filter(a => a.den === h.id && !a.dead).map(a => a.name);
+    const P = G.Powers, rs = P && P.rainStrAt ? P.rainStrAt(sim, h.tiles[0][0], h.tiles[0][1]) : null;
+    return { label: t.label, tier: t.k, mats: Hut.matsText(h.mats), dur: Math.round(h.dur != null ? h.dur : 100), worn: Hut.worn(h),
+      wornBelow: D.wornBelow != null ? D.wornBelow : 50, warmX: h.warmX, rainPct: Math.round((h.rain != null ? h.rain : 0) * 100),
+      cap: h.cap, inside, raining: rs, wearPerDay: Math.round(Hut.decayRate(sim, h) / TM() * 1440 * 10) / 10, art: Hut.artCol(h) };
+  };
+  // fixture (test / Tester): one sturdy-but-worn hut beside the first person, selected. Used by ?fixture=hut and GS.debug.hutFixture()
+  Hut.fixture = function (sim, opts) {
+    const o = opts || {}, a = sim.agents[0]; if (!a) return null;
+    const t = G.Agent.tilePos(a); let x = t.x, y = t.y;
+    for (let r = 1; r < 6 && (x === t.x && y === t.y); r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+      const xx = t.x + dx, yy = t.y + dy; if (x !== t.x || y !== t.y) break;
+      if (G.World.walkable(sim.world, xx, yy) && !G.World.isWater(sim.world, xx, yy) && !G.Shelter.at(sim, xx, yy)) { x = xx; y = yy; } }
+    const h = Hut.create(sim, x, y, a, o.mats || { stick: 3, reed: 2, hide: 1 });
+    h.dur = o.dur != null ? o.dur : 42; Hut.refresh(h);
+    for (const b of sim.agents) if (b.shelters && b.shelters.indexOf(h.id) < 0) b.shelters.push(h.id);
+    return h;
+  };
+  // fixture (test / Tester): ?fixture=hut&kind=tiers, GS.debug.hutTiersFixture(): one fresh hut per tier (crude, reed, sturdy) in a row near
+  // person 1 on walkable dry ground no one stands on, so every tier sprite is on screen side by side. Returns the huts, crude first.
+  Hut.tiersFixture = function (sim) {
+    const a = sim.agents[0]; if (!a) return null; const F = HC().fixture || {}, mats = F.tiers || [], gap = F.gap || 2, C = F.clear == null ? 2 : F.clear, R = F.tiles || 10;
+    const t = G.Agent.tilePos(a), W = sim.world, n = mats.length, span = (n - 1) * gap;
+    const ok = (x, y) => G.World.inb(W, x, y) && G.World.walkable(W, x, y) && !G.World.isWater(W, x, y) && !G.Shelter.at(sim, x, y) &&
+      sim.agents.every(b => b.dead || Math.max(Math.abs(Math.round(b.pos.x) - x), Math.abs(Math.round(b.pos.y) - y)) >= C);
+    let row = null;
+    for (let r = 0; r <= R && !row; r++) for (let dy = -r; dy <= r && !row; dy++) for (let dx = -r; dx <= r && !row; dx++) {
+      if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; const x0 = t.x + dx, y = t.y + dy;
+      let good = true; for (let i = 0; i < n && good; i++) good = ok(x0 + i * gap, y); if (good) row = { x0, y }; }
+    if (!row) return null;
+    const out = mats.map((m, i) => { const h = Hut.create(sim, row.x0 + i * gap, row.y, a, Object.assign({}, m)); Hut.refresh(h); return h; });
+    for (const b of sim.agents) for (const h of out) if (b.shelters && b.shelters.indexOf(h.id) < 0) b.shelters.push(h.id);
+    return out;
+  };
+  // 37 -> 38: every existing hut gets mats (old huts were sticks/reeds: needPile sticks) and durability
+  Hut.migrate = function (s) {
+    for (const h of s.shelters || []) if (h.type === "hut") {
+      if (!h.mats) h.mats = { stick: HC().needPile != null ? HC().needPile : 3 };
+      if (h.dur == null) h.dur = DC().migrate != null ? DC().migrate : 100;
+      Hut.refresh(h); }
+    return s;
   };
 
   G.Hut = Hut;

@@ -14,7 +14,7 @@
       age: r2(rng.range(p.startAge[0], p.startAge[1])), lifespan: r2(rng.range(p.lifespan[0], p.lifespan[1])),
       needs: { fullness: r2(rng.range(p.fullness.start[0], p.fullness.start[1])), water: r2(rng.range(p.water.start[0], p.water.start[1])), energy: r2(rng.range(p.energy.start[0], p.energy.start[1])), warmth: r2(rng.range(p.warmth.start[0], p.warmth.start[1])) },
       traits, knowledge: { bushes: {}, water: {} }, relations: {}, exp: {},   // exp: step 13-14 experience scores per action (see learn.js)
-      act: { type: "idle", until: 0 }, stats: { meals: 0, drinks: 0, sleeps: 0 }, carry: null,   // carry = id of the one thing in hand
+      act: { type: "idle", until: 0 }, stats: { meals: 0, drinks: 0, sleeps: 0 }, carry: null, wolfFear: G.data.config.wolfFear.baseline || 0,   // v38 (f): founders start at baseline   // carry = id of the one thing in hand
       caches: [], sacred: [],   // v29: personal cache memory [{key, kind, id, x, y, lastKinds}]
       zero: { water: 0, fullness: 0, warmth: 0, energy: 0 },   // minutes in a row at 0 (water/fullness/warmth/energy clocks; warmth & energy kill only after full stage ladders)
       hypo: 0, rainExposedMinutes: 0,
@@ -56,7 +56,7 @@
   Agent.sight = a => P().sightTiles;
   Agent.tilePos = a => ({ x: Math.round(a.pos.x), y: Math.round(a.pos.y) });
   Agent.doing = a => { const d = a.act.type === "pray" ? G.Faith.doing(a) : (a.act.type === "idle" || a.act.type === "sleep") && a.felt && a.felt.huddle && a.needs.warmth < 60 ? (a.act.type === "sleep" ? "asleep, huddled" : "huddling") :
-    a.hypoUnconscious ? "unconscious from cold" : a.hypo >= 4 && a.needs.warmth <= 0 && a.act.type === "sleep" ? "asleep from cold" : ({ idle: "resting", try: ({ strike: "striking", rub: "rubbing", cut: "cutting" })[a.act.action] || "trying", bind: "binding a tool", tip: "striking a tip", chop: "chopping at a tree", eat: "eating a meal", eatMeat: "eating meat", eatCorpse: "eating from a body", dig: "digging", cook: "holding meat to the fire", drink: "drinking", sleep: "asleep" })[a.act.type] || ({ wander: "wandering", food: "going to a bush", explore: "looking for food", water: "going to the water", exploreWater: "looking for water", collapse: "stumbling to a stop", pickup: "going to pick something up", try: "going to try something", shelter: "seeking warmth", fleeFire: "moving away from flames", fireside: "going to sit by the fire", burnt: "jumping back from the flames", hunt: "going after a deer", meat: "going to a carcass", corpse: "going to a body", drag: "dragging a body", follow: "keeping close to someone", mate: "going to sleep beside a partner", keep: "keeping close to family", prayspot: "going to a prayer spot", sacred: "walking toward a worn place", stash: "going to stash something", cache: "going to a cache", hut: "piling a shelter", beside: "going to sleep beside family", avoid: "keeping away from someone", scared: "running from the flash", fleeWolf: "running from the Wolves" })[a.act.goal] || a.act.type;
+    a.hypoUnconscious ? "unconscious from cold" : a.hypo >= 4 && a.needs.warmth <= 0 && a.act.type === "sleep" ? "asleep from cold" : ({ idle: "resting", try: ({ strike: "striking", rub: "rubbing", cut: "cutting" })[a.act.action] || "trying", bind: "binding a tool", tip: "striking a tip", chop: "chopping at a tree", eat: "eating a meal", eatMeat: "eating meat", eatCorpse: "eating from a body", dig: "digging", cook: "holding meat to the fire", drink: "drinking", sleep: "asleep" })[a.act.type] || ({ wander: "wandering", food: "going to a bush", explore: "looking for food", water: "going to the water", exploreWater: "looking for water", collapse: "stumbling to a stop", pickup: "going to pick something up", try: "going to try something", shelter: "seeking warmth", fleeFire: "moving away from flames", fireside: "going to sit by the fire", burnt: "jumping back from the flames", hunt: "going after a deer", meat: "going to a carcass", corpse: "going to a body", drag: "dragging a body", follow: "keeping close to someone", mate: "going to sleep beside a partner", keep: "keeping close to family", prayspot: "going to a prayer spot", sacred: "walking toward a worn place", stash: "going to stash something", cache: "going to a cache", hut: "piling a shelter", hutTend: "carrying material to a hut", dryFood: "laying meat by a fire to dry", beside: "going to sleep beside family", avoid: "keeping away from someone", scared: "running from the flash", fleeWolf: "running from the Wolves" })[a.act.goal] || a.act.type;
     return (G.Disease && G.Disease.isSick(a) && d.indexOf("sick") < 0) ? d + ", sick" : d; };
 
 
@@ -79,7 +79,7 @@
     const R = Agent.sight(a), K = a.knowledge.bushes; let found = 0, ripe = false, ripeNew = false;
     for (const b of sim.bushes) {
       if ((b.x - a.pos.x) ** 2 + (b.y - a.pos.y) ** 2 > R * R) continue;
-      if (!K[b.id]) { K[b.id] = { x: b.x, y: b.y, ripe: false, seen: 0 }; found++; if (b.ripe) ripeNew = true; }
+      if (!K[b.id]) { K[b.id] = { x: b.x, y: b.y, ripe: false, seen: 0 }; found++; if (b.ripe) ripeNew = true; if (b.planted && G.Farm) G.Farm.onFind(sim, a, b); }   // v38 (b)
       // seen empty: remember since when (and restart that if she expected it back by now - someone else ate it meanwhile)
       if (!b.ripe && (K[b.id].ripe || K[b.id].emptySince === undefined || sim.tick - K[b.id].emptySince >= G.data.config.bushes.regrowMinutes)) K[b.id].emptySince = sim.tick;
       K[b.id].ripe = b.ripe; K[b.id].seen = sim.tick; if (b.ripe) ripe = true;
@@ -314,6 +314,7 @@
     if (G.Tools && (!G.Injury || G.Injury.canUseTools(a)) && G.Tools.maybe(sim, a)) return;   // §40: a broken arm blocks tool use   // step 29: bind / chop / poke / ready long stick
     if (G.Hides && G.Hides.maybe(sim, a)) return;   // v28: wear / sleep-under hide when cold
     if (G.Faith && G.Faith.maybeDriftSacred(sim, a)) return;   // §33: idle drift to known sacred marker
+    if (G.Hut && G.Hut.tend && G.Hut.tend(sim, a)) return;   // v38 (a): patch a worn hut nearby / add a better piece to it
     if (G.Items.maybeTry(sim, a) || G.Items.maybePickUp(sim, a)) return;   // idle curiosity (step 9-10)
     const w = P().wander, r = w.radius, g = G.Family.guardian(sim, a), K = G.data.config.child.keepTiles,
       t = randomTarget(sim, a, 2, r, (x, y) => G.Social.wanderOk(sim, a, x, y) && (!g || Math.hypot(g.pos.x - x, g.pos.y - y) <= K));
@@ -380,6 +381,7 @@
       startDrink(sim, a, a.act.water); return; }
     if (g === "cover") { G.Powers.arriveCover(sim, a); return; }   // step 22: waits out the rain
     if (g === "hunt") { G.Hunt.arriveStalk(sim, a); return; }
+    if (g === "wolfHunt") { if (G.WolfFight) G.WolfFight.arrive(sim, a); else startIdle(sim, a); return; }   // v38 (f)
     if (g === "meat") { G.Hunt.arriveMeat(sim, a); return; }
     if (g === "corpse") { G.Corpse.arrive(sim, a); return; }   // step 26
     if (g === "drag") { G.Corpse.arriveDrag(sim, a); return; }
@@ -396,6 +398,8 @@
     if (g === "stash") { if (G.Cache) G.Cache.arriveStash(sim, a); else startIdle(sim, a); return; }   // v29
     if (g === "cache") { if (G.Cache) G.Cache.arriveRetrieve(sim, a); else startIdle(sim, a); return; }   // v29
     if (g === "hut") { if (G.Hut) G.Hut.arrive(sim, a); else startIdle(sim, a); return; }   // §35
+    if (g === "dryFood") { if (G.Food) G.Food.arriveDry(sim, a); else startIdle(sim, a); return; }   // v38 (c)
+    if (g === "hutTend") { if (G.Hut && G.Hut.arriveTend) G.Hut.arriveTend(sim, a); else startIdle(sim, a); return; }   // v38 (a)
     if (g === "shelter") { const back = a.act.coldWake; arriveShelter(sim, a); if (back && shouldSleep(sim, a)) startSleep(sim, a, true); else startIdle(sim, a); return; }
     if (g === "mate") { if (shouldSleep(sim, a)) startSleep(sim, a); else startIdle(sim, a); return; }   // step 19
     if (g === "fleeFire" || g === "burnt") { startIdle(sim, a, 0.3); return; }
@@ -434,6 +438,7 @@
       a.stats.meals++; G.Sim.log(sim, a.name + " ate berries (" + Agent.fullnessWord(end) + ")", a);
       if (G.Speech) G.Speech.onEat(sim, a);
       if (G.Disease) G.Disease.onEatBerries(sim, a);
+      if (G.Farm) G.Farm.afterMeal(sim, a, b);   // v38 (b): a seed may fall; a learned urge presses berries into soft ground
       startIdle(sim, a);
     }
   }
@@ -655,7 +660,8 @@
     }
     else if (act.type === "idle" && (sim.tick >= act.until || childLeft(sim, a))) wander(sim, a);   // step 20: a child left behind gets up
     if (a.act.type === "walk") move(sim, a);
-    if (a.act.type === "walk" && a.act.goal === "hunt") G.Hunt.stepStalk(sim, a);   // step 16: after she moves - close enough to strike, or give up
+    if (a.act.type === "walk" && a.act.goal === "hunt") G.Hunt.stepStalk(sim, a);
+    if (a.act.type === "walk" && a.act.goal === "wolfHunt" && G.WolfFight) G.WolfFight.stepHunt(sim, a);   // v38 (f): close enough to strike, re-path or give up   // step 16: after she moves - close enough to strike, or give up
   };
 
   G.Agent = Agent;

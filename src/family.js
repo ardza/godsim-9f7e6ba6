@@ -83,7 +83,7 @@
       St.okNights = (St.okNights || 0) + 1;   // a night that met every condition (diagnostic)
       if (Family.population(sim) >= CF().pop.maxPeople) { St.capHits++; continue; }
       if (!sim.frng.chance(C.chance)) continue;
-      a.preg = { since: sim.tick, due: sim.tick + Math.round(FC().pregnancy.days * 1440 / TM()), father: m.id, fatherName: m.name, ftraits: Object.assign({}, m.traits), flife: m.lifespan, fgroup: m.group };
+      a.preg = { since: sim.tick, due: sim.tick + Math.round(FC().pregnancy.days * 1440 / TM()), father: m.id, fatherName: m.name, ftraits: Object.assign({}, m.traits), flife: m.lifespan, fgroup: m.group, ffear: G.WolfFear ? G.WolfFear.of(m) : null };   // v38 (f): the father's wolf fear, for the child
       St.conceptions++; G.Sim.log(sim, a.name + " is with child", a);
     }
   }
@@ -102,6 +102,7 @@
       pos: { x: a.pos.x, y: a.pos.y }, facing: a.facing, age: 0, lifespan: L.v, traits, inh,
       needs: Object.assign({}, a.needs), zero: { water: 0, fullness: 0, warmth: 0 },
       carrier: a.id, carrierName: a.name, parents: [a.id, p.father], parentNames: [a.name, p.fatherName], bornAt: sim.tick, group: a.group != null ? a.group : null, children: [] };
+    if (G.WolfFear && G.WolfFear.inherit) { const ff = G.WolfFear.parentFear(sim, p.father); b.wolfFear = G.WolfFear.inherit(G.WolfFear.of(a), ff != null ? ff : p.ffear); }   // v38 (f)
     sim.babies.push(b); a.children.push(b.id); const f = byId(sim, p.father); if (f) (f.children || (f.children = [])).push(b.id);
     St.births++; St.birthTicks.push(sim.tick);
     G.Sim.log(sim, a.name + " gives birth; a baby lies beside " + Family.pron(a), [a, b, p.father], "birth");
@@ -134,7 +135,8 @@
       traits, inh: b.inh, knowledge: c ? JSON.parse(JSON.stringify(c.knowledge)) : { bushes: {}, water: {} }, relations: {}, exp: {},
       act: { type: "idle", until: sim.tick + 1 }, stats: { meals: 0, drinks: 0, sleeps: 0 }, carry: null, zero: Object.assign({ water: 0, fullness: 0, warmth: 0 }, b.zero || {}),
       sex: b.sex, children: [], parents: b.parents, parentNames: b.parentNames, group: b.group != null ? b.group : null, bornAt: b.bornAt, stage: "child", guard: c ? c.id : null, rel: {},
-      moods: { happiness: 40, sadness: 40, anger: 40 }, moodClock: { hungryLow: 0, hapWas: 40, logAt: {} } };
+      moods: { happiness: 40, sadness: 40, anger: 40 }, moodClock: { hungryLow: 0, hapWas: 40, logAt: {} },
+      wolfFear: Math.max(b.wolfFear != null ? b.wolfFear : 0, (G.data.config.wolfFear || {}).baseline || 0) };   // v38 (f): keeps the fear she was born with
     if (c) { const SB = K.startBond; a.rel[c.id] = { f: SB.f, l: SB.l, m: 0, d: 0 }; c.rel = c.rel || {}; c.rel[a.id] = Object.assign({ m: 0, d: 0 }, c.rel[a.id] || {}, { f: SB.f, l: SB.l }); }
     sim.babies.splice(sim.babies.indexOf(b), 1); sim.agents.push(a); sim.famStats.children = (sim.famStats.children || 0) + 1;
     G.Sim.log(sim, a.name + " walks on " + Family.poss(a) + " own now" + (c ? ", close to " + c.name : ""), c ? [a, c] : a, "birth");

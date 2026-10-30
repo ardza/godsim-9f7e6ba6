@@ -85,13 +85,13 @@
     else m[key] = r2(Math.min(base, m[key] + step));
   }
 
-  Moods.log = function (sim, a, key, text) {
+  Moods.log = function (sim, a, key, text, who) {   // who: the people the line names (default a); v38 (e) tags the other person too
     const C = MC(), cool = Math.round((C.logCoolMinutes || 360) / TM());
     const clk = a.moodClock || (a.moodClock = { hungryLow: 0, hapWas: 0, logAt: {} });
     const at = clk.logAt || (clk.logAt = {});
     if (at[key] != null && sim.tick - at[key] < cool) return false;
     at[key] = sim.tick;
-    G.Sim.log(sim, text, a);
+    G.Sim.log(sim, text, who || a);
     return true;
   };
 
@@ -106,7 +106,7 @@
       const e = a.rel && a.rel[dead.id]; if (!e || e.l < likeMin) continue;
       if (Math.hypot(a.pos.x - dead.pos.x, a.pos.y - dead.pos.y) > R) continue;
       const m = Moods.ensure(a); bump(m, "sadness", bumpAmt);
-      Moods.log(sim, a, "death_" + dead.id, a.name + " sits with " + (a.sex === "m" ? "his" : "her") + " head down after " + dead.name + " dies");
+      Moods.log(sim, a, "death_" + dead.id, a.name + " sits with " + (a.sex === "m" ? "his" : "her") + " head down after " + dead.name + " dies", [a, dead]);
     }
   };
 
@@ -145,7 +145,7 @@
       for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1]]) {
         const x = bx + dx, y = by + dy;
         if (G.World.walkable(sim.world, x, y) && !G.Agent.claimed(sim, a, x, y) && G.Agent.walkTo(sim, a, x, y, "follow", { to: best.id })) {
-          Moods.log(sim, a, "flee_group", a.name + " runs toward " + best.name);
+          Moods.log(sim, a, "flee_group", a.name + " runs toward " + best.name, [a, best]);
           return true;
         }
       }

@@ -44,7 +44,8 @@
   Hunt.seekFood = function (sim, a) {
     if (G.Family && G.Family.isChild(a)) return false;   // step 20: a child eats from bushes only (no hunting, no meat off carcasses)
     const it = G.Items.held(sim, a), Hc = H();
-    if (Hunt.edible(sim, it)) { if (!(G.Cook && G.Cook.seek(sim, a, it))) startEat(sim, a, it); return true; }   // fresh meat in hand: eat it (step 17: or hold it to a fire first)
+    if (Hunt.edible(sim, it)) { if (!(G.Cook && G.Cook.seek(sim, a, it))) startEat(sim, a, it); return true; }
+    if (it && it.material === "rotten" && a.needs.fullness < (CF().food || {}).rottenEatBelow) { startEat(sim, a, it); return true; }   // v38 (c): starving: the rotten piece in hand   // fresh meat in hand: eat it (step 17: or hold it to a fire first)
     // a fresh carcass with meat in sight: go and take some (scavenging, or back to her own kill)
     let cb = null;
     for (const b of sim.bodies) if (Hunt.carcassMeat(b)) { const d = dist(a, b.x, b.y); if (d <= Hc.sightTiles && (!cb || d < cb.d)) cb = { b, d }; }
@@ -104,12 +105,12 @@
     const usedCut = !!(G.Tools && cutter && G.Tools.bonusLive(cutter) && (G.Tools.is(cutter, "flake") || G.Tools.is(cutter, "axe") || G.Tools.isTip(cutter)));
     if (usedCut) G.Tools.use(sim, a, cutter, "cut");
     if (a.carry != null) G.Items.drop(sim, a);
-    const it = G.Items.create(sim, "meat", b.x, b.y); it.spoilAt = b.diedAt + CF().body.freshMinutes; it.from = b.id; it.heat = b.heat || 0; it.src = Hunt.sourceOf(b, a);   // step 17: meat off a roasted carcass is as cooked as the carcass
+    const it = Hunt.piece(sim, b, a);
     sim.items.push(it); it.heldBy = a.id; a.carry = it.id; a.carryUntil = sim.tick + sim.orng.int(CF().objects.carry[0], CF().objects.carry[1]);
     b.meat--; b.tookBy = a.id; b.tookAt = sim.tick; b.eaten = r9((b.eaten || 0) + M.fleshPerPiece); b.flesh = r9(Math.max(0, b.flesh - M.fleshPerPiece)); stats(sim).taken++;
     if (usedCut) G.Sim.log(sim, a.name + " cuts meat from " + b.name + "'s carcass", a);
     else G.Sim.log(sim, a.name + " takes meat from " + b.name + "'s carcass", a);
-    if (G.Hides && b.species === "grazer") G.Hides.maybeSpawn(sim, b);   // v28: one hide per grazer carcass on first take
+    if (G.Hides) G.Hides.maybeSpawn(sim, b);   // v38 (f): species list in hides.fromSpecies   // v28: one hide per grazer carcass on first take
     if (G.Agent.want(a) === "food") Hunt.seekFood(sim, a); else G.Agent.startIdle(sim, a, 0.5);
   };
 
@@ -117,7 +118,8 @@
   //   hunted = off a carcass she killed herself; site = off a carcass someone else (person or animal) killed; scavenged = off a carcass nobody killed;
   //   stockpile = taken out of a cache (owner = who stashed it, if known).
   Hunt.sourceOf = function (b, a) { const an = b && b.species ? MC().sourceAnimal[b.species] || b.name : "animal";
-    if (b && b.cause === "killed" && b.killedBy && a && b.killedBy === a.name) return { k: "hunted", animal: an };
+    if (b && b.lightning) return { k: "lightning", animal: an };   // v38 (d): off a carcass a bolt killed (and cooked)
+    if (b && b.cause === "killed" && b.killedBy && a && (b.killedBy === a.name || (b.hunters || []).indexOf(a.id) >= 0)) return { k: "hunted", animal: an };   // v38 (f): one of the group that killed it
     if (b && b.cause === "killed" && b.killedBy) return { k: "site", animal: an, by: b.killedBy };
     return { k: "scavenged", animal: an }; };
   // action-only words for an eat line: "from the deer she hunted", "found at Wolves' kill site", ...
@@ -128,17 +130,19 @@
   function startEat(sim, a, it) { a.act = { type: "eatMeat", item: it.id, t: 0, n: Math.max(1, Math.round(MC().eatMinutes / TM())), from: a.needs.fullness }; }
   Hunt.stepEat = function (sim, a) {
     const act = a.act, M = MC(), it = G.Items.byId(sim, act.item);
-    if (!it || it.heldBy !== a.id || !Hunt.edible(sim, it)) { G.Agent.startIdle(sim, a, 0.2); return; }
+    if (!it || it.heldBy !== a.id || !(Hunt.edible(sim, it) || it.material === "rotten")) { G.Agent.startIdle(sim, a, 0.2); return; }
     act.t++; const end = Math.min(100, act.from + G.Cook.fullness(it));
     a.needs.fullness = r9(Math.max(a.needs.fullness, act.from + (end - act.from) * Math.min(1, act.t / act.n)));
     if (act.t < act.n) return;
     a.needs.fullness = end; sim.items.splice(sim.items.indexOf(it), 1); a.carry = null; a.carryUntil = null;
     a.stats.meals++; a.stats.meat = (a.stats.meat || 0) + 1; stats(sim).eaten++;
-    const lab = G.Cook.label(it), raw = G.Cook.of(it) === "raw";
+    const lab = G.Cook.label(it), raw = G.Cook.of(it) === "raw" && it.material === "meat";
+    if (it.material === "rotten" && G.Food) G.Food.rng(sim), (sim.foodStats || (sim.foodStats = G.Food.newStats())).rottenEaten++;
     const sw = Hunt.sourceWords(a, it);   // §40 item 9: raw and cooked eat lines name the source
     G.Sim.log(sim, a.name + " eats the " + lab + (sw ? " " + sw : "") + " (" + G.Agent.fullnessWord(end) + ")", a);
     if (raw) G.Discoveries.note(sim, a, "eat", ["raw meat"], "fullness up");
     G.Cook.ate(sim, a, it);
+    if (it.material === "meat" && it.src && it.src.k === "lightning" && G.Cook.of(it) !== "raw") Hunt.boltMeal(sim, a);   // v38 (d)
     if (G.Speech) G.Speech.onEat(sim, a);
     const pS = G.Cook.sickChance(it); if (pS > 0 && sim.orng.chance(pS)) { stats(sim).sick++;
       G.Learn.add(a, "hunt", -H().sickDrop);
@@ -149,9 +153,49 @@
     G.Agent.startIdle(sim, a);
   };
 
-  // each minute: meat past its time rots away (in a hand or on the ground)
+  // v38 (d): a lightning bolt on (x, y) kills the animals standing on that tile (the same one-tile rule Powers.strikeOne uses on people).
+  // Each leaves a carcass already cooked through (heat = lightningKill.cookHeat, between cook.cookedAt and cook.charredAt), marked lightning;
+  // meat cut from it keeps that heat, carries source tag { k: "lightning", animal } and spoils on the usual food.spoilDays clock from the strike.
+  const LK = () => CF().lightningKill || {};
+  Hunt.boltCook = function (b) { if (!b) return b; const K = LK(); b.heat = Math.max(b.heat || 0, K.cookHeat != null ? K.cookHeat : CF().cook.cookedAt); b.lightning = true; return b; };
+  Hunt.lightningKill = function (sim, x, y) {
+    const K = LK(), out = []; if (!K.animals) return out;
+    for (const an of (sim.animals || []).slice()) {
+      if (Math.round(an.pos.x) !== x || Math.round(an.pos.y) !== y || (K.species && K.species.indexOf(an.species) < 0)) continue;
+      const ix = sim.animals.indexOf(an); if (ix < 0) continue; sim.animals.splice(ix, 1); delete sim.prev[an.id];
+      for (const pk of sim.packs || []) if (pk.members) pk.members = pk.members.filter(id => id !== an.id);
+      const b = G.Body.createAnimal(sim, an, null); b.cause = K.cause || "struck by lightning"; Hunt.boltCook(b); sim.bodies.push(b); out.push(b);
+      const S = stats(sim); S.boltKills = (S.boltKills || 0) + 1;
+      G.Sim.log(sim, (K.line || "Lightning strikes a {animal} and it drops dead").replace("{animal}", MC().sourceAnimal[an.species] || b.name), b); }
+    return out;
+  };
+  // one piece of meat off carcass b (not yet in sim.items): spoils food.spoilDays after the kill (v38 c), as cooked as the carcass (step 17), source tag (item 9)
+  Hunt.piece = function (sim, b, a) { const it = G.Items.create(sim, "meat", b.x, b.y); it.spoilAt = b.diedAt + (G.Food ? G.Food.spoilMinutes() : CF().body.freshMinutes);
+    it.from = b.id; it.heat = b.heat || 0; it.src = Hunt.sourceOf(b, a); return it; };
+  // fixture (test / Tester; ?fixture=lightning, GS.debug.lightningFixture): an animal (opts.species, default grazer) beside person 1 is struck by a
+  // real Single bolt (Powers.strikeOne). Bare ground (sand / rock, no fire roll) is picked first so the carcass is not charred by a grass fire.
+  // opts.cut (default true) lays one piece of its meat on the next free tile. Returns { body, item }.
+  Hunt.boltFixture = function (sim, opts) {
+    const o = opts || {}, a = sim.agents[0]; if (!a || !G.Powers) return null; const t = G.Agent.tilePos(a), W = G.World, c = [];
+    for (let r = 2; r <= 8; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; const x = t.x + dx, y = t.y + dy;
+      if (!W.inb(sim.world, x, y) || !W.walkable(sim.world, x, y) || W.isWater(sim.world, x, y) || (sim.animals || []).some(q => Math.round(q.pos.x) === x && Math.round(q.pos.y) === y) || sim.bodies.some(b => Math.abs(b.x - x) <= 1 && b.y === y) || sim.items.some(i => i.heldBy == null && i.x === x + 1 && i.y === y)) continue;
+      if (!W.walkable(sim.world, x + 1, y) || W.isWater(sim.world, x + 1, y)) continue;
+      const g = G.Powers.ground(sim, x, y); c.push({ x, y, k: (g === "bare" || g === "rock" ? 0 : 100) + r }); }
+    c.sort((p, q) => p.k - q.k || p.y - q.y || p.x - q.x); const p = c[0]; if (!p) return null;
+    const an = G.Animal.create(sim, o.species || "grazer", p.x, p.y, o.species && o.species !== "grazer" ? null : 0); sim.animals.push(an); sim.prev[an.id] = { x: p.x, y: p.y };
+    G.Powers.strikeOne(sim, p.x, p.y, { mode: "single" });
+    const body = sim.bodies.find(b => b.lightning && b.species === an.species && b.name === G.Animal.name(an)) || null; let item = null;
+    if (body && o.cut !== false && body.meat > 0) { item = Hunt.piece(sim, body, null); item.x = p.x + 1; item.y = p.y; sim.items.push(item); body.meat--; body.flesh = r9(Math.max(0, body.flesh - MC().fleshPerPiece)); body.eaten = r9((body.eaten || 0) + MC().fleshPerPiece); }
+    return { body, item };
+  };
+  // the first meal of lightning-cooked meat (a piece off a struck carcass, or a struck body) goes into Discoveries
+  Hunt.boltMeal = function (sim, a) { const K = LK(), D = K.disc || {};
+    const d = G.Discoveries.note(sim, a, D.action || "eat", D.mats || ["lightning-struck meat"], D.result || "cooked by the strike"); if (d && D.title) d.title = D.title; return d; };
+
+  // each minute: meat past its time rots away (in a hand or on the ground). v38 (c): it turns into rotten food instead (G.Food.rot)
   Hunt.step = function (sim) {
     if (!sim.items.some(i => i.material === "meat" && sim.tick >= i.spoilAt)) return;
+    if (G.Food) { for (const it of sim.items) if (it.material === "meat" && sim.tick >= it.spoilAt) { stats(sim).spoiled++; G.Food.rot(sim, it); } return; }
     sim.items = sim.items.filter(it => { if (it.material !== "meat" || sim.tick < it.spoilAt) return true;
       const h = it.heldBy != null && sim.agents.find(q => q.id === it.heldBy); if (h) { h.carry = null; h.carryUntil = null; }
       stats(sim).spoiled++; G.Sim.log(sim, h ? "The meat " + h.name + " carries rots away" : "A piece of meat rots away", h || null); return false; });

@@ -11,7 +11,7 @@
     if (A.person && A.person.src) loadImg(A.person.src, im => art.person = im);
     if (A.founders && A.founders.src) loadImg(A.founders.src, im => art.founders = im);
     loadImg(A.bush, im => art.bush = im); loadImg(A.bushEmpty, im => art.bushEmpty = im);
-    for (const k of ["body", "grazer", "scavenger", "wolves", "items", "fx", "food", "carcass", "smoke", "baby", "child", "pray", "childPray", "gesture", "childGesture", "spot", "shelter", "rain", "rainLight", "rainHeavy", "lightning", "burial", "pyre", "ashBones", "reed", "reedBank", "mountain", "flake", "axe", "spear", "tools", "hide", "hideWorn", "cache", "sacred", "hut", "ore", "tipStick", "tipBone", "tip"]) if (A[k] && A[k].src) loadImg(A[k].src, im => art[k] = im);
+    for (const k of ["body", "grazer", "scavenger", "wolves", "items", "fx", "food", "carcass", "smoke", "baby", "child", "pray", "childPray", "gesture", "childGesture", "spot", "shelter", "rain", "rainLight", "rainHeavy", "lightning", "burial", "pyre", "ashBones", "reed", "reedBank", "mountain", "flake", "axe", "spear", "tools", "hide", "hideWorn", "cache", "sacred", "hut", "hutTier", "foodKeep", "sprout", "ore", "tipStick", "tipBone", "tip"]) if (A[k] && A[k].src) loadImg(A[k].src, im => art[k] = im);
   };
   R.art = () => art;
 
@@ -114,6 +114,14 @@
     }
   }
 
+  // v38 (b): berry seed / sprout / sapling (Artist sprout_16: cols seed | sprout | sapling); code fallback = small green marks
+  function drawPlants(sim) {
+    const S = G.data.art.sprout;
+    for (const p of sim.plants || []) { const px = p.x * tp, py = p.y * tp, c = S ? S.cols.indexOf(p.stage) : -1;
+      if (art.sprout && c >= 0) { cx.drawImage(art.sprout, c * S.frame, 0, S.frame, S.frame, px, py, tp, tp); continue; }
+      cx.fillStyle = p.stage === "seed" ? "#5a3a22" : "#4f9a3c"; const r = p.stage === "seed" ? 1.5 : p.stage === "sprout" ? 2.5 : 4;
+      cx.beginPath(); cx.arc(px + 8, py + 11, r, 0, 7); cx.fill(); }
+  }
   function drawBush(b) {
     const px = b.x * tp, py = b.y * tp, im = b.ripe ? art.bush : art.bushEmpty;
     if (im) { cx.drawImage(im, px, py, tp, tp); return; }
@@ -244,6 +252,8 @@
       const C = G.data.art.carcass, col = G.Body.carcassFrame(b);
       if (art.carcass && C) cx.drawImage(art.carcass, Math.max(0, C.cols.indexOf(col)) * C.frame, 0, C.frame, C.frame, px, py, tp, tp);
       else { cx.fillStyle = col === "bones" ? "#e8e0c8" : col === "fresh" ? "#8a6a44" : "#7a3a2a"; cx.fillRect(px + 3, py + 8, 10, col === "bones" ? 2 : 4); }
+      if (b.lightning && col !== "bones" && b.stage === "fresh") { const c2 = sheetCol("food", "cooked"), hs = tp / 2;   // v38 (d): a bolt-cooked carcass shows the food "cooked" frame on it
+        if (art.food && c2 >= 0) cx.drawImage(art.food, c2 * 16, 0, 16, 16, px + hs / 2, py, hs, hs); else { cx.fillStyle = "#7a4a22"; cx.fillRect(px + 5, py + 3, 6, 4); } }
       cx.globalAlpha = 1; return; }
     if (b.baby && b.stage !== "bones") { cx.globalAlpha = b.stage === "fresh" ? 0.9 : 0.6; drawBaby(b, px, py, "lying"); cx.globalAlpha = 1; return; }   // step 19: a baby's body
     if (art.body && B) cx.drawImage(art.body, Math.max(0, B.cols.indexOf(b.stage)) * B.frame, 0, B.frame, B.frame, px, py, tp, tp);
@@ -277,6 +287,9 @@
   // ---- steps 9-12: items, fire, spark flashes ----
   function sheetCol(k, name) { const A = G.data.art[k]; return art[k] && A ? A.cols.indexOf(name) : -1; }
   function drawItemAt(it, px, py, size) {   // size 16 = on the ground, 8 = in the hand
+    if (it.material === "rotten" || (it.material === "meat" && it.dried)) { const k = it.material === "rotten" ? "rotten" : "dried", c3 = sheetCol("foodKeep", k);   // v38 (c): foodKeep art
+      if (c3 >= 0) { cx.drawImage(art.foodKeep, c3 * 16, 0, 16, 16, px, py, size, size); return; }
+      const f3 = size / 16; cx.fillStyle = k === "rotten" ? "#5e6a2e" : "#7a4a2a"; cx.fillRect(px + 4 * f3, py + 7 * f3, 8 * f3, 5 * f3); return; }
     if (it.material === "meat") { const c2 = sheetCol("food", ({ raw: "raw", cooked: "cooked", charred: "burnt" })[G.Cook.of(it)]);   // step 17: raw / cooked / charred (the "burnt" frame)
       if (c2 >= 0) { cx.drawImage(art.food, c2 * 16, 0, 16, 16, px, py, size, size); return; }
       const f2 = size / 16; cx.fillStyle = "#a8383a"; cx.fillRect(px + 4 * f2, py + 7 * f2, 8 * f2, 5 * f2); return; }
@@ -402,7 +415,9 @@
       // §35: crude hut / pile overlay (Artist hut_16: cols pile | hut)
       if (q.type === "hut") {
         R.hutsDrawn++;
-        const col = (q.stage === "pile") ? 0 : 1;
+        const col = (q.stage === "pile") ? 0 : 1, HT = G.data.art.hutTier;
+        // v38 (a): a built hut shows its material tier (hutTier: sticks|reeds|hide, <tier>_worn under hut.dur.wornBelow); a pile still uses the hut pile frame
+        if (q.stage !== "pile" && art.hutTier && HT && G.Hut) { const tc = HT.cols.indexOf(G.Hut.artCol(q)); if (tc >= 0) { cx.drawImage(art.hutTier, tc * HT.frame, 0, HT.frame, HT.frame, px, py, tp, tp); continue; } }
         if (art.hut && H) { cx.drawImage(art.hut, col * H.frame, 0, H.frame, H.frame, px, py, tp, tp); continue; }
         cx.fillStyle = "rgba(90,70,40,0.7)"; cx.fillRect(px + 2, py + 4, tp - 4, tp - 6);
         cx.strokeStyle = "rgba(60,45,25,0.9)"; cx.strokeRect(px + 2, py + 4, tp - 4, tp - 6); continue;
@@ -430,6 +445,7 @@
     cx.drawImage(terrain, 0, 0); drawWater(sim.world, time);
     drawShelters(sim);
     drawFire(sim, time);
+    drawPlants(sim);   // v38 (b)
     for (const b of sim.bushes) drawBush(b);
     R.screen = {};
     drawSpots(sim); drawCaches(sim); drawItems(sim, selectedId);

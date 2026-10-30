@@ -148,7 +148,7 @@
     const choice = Corpse.pick(sim, a, n.b);
     if (choice === "leave") {
       succeed(sim, a, "leave");
-      G.Sim.log(sim, a.name + " leaves " + n.b.name + "'s body where it lies", a);
+      G.Sim.log(sim, a.name + " leaves " + n.b.name + "'s body where it lies", [a, n.b]);
       // step away a tile or two if close
       const t = freeNear(sim, a, Math.round(a.pos.x), Math.round(a.pos.y)).filter(([x, y]) => Math.hypot(x - n.b.x, y - n.b.y) >= 2).slice(0, 3);
       if (t.length && Math.hypot(a.pos.x - n.b.x, a.pos.y - n.b.y) < 2.5) G.Agent.walkTo(sim, a, t[0][0], t[0][1], "wander");
@@ -190,7 +190,7 @@
     }
     if (!dest) { G.Agent.startIdle(sim, a, 0.3); return; }
     b.draggedBy = a.id;
-    G.Sim.log(sim, a.name + " drags " + b.name + "'s body", a);
+    G.Sim.log(sim, a.name + " drags " + b.name + "'s body", [a, b]);
     if (!G.Agent.walkTo(sim, a, dest.x, dest.y, "drag", { body: b.id, fromX: b.x, fromY: b.y })) {
       b.draggedBy = null; G.Agent.startIdle(sim, a, 0.3); return;
     }
@@ -201,7 +201,7 @@
     const tx = Math.round(a.pos.x), ty = Math.round(a.pos.y);
     b.x = tx; b.y = ty; b.draggedBy = null;
     succeed(sim, a, "drag");
-    G.Sim.log(sim, a.name + " leaves " + b.name + "'s body here", a);
+    G.Sim.log(sim, a.name + " leaves " + b.name + "'s body here", [a, b]);
     // if dragged onto / next to fire, burn may follow
     if (fireNearBody(sim, b) && sim.lrng.chance(0.7)) { startBurn(sim, a, b); return; }
     G.Agent.startIdle(sim, a, 0.4);
@@ -215,7 +215,7 @@
     const mins = Math.max(5, Math.round(base * mult)), n = Math.max(1, Math.round(mins / TM()));
     b.burial = { stage: "dug", stageAt: sim.tick };
     a.act = { type: "dig", body: b.id, t: 0, n };
-    G.Sim.log(sim, a.name + " digs into the ground by " + b.name + "'s body", a);
+    G.Sim.log(sim, a.name + " digs into the ground by " + b.name + "'s body", [a, b]);
   }
   Corpse.stepDig = function (sim, a) {
     const act = a.act, b = sim.bodies.find(q => q.id === act.body);
@@ -227,7 +227,7 @@
     b.flesh = 0; b.stage = "bones"; b.stageAt = sim.tick; b.material = CF().body.material; b.bonesLeft = 0;
     succeed(sim, a, "bury");
     if (G.Tools) { const held = G.Items.held(sim, a); if (held && held.tool) G.Tools.use(sim, a, held, "dig"); }
-    G.Sim.log(sim, a.name + " buries " + b.name + " under a mound of earth", a);
+    G.Sim.log(sim, a.name + " buries " + b.name + " under a mound of earth", [a, b]);
     G.Agent.startIdle(sim, a, 0.5);
   };
 
@@ -237,7 +237,7 @@
       b.pyre = { stage: "burning", stageAt: sim.tick };
       if (!fire && lit) { /* brand used at the body */ }
       succeed(sim, a, "burn");
-      G.Sim.log(sim, a.name + (lit && !fire ? " sets " + b.name + "'s body alight with a burning stick" : " watches " + b.name + "'s body catch fire"), a);
+      G.Sim.log(sim, a.name + (lit && !fire ? " sets " + b.name + "'s body alight with a burning stick" : " watches " + b.name + "'s body catch fire"), [a, b]);
       G.Agent.startIdle(sim, a, 0.4);
       return;
     }
@@ -247,7 +247,7 @@
       sim.items.splice(sim.items.indexOf(held), 1); a.carry = null; a.carryUntil = null;
       b.pyre = { stage: "unlit", stageAt: sim.tick };
       succeed(sim, a, "burn");
-      G.Sim.log(sim, a.name + " piles sticks under " + b.name + "'s body", a);
+      G.Sim.log(sim, a.name + " piles sticks under " + b.name + "'s body", [a, b]);
       G.Agent.startIdle(sim, a, 0.4);
       return;
     }
@@ -256,7 +256,7 @@
       sim.items.splice(sim.items.indexOf(ground), 1);
       b.pyre = { stage: "unlit", stageAt: sim.tick };
       succeed(sim, a, "burn");
-      G.Sim.log(sim, a.name + " piles sticks under " + b.name + "'s body", a);
+      G.Sim.log(sim, a.name + " piles sticks under " + b.name + "'s body", [a, b]);
       G.Agent.startIdle(sim, a, 0.4);
       return;
     }
@@ -269,7 +269,7 @@
     const add = cooked ? (C().eatFullness.cooked || 50) : (C().eatFullness.raw || 40);
     const n = Math.max(1, Math.round((C().eatMinutes || 20) / TM()));
     a.act = { type: "eatCorpse", body: b.id, t: 0, n, from: a.needs.fullness, add, cooked };
-    G.Sim.log(sim, a.name + " eats from " + b.name + "'s body", a);
+    G.Sim.log(sim, a.name + " eats from " + b.name + "'s body", [a, b]);
   }
   Corpse.stepEat = function (sim, a) {
     const act = a.act, b = sim.bodies.find(q => q.id === act.body);
@@ -283,6 +283,7 @@
     b.eaten = r9((b.eaten || 0) + take); b.flesh = r9(Math.max(0, b.flesh - take));
     if (b.flesh <= 0 && b.stage !== "bones") { b.stage = "bones"; b.stageAt = sim.tick; b.material = CF().body.material; G.Sim.log(sim, "Only " + b.name + "'s bones remain", b); }
     succeed(sim, a, "eat");
+    if (b.lightning && act.cooked && G.Hunt.boltMeal) G.Hunt.boltMeal(sim, a);   // v38 (d): a body a bolt cooked
     watchersFear(sim, a, b);
     const sickP = act.cooked ? (C().sickChance.cooked || 0.15) : (C().sickChance.raw || 0.4);
     if (sim.orng.chance(sickP)) {
@@ -302,7 +303,7 @@
     const e = (a.prayForms || (a.prayForms = {}))[form] || (a.prayForms[form] = { n: 0, like: 0, gen: 0 });
     e.n++; e.last = sim.tick;
     if (G.Faith && G.Faith.feed) G.Faith.feed(sim, a, a.name + " " + (G.Faith.verb ? acts.map(s => G.Faith.verb(a, s)).join(" and ") : "kneels") + " by " + b.name + "'s body");
-    else G.Sim.log(sim, a.name + " kneels by " + b.name + "'s body", a);
+    else G.Sim.log(sim, a.name + " kneels by " + b.name + "'s body", [a, b]);
     succeed(sim, a, "ritual");
     a.traits.faith = clamp((a.traits.faith || 0) + (C().ritualFaithGain || 3), 0, 100);
     a.traits.corpseFear = clamp((a.traits.corpseFear || 50) - (C().ritualFearDrop || 5), 0, 100);

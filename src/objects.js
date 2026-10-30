@@ -168,7 +168,8 @@
       if (it.material === "ore") { const d = Discoveries.note(sim, a, "pickup", ["ore"], "ore in hand"); if (d) d.title = "First ore"; }
     }
     it.heldBy = a.id; a.carry = it.id; a.carryUntil = sim.tick + sim.orng.int(OC().carry[0], OC().carry[1]); if (it.lit) { a.carryUntil = it.lit + 1; it.lastBy = a.id; it.lastByName = a.name; if (sim.fireStats) { sim.fireStats.brandPickups = (sim.fireStats.brandPickups || 0) + 1; if (it.bolt) sim.fireStats.boltPickups = (sim.fireStats.boltPickups || 0) + 1; }
-      const d = Discoveries.note(sim, a, "carried", ["burning stick"], "fire in hand"); if (d) d.title = "First lit stick carried"; }   /* step 23: the first carry of a lit stick, from the data */   /* step 19: a burning stick is kept until it burns out */ a.stats.pickups = (a.stats.pickups || 0) + 1;
+      const d = Discoveries.note(sim, a, "carried", ["burning stick"], "fire in hand"); if (d) d.title = "First lit stick carried"; }
+    if (it.material === "meat" && G.Food) G.Food.onTake(sim, a, it);   // v38 (c): taking up meat that kept, after losing food to rot   /* step 23: the first carry of a lit stick, from the data */   /* step 19: a burning stick is kept until it burns out */ a.stats.pickups = (a.stats.pickups || 0) + 1;
     return true;
   }
   Items.pickUp = pickUp;
@@ -176,7 +177,7 @@
   // put the held thing down on the tile she is on (or stepping onto)
   Items.drop = function (sim, a, why) {
     const it = Items.held(sim, a); a.carry = null; a.carryUntil = null; if (!it) return;
-    it.heldBy = null; it.x = Math.round(a.pos.x); it.y = Math.round(a.pos.y);
+    it.heldBy = null; it.x = Math.round(a.pos.x); it.y = Math.round(a.pos.y); it.leftBy = a.id;   // v38 (c): who left it (lost-to-rot need)
     if (why === "stash") return;   // v29: Cache.doStash logs its own action line
     G.Sim.log(sim, a.name + " puts down the " + Items.matLabel(it), a);
   };

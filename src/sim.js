@@ -53,6 +53,8 @@
     G.Hides.init(sim);     // §31 / v28: grazer hides
     G.Cache.init(sim);     // §32 / v29: carrying & caching
     if (G.Hut) G.Hut.init(sim);  // §35 / v32: built crude huts
+    if (G.Farm) G.Farm.init(sim);  // v38 (b): berry seeds / sprouts / saplings
+    if (G.Food) G.Food.init(sim);  // v38 (c): spoilage / preservation
     return sim;
   };
   // Seeded names with no repeats until the list is used up, then a fresh shuffle (reuse is fine past the list).
@@ -238,6 +240,17 @@
   };
   // v35 -> v36 (§39): People UI polish — UI-only; no world/seed change
   // §40 / v37: health + injuries + wolf fear on everyone; meat gets a source tag (from its carcass if still known)
+  // v38 "Living off the land". (a) every hut gets mats + durability (config.hut.dur.migrate); everyone's wolf fear is lifted to
+  //   config.wolfFear.baseline; caches are kept as they are. (b) empty sim.plants + farmStats. Later pieces (b-f) extend this same step.
+  Sim.migrate38 = function (o) {
+    if (!o || o.version !== 37) return o; const s = JSON.parse(JSON.stringify(o)), C = G.data.config, base = (C.wolfFear && C.wolfFear.baseline) || 0;
+    if (G.Hut && G.Hut.migrate) G.Hut.migrate(s);
+    if (G.Farm && G.Farm.migrate) G.Farm.migrate(s);   // (b): no plants yet
+    if (G.Food && G.Food.migrate) G.Food.migrate(s);   // (c): meat onto the spoilDays clock; caches and piles kept as they are
+    for (const a of s.agents || []) a.wolfFear = Math.max(a.wolfFear || 0, base);
+    for (const b of s.babies || []) b.wolfFear = Math.max(b.wolfFear || 0, base);   // (f): babies too
+    s.version = 38; return s;
+  };
   Sim.migrate37 = function (o) {
     if (!o || o.version !== 36) return o; const s = JSON.parse(JSON.stringify(o)), C = G.data.config;
     for (const a of s.agents || []) { if (a.health == null) a.health = C.health.max; if (!Array.isArray(a.injuries)) a.injuries = []; if (a.wolfFear == null) a.wolfFear = 0; }
@@ -274,6 +287,7 @@
     G.Shelter.step(sim);   // step 21b: who is inside which shelter, step-ins, first warm night
     if (G.Injury) { G.Injury.step(sim); G.Injury.bodyStep(sim); }   // §40 / v37: health + body-part injuries; Resurrect window
     if (G.WolfFear) G.WolfFear.step(sim);   // §40 / v37: clear evidence of a wolf kill
+    if (G.WolfFight) G.WolfFight.step(sim);   // v38 (f): armed groups go after Wolves; empty packs are gone for good
     for (const a of sim.agents.slice()) { const c = G.Agent.deathCause(a); if (c) Sim.die(sim, a, c); }
     G.Faith.step(sim);   // step 21: prayer bouts (own stream prng)
     G.Social.step(sim);   // step 18: familiarity, liking, daily groups
@@ -283,12 +297,16 @@
     G.Body.stepAll(sim);
     G.Hunt.step(sim);
     G.Cook.step(sim);   // step 17: meat close to an ember / fire heats (cooked, then charred)
+    if (G.Food) G.Food.step(sim);   // v38 (c): dried / sheltered meat keeps; drying by a fire; rotten food falls apart
     G.Corpse.step(sim);   // step 26: burial / pyre stage advances
     if (G.Moods) G.Moods.step(sim);   // step 27: happiness / sadness / anger drift + banding
     if (G.Disease) G.Disease.step(sim);   // step 28: spread / recover / rare sickness death
     if (G.Hides) G.Hides.step(sim);   // v28: worn hide follows; clear sleep-under on wake
+    const fl0 = (sim.fireStats && sim.fireStats.lightning) || 0, fx0 = sim.fx ? sim.fx.length : 0;
     G.Fire.lightning(sim);
     G.Fire.step(sim);
+    if (G.Farm) G.Farm.step(sim);   // v38 (b): seeds sprout / grow / burn
+    if (G.Hut && G.Hut.step) G.Hut.step(sim, ((sim.fireStats && sim.fireStats.lightning) || 0) > fl0 && sim.fx ? sim.fx[fx0] : null);   // v38 (a): hut wear / damage / collapse
   };
   // this season's bush numbers: {yield, regrowMinutes}
   Sim.seasonal = tick => { const S = CFG().bushes.season, i = G.Climate.seasonIndex(tick); return { yield: S ? S.yield[i] : 1, regrowMinutes: S ? S.regrowMinutes[i] : CFG().bushes.regrowMinutes }; };
@@ -329,7 +347,9 @@
       crng: sim.crng ? sim.crng.s : null, corpseStats: sim.corpseStats || null,
       drng: sim.drng ? sim.drng.s : null, diseaseStats: sim.diseaseStats || null,
       toolStats: sim.toolStats || null, hideStats: sim.hideStats || null, cacheStats: sim.cacheStats || null,
-      hutStats: sim.hutStats || null, hrng: sim.hrng ? sim.hrng.s : null };
+      hutStats: sim.hutStats || null, hrng: sim.hrng ? sim.hrng.s : null,
+      plants: sim.plants || [], farmStats: sim.farmStats || null, plrng: sim.plrng ? sim.plrng.s : null, plantNext: sim.plantNext || 0, bushNext: sim.bushNext || 0,
+      foodStats: sim.foodStats || null, fdrng: sim.fdrng ? sim.fdrng.s : null };
   };
   Sim.deserialize = function (o) {
     if (o && o.version === 13) o = Sim.migrate(o);
@@ -356,6 +376,7 @@
     if (o && o.version === 34) o = Sim.migrate35(o);
     if (o && o.version === 35) o = Sim.migrate36(o);
     if (o && o.version === 36) o = Sim.migrate37(o);
+    if (o && o.version === 37) o = Sim.migrate38(o);
     if (!o || o.version !== CFG().saveVersion) throw new Error("unsupported save version " + (o && o.version));
     const s = JSON.parse(JSON.stringify(o));
     const world = { w: s.world.w, h: s.world.h, seed: s.seed, attempt: s.world.attempt, spawn: s.world.spawn, hills: s.world.hills, mountain: s.world.mountain || "0".repeat(s.world.w * s.world.h), info: s.world.info, tiles: s.world.tiles.split("").map(c => TILE_CH.indexOf(c)) };
@@ -376,7 +397,9 @@
       toolStats: s.toolStats || G.Tools.newStats(), hideStats: s.hideStats || (G.Hides ? G.Hides.newStats() : null),
       cacheStats: s.cacheStats || (G.Cache ? G.Cache.newStats() : null),
       hutStats: s.hutStats || (G.Hut ? G.Hut.newStats() : null),
-      hrng: s.hrng != null ? new G.RNG(s.hrng) : undefined };
+      hrng: s.hrng != null ? new G.RNG(s.hrng) : undefined,
+      plants: s.plants || [], farmStats: s.farmStats || (G.Farm ? G.Farm.newStats() : null), plrng: s.plrng != null ? new G.RNG(s.plrng) : undefined, plantNext: s.plantNext || 0, bushNext: s.bushNext || 0,
+      foodStats: s.foodStats || (G.Food ? G.Food.newStats() : null), fdrng: s.fdrng != null ? new G.RNG(s.fdrng) : undefined };
     // §36: after tiles are numeric, seed ore onto migrated v32 worlds that had none (one-shot rng; do not advance save orng)
     if (s.seedOre && G.Items && G.Items.seedMaterial) {
       const keep = sim.orng.s;

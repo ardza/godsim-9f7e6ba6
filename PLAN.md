@@ -185,6 +185,6 @@ Skip Meeting strangers. Specs: specs/15b-17.md §34–38.
 - §40 / save v37: ONE update with 9 items (rain/wolves+chill, wolf fear, sex dot, Bless, body-part injuries+health, Resurrect, Heal, Powers menu, raw-meat source in logs). Spec §40. One freeze, one Tester pass, Judge publishes after PASS.
 - Five held sim notes stay deferred.
 
-## Queued after v37 LIVE (not started)
-- Living off the land (save v38): better huts from materials, berry planting by copying, multi-item caches, spoilage (1 week, config) into rotten food (2x raw-meat sick chance), preservation (dried by fire, sheltered stash), lightning kills animals and leaves cooked meat (people too). Draft spec: specs/living_off_the_land_DRAFT.md.
+## v37 LIVE Oct 30 (0bf402c). v38 Living off the land: APPROVED, building (order a-f)
+- Living off the land (save v38): better huts from materials, berry planting by copying, multi-item caches, spoilage (1 week, config) into rotten food (2x raw-meat sick chance), preservation (dried by fire, sheltered stash), lightning kills animals and leaves cooked meat (people too), two-person history view (filter of existing per-person log), wolves apex (hunt wild dogs; all animals flee wolves; dogs never share kills). Draft spec: specs/living_off_the_land_DRAFT.md.
 - Reed fiber (future, after Living off the land; order to be confirmed by the Commissioner; no spec or build yet): reeds processed into fiber, used for clothes (more warmth) and bowstrings, leading to bows and arrows for hunting. Emergent, learned by copying and need.
