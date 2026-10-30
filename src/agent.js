@@ -528,13 +528,13 @@
         G.Sim.log(sim, a.name + " is shivering", a);
       if (a.hypo >= 2 && n.warmth <= 0) {
         if (!a.hypoOddAt || sim.tick - a.hypoOddAt >= (H.confuseLogEvery || 60)) {
-          if (sim.rng.next() < (H.confuseChance || 0.2)) {
+          if (sim.rng.float() < (H.confuseChance || 0.2)) {
             a.hypoOddAt = sim.tick;
-            G.Sim.log(sim, a.name + (sim.rng.next() < 0.5 ? " is stumbling" : " looks lost"), a);
+            G.Sim.log(sim, a.name + (sim.rng.float() < 0.5 ? " is stumbling" : " looks lost"), a);
           }
         }
         if (a.hypo >= 3 && prevHypo < 3) G.Sim.log(sim, a.name + " is moving slow", a);
-        if (a.hypo >= 3 && a.carry != null && sim.rng.next() < (H.dropChance || 0)) {
+        if (a.hypo >= 3 && a.carry != null && sim.rng.float() < (H.dropChance || 0)) {
           G.Items.drop(sim, a); G.Sim.log(sim, a.name + " drops what they were carrying", a);
         }
       }
@@ -557,7 +557,7 @@
     // the thing in hand is put down when a need takes over, at bedtime, or after a while - step 16: unless she is hungry and it is fresh meat or something hard to hunt with
     if (a.carry != null && (a.act.type === "sleep" || ((Agent.want(a) || sim.tick >= a.carryUntil) && !G.Hunt.keep(sim, a)))) {
       // v29: prefer intentional stash at known shelter/prayer cache when freeing hands (not sleep / hypo)
-      if (a.act.type !== "sleep" && G.Cache && G.Cache.tryStash(sim, a)) { /* walking to stash or stashed */ }
+      if (a.act.type !== "sleep" && !Agent.want(a) && G.Cache && G.Cache.tryStash(sim, a)) { /* walking to stash or stashed */ }
       else G.Items.drop(sim, a);
     }
     if (!hf && h0 >= thr && n.fullness < thr) G.Sim.log(sim, a.name + " is hungry", a);
@@ -570,15 +570,15 @@
       const eqCold = G.Climate.warmthRate(felt.c, n.warmth) < 0 || a.hypoUnconscious;
       if (eqCold) {
         a.hypoUnconscious = true;
-        if (a.act.type !== "sleep") { G.Sim.log(sim, a.name + (sim.rng.next() < 0.5 ? " has collapsed" : " is not getting up"), a); return startSleep(sim, a); }
+        if (a.act.type !== "sleep") { G.Sim.log(sim, a.name + (sim.rng.float() < 0.5 ? " has collapsed" : " is not getting up"), a); return startSleep(sim, a); }
         return sleep(sim, a);
       }
     } else if (!H || n.warmth > (H.rescueAbove || 10)) a.hypoUnconscious = false;
     if (asleep) return sleep(sim, a);
     // drowsy (≥4 h at warmth 0): may lie down by day (cold sleep)
     if (H && a.hypo >= 4 && n.warmth <= 0 && a.act.type !== "eat" && a.act.type !== "drink" &&
-        (sim.tick % (H.drowsyCheckMinutes || 10) === 0) && sim.rng.next() < (H.drowsyChance || 0.03)) {
-      G.Sim.log(sim, a.name + (sim.rng.next() < 0.5 ? " is nodding off" : " is slowing further"), a); return startSleep(sim, a);
+        (sim.tick % (H.drowsyCheckMinutes || 10) === 0) && sim.rng.float() < (H.drowsyChance || 0.03)) {
+      G.Sim.log(sim, a.name + (sim.rng.float() < 0.5 ? " is nodding off" : " is slowing further"), a); return startSleep(sim, a);
     }
     if (a.act.type === "try") { if (!G.Items.stepTry(sim, a)) startIdle(sim, a); return; }
     if (a.act.type === "pray") { if (!G.Faith.stepPray(sim, a)) startIdle(sim, a); return; }   // step 21: a prayer bout (10-40 min); step 26 ritual at a body also uses pray
@@ -616,8 +616,8 @@
     else if (G.Powers && G.Powers.rainUrgent && G.Powers.rainUrgent(sim, a) && G.Powers.seekCover(sim, a, act)) { /* 26b ≥4h rain: cover outranks snacks */ }
     else if (!want && p.fullness.snackAbove != null && n.fullness > p.fullness.snackAbove && act.goal !== "food" && seen.ripe) seekNear(sim, a);
     else if (G.Powers.seekCover(sim, a, act)) { /* step 22 / 26b: out of the rain */ }
-    else if (H && a.hypo >= 2 && n.warmth <= 0 && act.type === "idle" && sim.rng.next() < (H.confuseChance || 0.2) * 0.25) {
-      const t0 = Agent.tilePos(a), ox = t0.x + (sim.rng.next() < 0.5 ? -1 : 1) * (1 + Math.floor(sim.rng.next() * 3)), oy = t0.y + (sim.rng.next() < 0.5 ? -1 : 1) * (1 + Math.floor(sim.rng.next() * 3));
+    else if (H && a.hypo >= 2 && n.warmth <= 0 && act.type === "idle" && sim.rng.float() < (H.confuseChance || 0.2) * 0.25) {
+      const t0 = Agent.tilePos(a), ox = t0.x + (sim.rng.float() < 0.5 ? -1 : 1) * (1 + Math.floor(sim.rng.float() * 3)), oy = t0.y + (sim.rng.float() < 0.5 ? -1 : 1) * (1 + Math.floor(sim.rng.float() * 3));
       if (G.World.inb(sim.world, ox, oy) && G.World.walkable(sim.world, ox, oy) && !Agent.claimed(sim, a, ox, oy)) {
         const pth = G.World.findPath(sim.world, t0.x, t0.y, ox, oy); if (pth) { a.act = { type: "walk", goal: "wander", path: pth, i: 0 }; }
       }
@@ -650,7 +650,7 @@
       if (!go && gd && Math.max(Math.abs(Math.round(gd.pos.x) - Math.round(a.pos.x)), Math.abs(Math.round(gd.pos.y) - Math.round(a.pos.y))) <= 1) a.shelterNight = night;
       if (!go && cold && a.shelterNight !== night && n.energy > 0) {
         a.shelterNight = night;
-        const skipSeek = H && a.hypo >= 4 && sim.rng.next() >= (H.seekChanceAtDrowsy || 0.12);
+        const skipSeek = H && a.hypo >= 4 && sim.rng.float() >= (H.seekChanceAtDrowsy || 0.12);
         if (!skipSeek && seekWarmth(sim, a)) { move(sim, a); return; }
       }
       if (!go) startSleep(sim, a);

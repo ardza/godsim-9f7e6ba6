@@ -1,0 +1,8 @@
+{"seed":1,"alive":0,"maxHypo":0,"cold":{},"deaths":{"wolves":5}}
+{"seed":2,"alive":5,"maxHypo":0,"cold":{},"deaths":{"wolves":2}}
+{"seed":3,"alive":1,"maxHypo":0,"cold":{},"deaths":{"wolves":4}}
+{"seed":4,"alive":2,"maxHypo":0,"cold":{},"deaths":{"wolves":3}}
+{"seed":5,"alive":1,"maxHypo":0,"cold":{},"deaths":{"wolves":4}}
+{"seed":6,"alive":0,"maxHypo":0,"cold":{},"deaths":{"wolves":8}}
+{"seed":7,"alive":0,"maxHypo":0,"cold":{},"deaths":{"wolves":5}}
+{"seed":8,"alive":2,"maxHypo":0,"cold":{},"deaths":{"wolves":4}}

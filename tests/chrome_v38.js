@@ -80,7 +80,7 @@ const textMin = "(() => { let m = 99, at = ''; for (const e of document.querySel
     check(errs.length === 0, tag + " 0 JS errors", errs);
     sock.close();
   }
-  const ver = [...served].filter(u => /\.(js|css)$/.test(u.split("?")[0]) || /\.(js|css)\?/.test(u)), badV = ver.filter(u => !/\?v=38$/.test(u));
+  const ver = [...served].filter(u => /\.(js|css)$/.test(u.split("?")[0]) || /\.(js|css)\?/.test(u)), badV = ver.filter(u => !/\?v=38(\.1)?$/.test(u));
   check(missing.length === 0, "no missing files (404s)", missing);
   check(ver.length > 0 && badV.length === 0, "every loaded js/css carries ?v=38", { loaded: ver.length, bad: badV });
   console.log(pass + " PASS, " + fail + " FAIL"); try { process.kill(-ch.pid); } catch (e) {} srv.close(); process.exit(fail ? 1 : 0);

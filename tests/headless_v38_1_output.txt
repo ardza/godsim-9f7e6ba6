@@ -1,0 +1,14 @@
+PASS thirst: at the shore with water 5 and a flake in hand, she drinks to 100 within 15 min  max water 100.0
+PASS thirst: 'drinks at the lake' logged once  drinks 1
+PASS thirst: 0 'heads to a known place' while thirsty  lines 0, stash ticks 0
+PASS thirst: the item was put down instead  carry null
+PASS thirst control: with no need she still heads to stash (or stashes)  act walk/stash
+PASS cold: stumbling / looks lost happen, both variants  stumbling 113, looks lost 120
+PASS cold: drops what they were carrying happens  drops 28
+PASS cold: nodding off / slowing further happens  nodding 10, slowing 8
+PASS cold control: 'is moving slow' still logged  slow 31 of 31 people
+PASS cold: skipSeek uses a 0-1 draw (low draw seeks, high draw skips)
+PASS cold: float() < 0.12 about 12% of the time  109/1000
+PASS agent.js: no raw rng.next() left  0 left
+
+12 PASS, 0 FAIL
