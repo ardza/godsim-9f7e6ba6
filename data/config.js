@@ -246,16 +246,16 @@
         stormX: [1, 1.1, 1.4, 2.5]       // lightning rate × at full ramp (Deep Cold storms)
       },
       // ground dryness 0-100 by season (Greening, High Sun, Leaffall, Deep Cold), plus a fixed per-tile patchiness +-patch, minus wetC near water
-      dryness: { meadow: [35, 70, 55, 25], woods: [30, 50, 50, 20], sand: [0, 0, 0, 0], patch: 25, nearWaterTiles: 2, nearWater: -30 } },
+      dryness: { meadow: [35, 70, 55, 25], woods: [30, 50, 50, 20], sand: [0, 0, 0, 0], patch: 25, nearWaterTiles: 2, nearWater: -45 } },   // v37 fire hotfix (Judge Oct 30): nearWater -30 -> -45
     // Step 12 fire. A spark lands on the target's tile: it catches if the fuel there (ground grass/litter, or a stick lying there) is dry enough:
     //   p(ember) = igniteScale x (dryness - minDryness)/(100 - minDryness). An ember smoulders, then flares into fire (or dies out).
     // A burning tile spreads each minute to each dry 8-neighbour with p = spreadScale x (dryness - minDryness)/(100 - minDryness), burns out to ash,
     // and the scorched ground regrows (fuel back, bushes ripen again) within about a season.
     fire: {
-      minDryness: 45, igniteScale: 0.5,
+      minDryness: 30, igniteScale: 0.5,   // v37 fire hotfix (Commissioner Oct 30): 45 -> 30
       emberMinutes: [20, 60], emberToFire: 0.04,          // per minute while smouldering, x dryness factor; else it goes out at the end
       burnMinutes: { meadow: 40, woods: 120 },              // how long a tile burns
-      spreadScale: 0.012,
+      spreadScale: 0.016,                                   // v37 fire hotfix: 0.012 -> 0.016 (with nearWater -45; see tests/headless_fire_hotfix.js)
       ashMinutes: 1440, regrowMinutes: 8640,                // ash 1 day, then scorched ground; fuel and grass back 6 more days later (a season = 7 days)
       heatC: 25, heatTiles: 4,                              // a fire adds up to 25 C to the felt temperature, falling to 0 at 4 tiles (ember: a third)
       fleeTiles: 2.5, fleeTo: 5,                            // people and animals move away from flames within 2.5 tiles (no burn damage yet)
