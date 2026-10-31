@@ -1,0 +1,99 @@
+PASS desktop_1366x768: loads (saveVersion 39, art 39.3)
+PASS desktop_1366x768: bundled Barlow fonts load
+PASS desktop_1366x768: console layout on
+PASS desktop_1366x768: Powers is closed by default, its tab is in the bar  {"pw":false,"tab":true,"exp":"false","panel":"people","hud":true,"clock":false,"cards":7,"hudText":"Greening 3Year 1 · Day 310:00 AM62°FClear5"}
+PASS desktop_1366x768: HUD shows season / day / time / temperature / weather / population (one-line clock hidden)  "Greening 3Year 1 · Day 310:00 AM62°FClear5"
+PASS desktop_1366x768: the colonist bar (People cards) is up by default  {"panel":"people","cards":7}
+PASS desktop_1366x768: default layout, nothing overlaps or runs off screen  {"shown":["panelbar","panel-people","hud","speeds","zoom","world"],"overlaps":[],"offscreen":[],"boxes":{"panelbar":{"l":0,"t":719,"r":533,"b":768},"panel-people":{"l":342,"t":8,"r":1025,"b":136},"hud":{"l":1059,"t":9,"r":1357,"b":83},"speeds":{"l":1059,"t":83,"r":1357,"b":127},"zoom":{"l":1312,"t":128,"r":1358,"b":222},"world":{"l":8,"t":8,"r":108,"b":54}}}
+  screenshot /workspace/godsim-previews/v39_3/desktop_1366x768_default.png
+PASS desktop_1366x768: a People card is clickable (not covered) and the inspector shows that person  {"card":{"pid":3,"name":"Pira"},"hit":true,"st":{"sel":3,"info":true,"name":"Pira","card":"←PiraLoner · 32 · resting→FindNeedsMindKinKnowsSkillsLogHeal"}}
+PASS desktop_1366x768: people + inspector, nothing overlaps  {"shown":["info","panelbar","panel-people","hud","speeds","zoom","world"],"overlaps":[],"offscreen":[],"boxes":{"info":{"l":0,"t":288,"r":408,"b":719},"panelbar":{"l":0,"t":719,"r":533,"b":768},"panel-people":{"l":355,"t":8,"r":1011,"b":74},"hud":{"l":1059,"t":9,"r":1357,"b":83},"speeds":{"l":1059,"t":83,"r":1357,"b":127},"zoom":{"l":1312,"t":128,"r":1358,"b":222},"world":{"l":8,"t":8,"r":108,"b":54}}}
+PASS desktop_1366x768: hit targets >= 44px, text >= 14px  {"small":[],"nSmall":0,"minText":14,"at":"hud-day: Year 1 · Day 3"}
+  screenshot /workspace/godsim-previews/v39_3/desktop_1366x768_people_inspect.png
+PASS desktop_1366x768: log open with the inspector, nothing overlaps  {"shown":["info","panelbar","logwrap","hud","speeds","zoom","world"],"overlaps":[],"offscreen":[],"boxes":{"info":{"l":0,"t":288,"r":408,"b":719},"panelbar":{"l":0,"t":719,"r":533,"b":768},"logwrap":{"l":946,"t":415,"r":1366,"b":768},"hud":{"l":1059,"t":9,"r":1357,"b":83},"speeds":{"l":1059,"t":83,"r":1357,"b":127},"zoom":{"l":1312,"t":128,"r":1358,"b":222},"world":{"l":8,"t":8,"r":108,"b":54}}}
+PASS desktop_1366x768: discoveries open with the inspector, nothing overlaps  {"shown":["info","panelbar","panel-discoveries","hud","speeds","zoom","world"],"overlaps":[],"offscreen":[],"boxes":{"info":{"l":0,"t":288,"r":408,"b":719},"panelbar":{"l":0,"t":719,"r":533,"b":768},"panel-discoveries":{"l":946,"t":415,"r":1366,"b":768},"hud":{"l":1059,"t":9,"r":1357,"b":83},"speeds":{"l":1059,"t":83,"r":1357,"b":127},"zoom":{"l":1312,"t":128,"r":1358,"b":222},"world":{"l":8,"t":8,"r":108,"b":54}}}
+PASS desktop_1366x768: prayers open with the inspector, nothing overlaps  {"shown":["info","panelbar","panel-prayers","hud","speeds","zoom","world"],"overlaps":[],"offscreen":[],"boxes":{"info":{"l":0,"t":288,"r":408,"b":719},"panelbar":{"l":0,"t":719,"r":533,"b":768},"panel-prayers":{"l":946,"t":557,"r":1366,"b":768},"hud":{"l":1059,"t":9,"r":1357,"b":83},"speeds":{"l":1059,"t":83,"r":1357,"b":127},"zoom":{"l":1312,"t":128,"r":1358,"b":222},"world":{"l":8,"t":8,"r":108,"b":54}}}
+PASS desktop_1366x768: prayers + inspector, hit targets >= 44px, text >= 14px  {"small":[],"nSmall":0,"minText":14,"at":"hud-day: Year 1 · Day 3"}
+PASS desktop_1366x768: the Powers tab opens the menu  {"open":true,"exp":"true","panel":null,"info":false,"cats":4,"pick":false}
+PASS desktop_1366x768: the open Powers menu (category columns) closes the colonist bar and sets the inspector aside  {"open":true,"exp":"true","panel":null,"info":false,"cats":4,"pick":false}
+PASS desktop_1366x768: Powers open, nothing overlaps (menu above the tab bar)  {"shown":["panelbar","powers","hud","speeds","zoom","world"],"overlaps":[],"offscreen":[],"boxes":{"panelbar":{"l":0,"t":719,"r":533,"b":768},"powers":{"l":0,"t":460,"r":593,"b":719},"hud":{"l":1059,"t":9,"r":1357,"b":83},"speeds":{"l":1059,"t":83,"r":1357,"b":127},"zoom":{"l":1312,"t":128,"r":1358,"b":222},"world":{"l":8,"t":8,"r":108,"b":54}}}
+PASS desktop_1366x768: Powers open, hit targets >= 44px, text >= 14px  {"small":[],"nSmall":0,"minText":14,"at":"hud-day: Year 1 · Day 3"}
+  screenshot /workspace/godsim-previews/v39_3/desktop_1366x768_powers_open.png
+PASS desktop_1366x768: Esc closes Powers, the inspector is back  {"open":false,"exp":"false","panel":null,"info":true,"cats":0,"pick":false}
+PASS desktop_1366x768: another tab closes Powers and opens its panel  {"open":false,"exp":"false","panel":"log","info":true,"cats":0,"pick":false}
+PASS desktop_1366x768: Powers re-opens (Log closed)  {"open":true,"exp":"true","panel":null,"info":false,"cats":4,"pick":false}
+PASS desktop_1366x768: Rain closes the menu and opens the strength picker  {"open":false,"exp":"false","panel":null,"info":true,"cats":0,"pick":true}
+PASS desktop_1366x768: the rain picker sits clear of everything  {"shown":["info","panelbar","hud","speeds","zoom","spawnpick","world"],"overlaps":[],"offscreen":[],"boxes":{"info":{"l":0,"t":288,"r":408,"b":719},"panelbar":{"l":0,"t":719,"r":533,"b":768},"hud":{"l":1059,"t":9,"r":1357,"b":83},"speeds":{"l":1059,"t":83,"r":1357,"b":127},"zoom":{"l":1312,"t":128,"r":1358,"b":222},"spawnpick":{"l":600,"t":661,"r":917,"b":719},"world":{"l":8,"t":8,"r":108,"b":54}}}
+PASS desktop_1366x768: Medium rain is armed from an uncovered picker button (tab highlighted)  {"power":"rain","str":"medium","armed":true,"hit":true}
+PASS desktop_1366x768: Esc cancels the armed power  {"power":null,"armed":false}
+PASS desktop_1366x768: speed buttons work (and are not covered)  [{"want":1,"speed":1,"on":true,"hit":true},{"want":10,"speed":10,"on":true,"hit":true},{"want":60,"speed":60,"on":true,"hit":true},{"want":0,"speed":0,"on":true,"hit":true}]
+PASS desktop_1366x768: number keys still set the speed  {"k2":10,"k0":0}
+PASS desktop_1366x768: tests/fixtures/save_v39.json loads (v39 save, tick 2880) and the HUD follows it  {"ok":true,"ver":39,"tick":2880,"n":5,"hud":"Greening 3Year 1 · Day 36:00 AM56°FClear5","cards":5}
+PASS desktop_1366x768: paused, the People cards are not touched for 3 s (no rebuild, no update, 0 DOM mutations)  {"rebuilds":0,"updates":0,"mutations":0}
+PASS desktop_1366x768: 40 human-speed clicks on People cards (paused) each select that person  {"ok":40,"miss":0,"wrong":0,"N":40,"pids":[7,3,2,6],"rebuilds":0}
+PASS desktop_1366x768: 40 human-speed clicks on People cards (running 1x) each select that person  {"ok":40,"miss":0,"wrong":0,"N":40,"pids":[7,3,2,6],"rebuilds":0}
+PASS desktop_1366x768: 0 JS errors  []
+PASS desktop_1920x1080: loads (saveVersion 39, art 39.3)
+PASS desktop_1920x1080: bundled Barlow fonts load
+PASS desktop_1920x1080: console layout on
+PASS desktop_1920x1080: Powers is closed by default, its tab is in the bar  {"pw":false,"tab":true,"exp":"false","panel":"people","hud":true,"clock":false,"cards":7,"hudText":"Greening 3Year 1 · Day 310:00 AM62°FClear5"}
+PASS desktop_1920x1080: HUD shows season / day / time / temperature / weather / population (one-line clock hidden)  "Greening 3Year 1 · Day 310:00 AM62°FClear5"
+PASS desktop_1920x1080: the colonist bar (People cards) is up by default  {"panel":"people","cards":7}
+PASS desktop_1920x1080: default layout, nothing overlaps or runs off screen  {"shown":["panelbar","panel-people","hud","speeds","zoom","world"],"overlaps":[],"offscreen":[],"boxes":{"panelbar":{"l":0,"t":1031,"r":533,"b":1080},"panel-people":{"l":516,"t":8,"r":1404,"b":74},"hud":{"l":1613,"t":9,"r":1911,"b":83},"speeds":{"l":1613,"t":83,"r":1911,"b":127},"zoom":{"l":1866,"t":128,"r":1912,"b":222},"world":{"l":8,"t":8,"r":108,"b":54}}}
+  screenshot /workspace/godsim-previews/v39_3/desktop_1920x1080_default.png
+PASS desktop_1920x1080: a People card is clickable (not covered) and the inspector shows that person  {"card":{"pid":3,"name":"Pira"},"hit":true,"st":{"sel":3,"info":true,"name":"Pira","card":"←PiraLoner · 32 · resting→FindNeedsMindKinKnowsSkillsLogHeal"}}
+PASS desktop_1920x1080: people + inspector, nothing overlaps  {"shown":["info","panelbar","panel-people","hud","speeds","zoom","world"],"overlaps":[],"offscreen":[],"boxes":{"info":{"l":0,"t":600,"r":408,"b":1031},"panelbar":{"l":0,"t":1031,"r":533,"b":1080},"panel-people":{"l":632,"t":8,"r":1288,"b":74},"hud":{"l":1613,"t":9,"r":1911,"b":83},"speeds":{"l":1613,"t":83,"r":1911,"b":127},"zoom":{"l":1866,"t":128,"r":1912,"b":222},"world":{"l":8,"t":8,"r":108,"b":54}}}
+PASS desktop_1920x1080: hit targets >= 44px, text >= 14px  {"small":[],"nSmall":0,"minText":14,"at":"hud-day: Year 1 · Day 3"}
+  screenshot /workspace/godsim-previews/v39_3/desktop_1920x1080_people_inspect.png
+PASS desktop_1920x1080: log open with the inspector, nothing overlaps  {"shown":["info","panelbar","logwrap","hud","speeds","zoom","world"],"overlaps":[],"offscreen":[],"boxes":{"info":{"l":0,"t":600,"r":408,"b":1031},"panelbar":{"l":0,"t":1031,"r":533,"b":1080},"logwrap":{"l":1500,"t":583,"r":1920,"b":1080},"hud":{"l":1613,"t":9,"r":1911,"b":83},"speeds":{"l":1613,"t":83,"r":1911,"b":127},"zoom":{"l":1866,"t":128,"r":1912,"b":222},"world":{"l":8,"t":8,"r":108,"b":54}}}
+PASS desktop_1920x1080: discoveries open with the inspector, nothing overlaps  {"shown":["info","panelbar","panel-discoveries","hud","speeds","zoom","world"],"overlaps":[],"offscreen":[],"boxes":{"info":{"l":0,"t":600,"r":408,"b":1031},"panelbar":{"l":0,"t":1031,"r":533,"b":1080},"panel-discoveries":{"l":1500,"t":583,"r":1920,"b":1080},"hud":{"l":1613,"t":9,"r":1911,"b":83},"speeds":{"l":1613,"t":83,"r":1911,"b":127},"zoom":{"l":1866,"t":128,"r":1912,"b":222},"world":{"l":8,"t":8,"r":108,"b":54}}}
+PASS desktop_1920x1080: prayers open with the inspector, nothing overlaps  {"shown":["info","panelbar","panel-prayers","hud","speeds","zoom","world"],"overlaps":[],"offscreen":[],"boxes":{"info":{"l":0,"t":600,"r":408,"b":1031},"panelbar":{"l":0,"t":1031,"r":533,"b":1080},"panel-prayers":{"l":1500,"t":869,"r":1920,"b":1080},"hud":{"l":1613,"t":9,"r":1911,"b":83},"speeds":{"l":1613,"t":83,"r":1911,"b":127},"zoom":{"l":1866,"t":128,"r":1912,"b":222},"world":{"l":8,"t":8,"r":108,"b":54}}}
+PASS desktop_1920x1080: prayers + inspector, hit targets >= 44px, text >= 14px  {"small":[],"nSmall":0,"minText":14,"at":"hud-day: Year 1 · Day 3"}
+PASS desktop_1920x1080: the Powers tab opens the menu  {"open":true,"exp":"true","panel":null,"info":false,"cats":4,"pick":false}
+PASS desktop_1920x1080: the open Powers menu (category columns) closes the colonist bar and sets the inspector aside  {"open":true,"exp":"true","panel":null,"info":false,"cats":4,"pick":false}
+PASS desktop_1920x1080: Powers open, nothing overlaps (menu above the tab bar)  {"shown":["panelbar","powers","hud","speeds","zoom","world"],"overlaps":[],"offscreen":[],"boxes":{"panelbar":{"l":0,"t":1031,"r":533,"b":1080},"powers":{"l":0,"t":772,"r":593,"b":1031},"hud":{"l":1613,"t":9,"r":1911,"b":83},"speeds":{"l":1613,"t":83,"r":1911,"b":127},"zoom":{"l":1866,"t":128,"r":1912,"b":222},"world":{"l":8,"t":8,"r":108,"b":54}}}
+PASS desktop_1920x1080: Powers open, hit targets >= 44px, text >= 14px  {"small":[],"nSmall":0,"minText":14,"at":"hud-day: Year 1 · Day 3"}
+  screenshot /workspace/godsim-previews/v39_3/desktop_1920x1080_powers_open.png
+PASS desktop_1920x1080: Esc closes Powers, the inspector is back  {"open":false,"exp":"false","panel":null,"info":true,"cats":0,"pick":false}
+PASS desktop_1920x1080: another tab closes Powers and opens its panel  {"open":false,"exp":"false","panel":"log","info":true,"cats":0,"pick":false}
+PASS desktop_1920x1080: Powers re-opens (Log closed)  {"open":true,"exp":"true","panel":null,"info":false,"cats":4,"pick":false}
+PASS desktop_1920x1080: Rain closes the menu and opens the strength picker  {"open":false,"exp":"false","panel":null,"info":true,"cats":0,"pick":true}
+PASS desktop_1920x1080: the rain picker sits clear of everything  {"shown":["info","panelbar","hud","speeds","zoom","spawnpick","world"],"overlaps":[],"offscreen":[],"boxes":{"info":{"l":0,"t":600,"r":408,"b":1031},"panelbar":{"l":0,"t":1031,"r":533,"b":1080},"hud":{"l":1613,"t":9,"r":1911,"b":83},"speeds":{"l":1613,"t":83,"r":1911,"b":127},"zoom":{"l":1866,"t":128,"r":1912,"b":222},"spawnpick":{"l":600,"t":973,"r":917,"b":1031},"world":{"l":8,"t":8,"r":108,"b":54}}}
+PASS desktop_1920x1080: Medium rain is armed from an uncovered picker button (tab highlighted)  {"power":"rain","str":"medium","armed":true,"hit":true}
+PASS desktop_1920x1080: Esc cancels the armed power  {"power":null,"armed":false}
+PASS desktop_1920x1080: speed buttons work (and are not covered)  [{"want":1,"speed":1,"on":true,"hit":true},{"want":10,"speed":10,"on":true,"hit":true},{"want":60,"speed":60,"on":true,"hit":true},{"want":0,"speed":0,"on":true,"hit":true}]
+PASS desktop_1920x1080: number keys still set the speed  {"k2":10,"k0":0}
+PASS desktop_1920x1080: paused, the People cards are not touched for 3 s (no rebuild, no update, 0 DOM mutations)  {"rebuilds":0,"updates":0,"mutations":0}
+PASS desktop_1920x1080: 40 human-speed clicks on People cards (paused) each select that person  {"ok":40,"miss":0,"wrong":0,"N":40,"pids":[7,3,2,6],"rebuilds":0}
+PASS desktop_1920x1080: 40 human-speed clicks on People cards (running 1x) each select that person  {"ok":40,"miss":0,"wrong":0,"N":40,"pids":[7,3,2,6],"rebuilds":0}
+PASS desktop_1920x1080: 0 JS errors  []
+PASS phone_390x844: loads (saveVersion 39, art 39.3)
+PASS phone_390x844: bundled Barlow fonts load
+PASS phone_390x844: console layout off (v39.1 phone layout)
+PASS phone_390x844: Powers is closed by default, its tab is in the bar  {"pw":false,"tab":true,"exp":"false","panel":"log","hud":false,"clock":true,"cards":0,"hudText":""}
+PASS phone_390x844: phone keeps the v39.1 clock and default Log panel  {"hud":false,"clock":true,"panel":"log"}
+PASS phone_390x844: default layout, nothing overlaps or runs off screen  {"shown":["panelbar","logwrap","speeds","zoom","world"],"overlaps":[],"offscreen":[],"boxes":{"panelbar":{"l":0,"t":779,"r":390,"b":844},"logwrap":{"l":8,"t":392,"r":382,"b":771},"speeds":{"l":8,"t":70,"r":382,"b":124},"zoom":{"l":322,"t":142,"r":376,"b":244},"world":{"l":8,"t":8,"r":64,"b":62}}}
+  screenshot /workspace/godsim-previews/v39_3/phone_390x844_default.png
+PASS phone_390x844: a People card is clickable (not covered) and the inspector shows that person  {"card":{"pid":3,"name":"Pira"},"hit":true,"st":{"sel":3,"info":true,"name":"Pira","card":"←PiraLoner · 32 · resting→FindNeedsMindKinKnowsSkillsLogHeal"}}
+PASS phone_390x844: people + inspector, nothing overlaps  {"shown":["info","panelbar","panel-people","speeds","zoom","world"],"overlaps":[],"offscreen":[],"boxes":{"info":{"l":8,"t":282,"r":382,"b":772},"panelbar":{"l":0,"t":779,"r":390,"b":844},"panel-people":{"l":8,"t":392,"r":382,"b":771},"speeds":{"l":8,"t":70,"r":382,"b":124},"zoom":{"l":322,"t":142,"r":376,"b":244},"world":{"l":8,"t":8,"r":64,"b":62}}}
+PASS phone_390x844: hit targets >= 44px, text >= 16px  {"small":[],"nSmall":0,"minText":16,"at":"clock: Year 1 · Greening 3 · Day 3 · "}
+  screenshot /workspace/godsim-previews/v39_3/phone_390x844_people_inspect.png
+PASS phone_390x844: log open, nothing overlaps  {"shown":["info","panelbar","logwrap","speeds","zoom","world"],"overlaps":[],"offscreen":[],"boxes":{"info":{"l":8,"t":282,"r":382,"b":772},"panelbar":{"l":0,"t":779,"r":390,"b":844},"logwrap":{"l":8,"t":392,"r":382,"b":771},"speeds":{"l":8,"t":70,"r":382,"b":124},"zoom":{"l":322,"t":142,"r":376,"b":244},"world":{"l":8,"t":8,"r":64,"b":62}}}
+PASS phone_390x844: discoveries open, nothing overlaps  {"shown":["info","panelbar","panel-discoveries","speeds","zoom","world"],"overlaps":[],"offscreen":[],"boxes":{"info":{"l":8,"t":282,"r":382,"b":772},"panelbar":{"l":0,"t":779,"r":390,"b":844},"panel-discoveries":{"l":8,"t":392,"r":382,"b":771},"speeds":{"l":8,"t":70,"r":382,"b":124},"zoom":{"l":322,"t":142,"r":376,"b":244},"world":{"l":8,"t":8,"r":64,"b":62}}}
+PASS phone_390x844: prayers open, nothing overlaps  {"shown":["info","panelbar","panel-prayers","speeds","zoom","world"],"overlaps":[],"offscreen":[],"boxes":{"info":{"l":8,"t":282,"r":382,"b":772},"panelbar":{"l":0,"t":779,"r":390,"b":844},"panel-prayers":{"l":8,"t":392,"r":382,"b":771},"speeds":{"l":8,"t":70,"r":382,"b":124},"zoom":{"l":322,"t":142,"r":376,"b":244},"world":{"l":8,"t":8,"r":64,"b":62}}}
+PASS phone_390x844: the Powers tab opens the menu  {"open":true,"exp":"true","panel":null,"info":false,"cats":4,"pick":false}
+PASS phone_390x844: Powers open, nothing overlaps (menu above the tab bar)  {"shown":["panelbar","powers","speeds","zoom","world"],"overlaps":[],"offscreen":[],"boxes":{"panelbar":{"l":0,"t":779,"r":390,"b":844},"powers":{"l":0,"t":460,"r":390,"b":779},"speeds":{"l":8,"t":70,"r":382,"b":124},"zoom":{"l":322,"t":142,"r":376,"b":244},"world":{"l":8,"t":8,"r":64,"b":62}}}
+PASS phone_390x844: Powers open, hit targets >= 44px, text >= 16px  {"small":[],"nSmall":0,"minText":16,"at":"clock: Year 1 · Greening 3 · Day 3 · "}
+  screenshot /workspace/godsim-previews/v39_3/phone_390x844_powers_open.png
+PASS phone_390x844: Esc closes Powers, the inspector is back  {"open":false,"exp":"false","panel":null,"info":true,"cats":0,"pick":false}
+PASS phone_390x844: Powers re-opens  {"open":true,"exp":"true","panel":null,"info":false,"cats":4,"pick":false}
+PASS phone_390x844: Rain closes the menu and opens the strength picker  {"open":false,"exp":"false","panel":null,"info":true,"cats":0,"pick":true}
+PASS phone_390x844: the rain picker sits clear of everything  {"shown":["info","panelbar","speeds","zoom","spawnpick","world"],"overlaps":[],"offscreen":[],"boxes":{"info":{"l":8,"t":282,"r":382,"b":772},"panelbar":{"l":0,"t":779,"r":390,"b":844},"speeds":{"l":8,"t":70,"r":382,"b":124},"zoom":{"l":322,"t":142,"r":376,"b":244},"spawnpick":{"l":8,"t":713,"r":382,"b":771},"world":{"l":8,"t":8,"r":64,"b":62}}}
+PASS phone_390x844: Medium rain is armed from an uncovered picker button (tab highlighted)  {"power":"rain","str":"medium","armed":true,"hit":true}
+PASS phone_390x844: Esc cancels the armed power  {"power":null,"armed":false}
+PASS phone_390x844: speed buttons work (and are not covered)  [{"want":1,"speed":1,"on":true,"hit":true},{"want":10,"speed":10,"on":true,"hit":true},{"want":60,"speed":60,"on":true,"hit":true},{"want":0,"speed":0,"on":true,"hit":true}]
+PASS phone_390x844: number keys still set the speed  {"k2":10,"k0":0}
+PASS phone_390x844: 0 JS errors  []
+PASS 0 missing files (404s)  []
+PASS every loaded js / css / png / ttf carries ?v=39.3  {"loaded":104,"bad":[]}
+89 PASS, 0 FAIL

@@ -614,38 +614,63 @@
   };
   // ---- People tab (v36 §39): Artist pp-* list + group tabs; oldest → youngest; dead collapsed; no portrait strip ----
   UI.peopleFilter = "all";   // "all" or a group id
+  // v39.3 fix (Tester, v39.2 console: clicks lost on the desktop People cards): the cards are built once and then updated in place (text, bars, classes).
+  // The list is rebuilt only when its structure changes (who is listed and in what order, the group tabs, the dead list), never while a
+  // pointer is down on it, and while paused nothing is touched unless something shown changed. Clicks are delegated on the panel itself.
+  const ppDown = el => { if (el._ppWired) return; el._ppWired = true; el._down = false;
+    el.addEventListener("pointerdown", () => { el._down = true; });
+    const up = () => { if (!el._down) return; el._down = false; if (el._ppPending) setTimeout(() => { if (!el._down && el._ppApp) UI.panelRender.people(el._ppApp, el, true); }, 0); };
+    window.addEventListener("pointerup", up, true); window.addEventListener("pointercancel", up, true);
+    el.addEventListener("click", ev => { const app = el._ppApp; if (!app) return; const sim = app.sim;
+      const f = ev.target.closest && ev.target.closest("button[data-pf]"); if (f && el.contains(f)) { const v = f.getAttribute("data-pf"); UI.peopleFilter = v === "all" ? "all" : +v; UI.panelRender.people(app, el, true); return; }
+      const r = ev.target.closest && ev.target.closest("button[data-pid]"); if (!r || !el.contains(r)) return;
+      const id = +r.getAttribute("data-pid"), a = sim.agents.find(q => q.id === id); if (!a) return;
+      G.Render.centerOn(Math.round(a.pos.x), Math.round(a.pos.y), UC().peopleZoom || 2); app.select(id); });
+  };
   UI.panelRender.people = function (app, el, force) {
     const sim = app.sim, now = Date.now();
+    ppDown(el); el._ppApp = app;
     if (!force && el._t && now - el._t < 1000 && el._seed === sim.seed && el._pf === UI.peopleFilter) return;   // live, at most once per real second
-    el._t = now; el._seed = sim.seed; el._pf = UI.peopleFilter;
-    el.classList.add("people-ui");
+    if (!el.classList.contains("people-ui")) el.classList.add("people-ui");   // v39.3: no attribute write (a DOM mutation) on every tick
     const S = G.Social, groups = (sim.groups || []).slice().sort((p, q) => p.id - q.id);
     if (UI.peopleFilter !== "all" && !groups.some(g => g.id === UI.peopleFilter)) UI.peopleFilter = "all";
     let rows = UI.peopleCycleList(sim);
     const dead = (sim.bodies || []).filter(b => !b.species).slice().sort((p, q) => q.diedAt - p.diedAt);
-    const sx = a => a.sex === "f" ? "F" : a.sex === "m" ? "M" : "-";
     const SD = UC().sexDot || {}, dot = a => a.sex === "f" || a.sex === "m" ? '<i class="pp-sex ' + a.sex + '" style="background:' + SD[a.sex] + '" role="img" aria-label="' + (a.sex === "f" ? "female" : "male") + '"></i>' : "";   // §40 item 3
-    const tab = (key, label) => '<button type="button" role="tab" class="pp-tab' + (UI.peopleFilter === key ? " on" : "") + '" data-pf="' + key + '" aria-selected="' + (UI.peopleFilter === key) + '">' + esc(label) + "</button>";
-    const tabs = '<div class="pp-groups" role="tablist" aria-label="people groups">' + tab("all", "All") +
-      groups.map(g => tab(g.id, (S && S.groupName ? S.groupName(sim, g) : ("Group " + g.id)))).join("") + "</div>";
-    const mini = a => {
-      const n = a.needs, lo = Math.min(n.fullness, n.water, n.energy, n.warmth);
-      const warn = lo < 50;
-      return '<i class="pp-mini' + (warn ? " warn" : "") + '"><s style="width:' + Math.max(0, Math.min(100, lo)).toFixed(1) + '%"></s></i>';
-    };
+    const gName = g => (S && S.groupName ? S.groupName(sim, g) : ("Group " + g.id));
     const gLabel = a => { const g = S && S.group(sim, a); return g ? S.groupName(sim, g) : "Loner"; };
-    const list = rows.length ? rows.map(a => {
-      const on = app.selected === a.id ? " on" : "";
-      return '<button type="button" class="pp-row' + on + '" data-pid="' + a.id + '"><b>' + dot(a) + esc(a.name) + "</b><span>" + esc(gLabel(a)) + " · " + Math.floor(a.age) + "</span>" + mini(a) + "</button>";
-    }).join("") : '<div class="empty">No one here.</div>';
-    el.innerHTML = '<div class="pp-list"><div class="pp-head">People <span class="pp-dim">(' + rows.length + (UI.peopleFilter === "all" ? "" : " in group") + ")</span></div>" + tabs +
-      '<div class="pp-rows">' + list + "</div>" +
-      '<details class="pdead"' + (UI.peopleDeadOpen ? " open" : "") + "><summary>Dead (" + dead.length + ")</summary>" +
-        (dead.length ? dead.map(b => '<div class="drow"><span class="pn">' + esc(b.name) + "</span><span>" + (b.age != null ? b.age + " y" : "") + "</span><span>" + esc(b.cause || "") + "</span></div>").join("") : '<div class="empty">No one has died.</div>') + "</details></div>";
-    el.querySelectorAll("button[data-pf]").forEach(b => b.onclick = () => { const v = b.getAttribute("data-pf"); UI.peopleFilter = v === "all" ? "all" : +v; UI.panelRender.people(app, el, true); });
-    el.querySelectorAll("button[data-pid]").forEach(b => b.onclick = () => { const id = +b.getAttribute("data-pid"), a = sim.agents.find(q => q.id === id); if (!a) return;
-      G.Render.centerOn(Math.round(a.pos.x), Math.round(a.pos.y), UC().peopleZoom || 2); app.select(id); });
-    const d = el.querySelector("details.pdead"); if (d) d.ontoggle = () => { UI.peopleDeadOpen = d.open; };
+    const lowOf = a => { const n = a.needs; return Math.min(n.fullness, n.water, n.energy, n.warmth); };
+    const wOf = a => Math.max(0, Math.min(100, lowOf(a))).toFixed(1) + "%";
+    const subOf = a => gLabel(a) + " · " + Math.floor(a.age);
+    // structure: what the list holds; content: what the cards show
+    const skey = [sim.seed, UI.peopleFilter, rows.map(a => a.id + (a.sex || "")).join(","), groups.map(g => g.id + ":" + gName(g)).join(","), dead.map(b => b.id + ":" + b.name + ":" + b.age + ":" + (b.cause || "")).join(",")].join("|");
+    const ckey = app.selected + "|" + rows.map(a => a.name + "/" + subOf(a) + "/" + wOf(a)).join(",");
+    const paused = !!(app.paused || app.speed === 0);
+    if (!force && paused && el._skey === skey && el._ckey === ckey) { el._t = now; return; }   // paused and nothing changed: no DOM work at all
+    if (el._down && el._skey != null) { el._ppPending = true; return; }   // a press is in progress on the list: touch nothing until it ends
+    el._ppPending = false; el._t = now; el._seed = sim.seed; el._pf = UI.peopleFilter;
+    if (el._skey !== skey || !el.querySelector(".pp-rows")) {   // the set (or order) of people, the group tabs or the dead list changed: rebuild
+      el._skey = skey;
+      const tab = (key, label) => '<button type="button" role="tab" class="pp-tab' + (UI.peopleFilter === key ? " on" : "") + '" data-pf="' + key + '" aria-selected="' + (UI.peopleFilter === key) + '">' + esc(label) + "</button>";
+      const tabs = '<div class="pp-groups" role="tablist" aria-label="people groups">' + tab("all", "All") + groups.map(g => tab(g.id, gName(g))).join("") + "</div>";
+      const mini = a => '<i class="pp-mini' + (lowOf(a) < 50 ? " warn" : "") + '"><s style="width:' + wOf(a) + '"></s></i>';
+      const list = rows.length ? rows.map(a => '<button type="button" class="pp-row' + (app.selected === a.id ? " on" : "") + '" data-pid="' + a.id + '"><b>' + dot(a) + esc(a.name) + "</b><span>" + esc(subOf(a)) + "</span>" + mini(a) + "</button>").join("") : '<div class="empty">No one here.</div>';
+      el.innerHTML = '<div class="pp-list"><div class="pp-head">People <span class="pp-dim">(' + rows.length + (UI.peopleFilter === "all" ? "" : " in group") + ")</span></div>" + tabs +
+        '<div class="pp-rows">' + list + "</div>" +
+        '<details class="pdead"' + (UI.peopleDeadOpen ? " open" : "") + "><summary>Dead (" + dead.length + ")</summary>" +
+          (dead.length ? dead.map(b => '<div class="drow"><span class="pn">' + esc(b.name) + "</span><span>" + (b.age != null ? b.age + " y" : "") + "</span><span>" + esc(b.cause || "") + "</span></div>").join("") : '<div class="empty">No one has died.</div>') + "</details></div>";
+      const d = el.querySelector("details.pdead"); if (d) d.ontoggle = () => { UI.peopleDeadOpen = d.open; };
+      el._ckey = ckey; UI.ppRebuilds = (UI.ppRebuilds || 0) + 1; return;
+    }
+    if (el._ckey === ckey) return;
+    el._ckey = ckey; UI.ppUpdates = (UI.ppUpdates || 0) + 1;
+    const byId = {}; el.querySelectorAll(".pp-rows button[data-pid]").forEach(b => { byId[b.getAttribute("data-pid")] = b; });
+    for (const a of rows) { const b = byId[a.id]; if (!b) continue;
+      b.classList.toggle("on", app.selected === a.id);
+      const nm = b.querySelector("b"), tn = nm && [...nm.childNodes].find(n => n.nodeType === 3); if (tn && tn.nodeValue !== a.name) tn.nodeValue = a.name; else if (nm && !tn) nm.appendChild(document.createTextNode(a.name));
+      const sp = b.querySelector("span"), st = subOf(a); if (sp && sp.textContent !== st) sp.textContent = st;
+      const mi = b.querySelector(".pp-mini"), bar = mi && mi.querySelector("s"), w = wOf(a);
+      if (mi) mi.classList.toggle("warn", lowOf(a) < 50); if (bar && bar.style.width !== w) bar.style.width = w; }
   };
   G.UI = UI;
 })(this.GS = this.GS || {});

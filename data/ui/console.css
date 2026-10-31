@@ -4,11 +4,11 @@
    docked above it, Log / Discoveries / Prayers docked bottom-right, Powers as a menu of category columns (closed by default).
    Loaded after theme.css. Narrower windows (701-1023px) keep the v39.1 desktop layout; phones keep the v39.1 layout and only take
    the fonts and the accent. Rules kept: smallest text 14px on the console, 44px hit targets. */
-@font-face { font-family: "Barlow Semi Condensed"; src: url(fonts/BarlowSemiCondensed-Regular.ttf?v=39.2) format("truetype"); font-weight: 400; font-display: block; }
-@font-face { font-family: "Barlow Semi Condensed"; src: url(fonts/BarlowSemiCondensed-Medium.ttf?v=39.2) format("truetype"); font-weight: 500; font-display: block; }
-@font-face { font-family: "Barlow Semi Condensed"; src: url(fonts/BarlowSemiCondensed-SemiBold.ttf?v=39.2) format("truetype"); font-weight: 600 900; font-display: block; }
-@font-face { font-family: "Barlow Condensed"; src: url(fonts/BarlowCondensed-SemiBold.ttf?v=39.2) format("truetype"); font-weight: 400 600; font-display: block; }
-@font-face { font-family: "Barlow Condensed"; src: url(fonts/BarlowCondensed-Bold.ttf?v=39.2) format("truetype"); font-weight: 700 900; font-display: block; }
+@font-face { font-family: "Barlow Semi Condensed"; src: url(fonts/BarlowSemiCondensed-Regular.ttf?v=39.3) format("truetype"); font-weight: 400; font-display: block; }
+@font-face { font-family: "Barlow Semi Condensed"; src: url(fonts/BarlowSemiCondensed-Medium.ttf?v=39.3) format("truetype"); font-weight: 500; font-display: block; }
+@font-face { font-family: "Barlow Semi Condensed"; src: url(fonts/BarlowSemiCondensed-SemiBold.ttf?v=39.3) format("truetype"); font-weight: 600 900; font-display: block; }
+@font-face { font-family: "Barlow Condensed"; src: url(fonts/BarlowCondensed-SemiBold.ttf?v=39.3) format("truetype"); font-weight: 400 600; font-display: block; }
+@font-face { font-family: "Barlow Condensed"; src: url(fonts/BarlowCondensed-Bold.ttf?v=39.3) format("truetype"); font-weight: 700 900; font-display: block; }
 
 /* every layout: the console's type and accent (phones keep their v39.1 layout and 16px text) */
 html.console { --font: "Barlow Semi Condensed", "Arial Narrow", sans-serif; --head: "Barlow Condensed", "Arial Narrow", sans-serif; --acc: #e8a33d; --acc-ink: #1b1408; --on: var(--acc); --on-text: var(--acc-ink); }

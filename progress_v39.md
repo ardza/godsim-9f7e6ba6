@@ -25,3 +25,10 @@ One line per piece once green (times PT). Earlier pieces were smoke-tested befor
   - New bow.keepReady and bow.fetchHungryTiles; wrap.tryBelowWarmth 70 -> 75.
   - Desktop CSS: the card stops above the Powers menu and its body scrolls.
   - Reruns: headless_v39 127 / 0, headless_v38_1 12 / 0, headless_v38 232 / 6 (the expected 6), chrome_v39 63 / 0.
+
+## v39.3 (Oct 30 2026, ~8:50 PM PT): People-card clicks fix (v39.2 ships as-is)
+- Bug: desktop People cards were rebuilt (innerHTML) about once a second, even while paused, so a press could land on a card that was replaced before release; 4/40 human-speed clicks selected nobody (v39.2 code, 1920x1080 and 1366x768).
+- Fix (src/ui.js UI.panelRender.people): cards are updated in place (name, sub line, bar width, warn class, selected); the list is rebuilt only when its structure changes (who / order / group tabs / dead list); never while a pointer is down on it (deferred to pointerup); paused with nothing changed = no DOM writes at all; clicks are delegated on the panel.
+- Every ?v= ref is now 39.3 (index.html 47, console.css fonts 5); G.data.artVersion "39.3"; saveVersion stays 39.
+- Tests: tests/chrome_v39_3.js (chrome_v39_2 at ?v=39.3 + paused no-mutation check + 40 clicks paused and running, both desktop sizes), tests/p393_clicks.js (self-contained repro), tests/p392c_repro.js (Tester's original, drives localhost:8787).
+- Results: p393_clicks 40/40 at both sizes (v39.2 code: 36/40); chrome_v39_3 89/89 x3; headless_v39_1 33/33; headless_v39 127/127.
