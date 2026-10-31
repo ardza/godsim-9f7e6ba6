@@ -1,0 +1,156 @@
+/* v39.2 "Colony console" (Commissioner's pick, UI direction C): the desktop / laptop look at 1024px and wider.
+   Flat slate panels, 1px edges, 2px corners, orange accent, Barlow type (bundled in data/ui/fonts, SIL Open Font License).
+   Colonist bar top-centre (the People tab), time / weather / speed widget top-right, flush tab strip bottom-left with the inspector
+   docked above it, Log / Discoveries / Prayers docked bottom-right, Powers as a menu of category columns (closed by default).
+   Loaded after theme.css. Narrower windows (701-1023px) keep the v39.1 desktop layout; phones keep the v39.1 layout and only take
+   the fonts and the accent. Rules kept: smallest text 14px on the console, 44px hit targets. */
+@font-face { font-family: "Barlow Semi Condensed"; src: url(fonts/BarlowSemiCondensed-Regular.ttf?v=39.2) format("truetype"); font-weight: 400; font-display: block; }
+@font-face { font-family: "Barlow Semi Condensed"; src: url(fonts/BarlowSemiCondensed-Medium.ttf?v=39.2) format("truetype"); font-weight: 500; font-display: block; }
+@font-face { font-family: "Barlow Semi Condensed"; src: url(fonts/BarlowSemiCondensed-SemiBold.ttf?v=39.2) format("truetype"); font-weight: 600 900; font-display: block; }
+@font-face { font-family: "Barlow Condensed"; src: url(fonts/BarlowCondensed-SemiBold.ttf?v=39.2) format("truetype"); font-weight: 400 600; font-display: block; }
+@font-face { font-family: "Barlow Condensed"; src: url(fonts/BarlowCondensed-Bold.ttf?v=39.2) format("truetype"); font-weight: 700 900; font-display: block; }
+
+/* every layout: the console's type and accent (phones keep their v39.1 layout and 16px text) */
+html.console { --font: "Barlow Semi Condensed", "Arial Narrow", sans-serif; --head: "Barlow Condensed", "Arial Narrow", sans-serif; --acc: #e8a33d; --acc-ink: #1b1408; --on: var(--acc); --on-text: var(--acc-ink); }
+html.console body, html.console button, html.console input { font-family: var(--font); }
+html.console #panelbar button.on { background: rgba(232,163,61,.14); }
+html.console .bar i { background: #8cbf55; } html.console .plog .ev.birth { color: #8cbf55; }   /* meters and births stay green */
+#top #hud { display: none; }
+html.console .people-ui .pp-tab { min-width: 44px; }   /* the narrower type must not shrink a short tab (Kin) under 44px */
+
+/* console: the map takes the whole window; the HUD replaces the one-line clock; tab order People, Log, Discoveries, Prayers, Powers */
+@media (min-width: 1024px) and (min-height: 501px) {
+  html.console #top .clockgrp { display: none; }
+  html.console #panelbar { position: absolute; z-index: 20; }
+  html.console #stage { padding: 0; }
+  html.console #mapbox, html.console #cv { border-radius: 0; box-shadow: none; }
+  html.console #info-body { min-height: 0; overflow-x: hidden; }
+  html.console .hud-cell { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  html.console .hud-date { flex-direction: column; align-items: flex-start; gap: 0; line-height: 1.1; }
+  html.console .hud-cell svg { width: 20px; height: 20px; }
+  html.console #ptab-people { order: 1; } html.console #ptab-log { order: 2; } html.console #ptab-discoveries { order: 3; }
+  html.console #ptab-prayers { order: 4; } html.console #ptab-powers { order: 5; }
+  html.console .people-ui .pp-list, html.console .people-ui .pp-card { width: auto; background: transparent; border: 0; padding: 0; border-radius: 0; }
+  html.console #top { pointer-events: none; } html.console #top > * { pointer-events: auto; }
+  html.console #panelbar button .lbl { max-width: none; overflow: visible; }
+}
+
+@media (min-width: 1024px) and (min-height: 501px) {
+html.console {
+  --font: "Barlow Semi Condensed", "Arial Narrow", sans-serif; --head: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --slate: rgba(29,33,38,.94); --slate-2: #262b31; --slate-3: #2f353c; --edge: #3a4048; --text: #e6e8ea; --dim: #9aa2ab;
+  --acc: #e8a33d; --acc-ink: #1b1408; --good: #7fbf5a; --warn: #e0584f; --wheat: var(--text); --line: var(--edge);
+  --on: var(--acc); --on-text: var(--acc-ink); --meter-bg: #14171a; --tabh: 48px;
+}
+html.console body { background: #0e1012; font: 15px/1.35 var(--font); color: var(--text); }
+html.console button { font-family: var(--font); font-weight: 500; border-radius: 2px; }
+html.console .panel, html.console #info, html.console #logwrap, html.console #files, html.console #panelbar, html.console #top, html.console #powers, html.console #zoom, html.console #spawnpick, html.console #top .grp {
+  background: var(--slate); border: 1px solid var(--edge); border-radius: 2px; box-shadow: 0 2px 0 rgba(0,0,0,.35); backdrop-filter: none; }
+html.console .hd, html.console .people-ui .pp-head, html.console .people-ui .pp-sub, html.console .sec, html.console #powers .pw-cat h4 {
+  font: 700 15px/1 var(--head); text-transform: uppercase; letter-spacing: .08em; color: var(--dim); }
+
+/* top-right: time / weather / speed widget; World top-left */
+html.console #top { left: auto; right: 8px; top: 8px; padding: 0; gap: 0; flex-direction: column; align-items: stretch; width: 300px; }
+html.console #top .grp { border: 0; box-shadow: none; background: transparent; padding: 0; }
+html.console #top .grp:has(#btn-menu) { position: fixed; left: 8px; top: 8px; background: var(--slate); border: 1px solid var(--edge); }
+html.console #btn-menu { min-height: 44px; font: 700 15px var(--head); text-transform: uppercase; letter-spacing: .08em; color: var(--text); }
+html.console #files { position: fixed; left: 8px; top: 60px; right: auto; }
+html.console #top #hud { display: grid; grid-template-columns: 1fr auto auto; grid-template-areas: "date date time" "temp weather pop"; gap: 0; }
+html.console .hud-cell { height: 34px; padding: 0 10px; border-bottom: 1px solid var(--edge); font-size: 15px; }
+html.console .hud-date { grid-area: date; flex-direction: row; align-items: center; gap: 8px; height: 40px; }
+html.console .hud-date b { font: 700 17px var(--head); text-transform: uppercase; letter-spacing: .06em; color: var(--acc); }
+html.console .hud-date small { font-size: 14px; color: var(--dim); }
+html.console .hud-time { grid-area: time; height: 40px; font: 700 18px var(--head); justify-content: flex-end; }
+html.console .hud-temp { grid-area: temp; } html.console .hud-weather { grid-area: weather; border-left: 1px solid var(--edge); } html.console .hud-pop { grid-area: pop; border-left: 1px solid var(--edge); }
+html.console .hud-cell svg { color: var(--dim); width: 18px; height: 18px; }
+html.console #speeds { display: grid !important; grid-template-columns: repeat(4, 1fr); gap: 0; }
+html.console #speeds button { min-height: 44px; border-radius: 0; border-left: 1px solid var(--edge); padding: 0 4px; font-size: 14px; color: var(--dim); gap: 4px; }
+html.console #speeds button:first-child { border-left: 0; }
+html.console #speeds button.on { background: var(--acc); color: var(--acc-ink); font-weight: 700; }
+
+/* docked panels: #side dissolves, each piece docks to the screen */
+html.console #side { display: contents; }
+html.console #side #info, html.console #side #logwrap, html.console #side .panel { position: fixed; height: auto; max-height: none; inset: auto; padding: 10px 12px; z-index: 18; }
+html.console #side #info { left: 0; bottom: calc(var(--tabh) + 1px); width: 408px; max-height: calc(100vh - var(--tabh) - 160px); display: flex; flex-direction: column; border-left: 0; }
+html.console body.pw-open #side #info { display: none; }
+html.console #info-body { overflow-y: auto; min-height: 0; }
+html.console #info-close { top: 4px; right: 4px; width: 44px; height: 44px; background: transparent; border: 0; color: var(--dim); }
+html.console #side #logwrap, html.console #side #panel-discoveries, html.console #side #panel-prayers { right: 0; bottom: 0; width: 420px; max-height: 46vh; border-right: 0; border-bottom: 0; display: flex; flex-direction: column; }
+
+/* colonist bar */
+html.console #side #panel-people { top: 8px; left: 50%; transform: translateX(-50%); width: auto; max-width: calc(100vw - 340px - 140px); padding: 4px; background: transparent; border: 0; box-shadow: none; }
+html.console #panel-people .pp-list { display: flex; align-items: stretch; gap: 4px; }
+html.console #panel-people .pp-head { display: none; }
+html.console #panel-people .pp-groups { display: none; }
+html.console #panel-people .pp-rows { flex-direction: row; flex-wrap: wrap; gap: 4px; max-height: 196px; overflow-y: auto; }   /* a big band wraps to more rows (scrolls past three) instead of running under the HUD */
+html.console #panel-people .pp-row { width: 112px; min-height: 58px; padding: 6px 8px 8px; display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 0;
+  background: var(--slate); border: 1px solid var(--edge); border-radius: 2px; position: relative; }
+html.console #panel-people .pp-row b { font: 700 16px/1.1 var(--head); white-space: nowrap; }
+html.console #panel-people .pp-row span { font-size: 14px; color: var(--dim); white-space: nowrap; }
+html.console #panel-people .pp-row.on { border-color: var(--acc); box-shadow: inset 0 0 0 1px var(--acc); background: #2d2a24; }
+html.console #panel-people .pp-mini { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; grid-column: auto; }
+html.console .people-ui i s, html.console .people-ui .pp-mini s { background: var(--good); }
+html.console .people-ui .warn i s, html.console .people-ui .pp-mini.warn s { background: var(--warn); }
+html.console #panel-people .pdead { align-self: stretch; display: flex; align-items: center; background: var(--slate); border: 1px solid var(--edge); padding: 0 10px; font-size: 14px; color: var(--dim); }
+html.console #panel-people .pdead summary { min-height: 44px; display: flex; align-items: center; }
+html.console #panel-people .pdead[open] .drow { display: none; }
+
+/* inspector */
+html.console .people-ui .pp-cardhead { gap: 4px; margin: 0 0 8px; padding-right: 44px; }
+html.console .people-ui .pp-name { min-width: 0; }
+html.console .people-ui .pp-name b { font: 700 22px/1.05 var(--head); text-transform: uppercase; letter-spacing: .04em; color: var(--text); }
+html.console .people-ui .pp-name span { font-size: 14px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html.console .people-ui .pp-nav, html.console .people-ui .pp-find { background: var(--slate-3); border: 1px solid var(--edge); color: var(--text); border-radius: 2px; }
+html.console .people-ui .pp-nav { width: 44px; padding: 0; justify-content: center; font-size: 16px; }
+html.console .people-ui .pp-find { font: 700 15px var(--head); text-transform: uppercase; letter-spacing: .06em; color: var(--acc); padding: 0 10px; }
+html.console .people-ui .pp-tabs { flex-wrap: nowrap; gap: 0; margin: 0 -12px 10px; border-top: 1px solid var(--edge); border-bottom: 1px solid var(--edge); background: #181b1f; }
+html.console .people-ui .pp-tab { flex: 1 1 0; min-width: 0; min-height: 44px; padding: 0 2px; justify-content: center; border-radius: 0; background: transparent; border-left: 1px solid var(--edge);
+  font: 700 14px var(--head); text-transform: uppercase; letter-spacing: .06em; color: var(--dim); }
+html.console .people-ui .pp-tab:first-child { border-left: 0; }
+html.console .people-ui .pp-tab.on { background: var(--slate-3); color: var(--acc); box-shadow: inset 0 2px 0 var(--acc); }
+html.console .people-ui .pp-sub, html.console .sec { margin: 10px 0 4px; padding: 0; border: 0; }
+html.console .people-ui .pp-meter, html.console .people-ui .pp-skill { grid-template-columns: 90px 1fr 74px; min-height: 26px; font-size: 15px; gap: 8px; }
+html.console .people-ui .pp-meter > span { color: var(--dim); }
+html.console .people-ui .pp-meter i { height: 12px; border-radius: 0; border: 1px solid var(--edge); }
+html.console .people-ui em { font-size: 14px; }
+html.console .people-ui .pp-mood { font-size: 14px; margin: 6px 0; }
+html.console .pp-health { display: grid; grid-template-columns: 1fr; }
+html.console .pp-body { gap: 12px; align-items: center; padding: 6px 8px; background: #181b1f; border: 1px solid var(--edge); }
+html.console .pp-figure { width: 34px; height: 68px; flex-basis: 34px; }
+html.console .pp-injuries { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; font-size: 14px; flex: 1; }
+html.console .pp-injuries .pp-ok { color: var(--good); }
+html.console #info .sub { font-size: 14px; color: var(--dim); }
+html.console .chip { border-radius: 2px; background: var(--slate-3); border: 1px solid var(--edge); color: var(--text); font-size: 14px; }
+html.console #tabs button { min-height: 36px; border-radius: 2px; background: var(--slate-3); color: var(--dim); font-size: 14px; }
+html.console #tabs button.on { background: var(--acc); color: var(--acc-ink); }
+html.console .ev { font-size: 15px; border-color: var(--edge); }
+
+/* flush tab strip, bottom-left */
+html.console #panelbar { left: 0; bottom: 0; transform: none; width: auto; padding: 0; gap: 0; border-left: 0; border-bottom: 0; }
+html.console #panelbar button { flex: 0 0 auto; width: auto; min-width: 0; min-height: var(--tabh); padding: 0 14px; flex-direction: row; gap: 8px; border-radius: 0; border-left: 1px solid var(--edge);
+  font: 700 15px var(--head); text-transform: uppercase; letter-spacing: .07em; color: var(--dim); }
+html.console #panelbar button:first-child { border-left: 0; }
+html.console #panelbar button svg { width: 20px; height: 20px; }
+html.console #panelbar button:hover { background: var(--slate-3); color: var(--text); }
+html.console #panelbar button.on, html.console body.pw-open #panelbar #ptab-powers { background: var(--slate-3); color: var(--acc); box-shadow: inset 0 3px 0 var(--acc); }
+
+/* Powers: architect menu, category columns */
+html.console body.pw-open #powers { position: fixed; left: 0; bottom: calc(var(--tabh) + 1px); top: auto; transform: none; max-width: none; width: auto; padding: 0; gap: 0; flex-direction: column; border-left: 0; }
+html.console #powers .pw-cats { flex-wrap: nowrap; gap: 0; align-items: stretch; }
+html.console #powers .pw-cat { width: 148px; padding: 0 0 6px; border-left: 1px solid var(--edge); display: flex; flex-direction: column; }
+html.console #powers .pw-cat:first-child { border-left: 0; }
+html.console #powers .pw-cat h4 { margin: 0 0 4px; padding: 10px 12px 8px; border-bottom: 1px solid var(--edge); background: #181b1f; }
+html.console #powers .pw-row { flex-direction: column; flex-wrap: nowrap; gap: 0; }
+html.console #powers button.pw { width: auto; min-width: 0; min-height: 44px; flex-direction: row; justify-content: flex-start; gap: 10px; padding: 0 12px; background: transparent; border: 0; border-radius: 0;
+  font: 500 15px var(--font); color: var(--text); text-align: left; }
+html.console #powers button.pw svg { width: 22px; height: 22px; color: var(--acc); flex: 0 0 22px; }
+html.console #pwcat-harm button.pw svg { color: var(--warn); }
+html.console #powers button.pw:hover { background: var(--slate-3); }
+html.console #powers button.pw.on { background: var(--slate-3); box-shadow: inset 3px 0 0 var(--acc); outline: 0; }
+html.console #powers .pw-hint { margin: 0; padding: 8px 12px; border-top: 1px solid var(--edge); font-size: 14px; color: var(--dim); }
+html.console #spawnpick { position: fixed; left: 600px; bottom: calc(var(--tabh) + 1px); right: auto; transform: none; }
+
+html.console #zoom { top: 128px; right: 8px; bottom: auto; position: fixed; padding: 0; }
+html.console #zoom button { color: var(--dim); border-radius: 0; }
+html.console #toast { background: var(--slate); border: 1px solid var(--acc); color: var(--text); border-radius: 2px; }
+}

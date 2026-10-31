@@ -5,7 +5,7 @@
 // Per device: 0 JS errors. Overall: 0 missing files, every js / css / png request carries ?v=39.1.
 // Run: node --experimental-websocket tests/chrome_v39_1.js   (screenshots -> /workspace/godsim-previews/v39_1/)
 const { spawn } = require("child_process"), http = require("http"), fs = require("fs"), path = require("path");
-const root = path.join(__dirname, ".."), out = "/workspace/godsim-previews/v39_1/"; fs.mkdirSync(out, { recursive: true });
+const root = path.join(__dirname, ".."), out = process.env.SHOT_DIR || "/workspace/godsim-previews/v39_1/"; fs.mkdirSync(out, { recursive: true });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const types = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png", ".json": "application/json" };
 const missing = [], served = new Set();
@@ -42,7 +42,7 @@ const state = "(() => { " + VIS + " const pw = document.getElementById('powers')
     await cmd("Emulation.setDeviceMetricsOverride", { width: W, height: H, deviceScaleFactor: 1, mobile });
     if (mobile) await cmd("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
     await cmd("Page.navigate", { url: base + "?seed=3871" }); await sleep(2500);
-    check(await ev("!!(window.GS && GS.app && GS.app.sim && GS.data.config.saveVersion === 39 && GS.app.sim.version === 39 && String(GS.data.artVersion) === '39.1')"), tag + ": loads (saveVersion 39, art ?v=39.1)");
+    check(await ev("!!(window.GS && GS.app && GS.app.sim && GS.data.config.saveVersion === 39 && GS.app.sim.version === 39 && String(GS.data.artVersion) === '39.2')"), tag + ": loads (saveVersion 39, art ?v=39.2; v39.2 retarget)");
     await ev("(() => { GS.app.setSpeed(0); return true; })()");
     let s = await ev(state);
     check(!s.open && s.tab && s.expanded === "false", tag + ": Powers is closed by default, its tab is in the bottom bar", { open: s.open, tab: s.tab, expanded: s.expanded });
@@ -57,7 +57,7 @@ const state = "(() => { " + VIS + " const pw = document.getElementById('powers')
     check(s.open && s.expanded === "true" && s.btns >= 4, tag + ": tapping the tab opens Powers", { open: s.open, expanded: s.expanded, buttons: s.btns });
     check(!s.overInfo, tag + ": open Powers does not overlap the inspect card", { powers: s.powers, info: s.info, infoShown: s.infoShown });
     check(!s.overBar, tag + ": open Powers sits above the tab bar", { powers: s.powers, bar: s.bar });
-    check(s.minBtn >= 44 && s.minText >= 16, tag + ": power buttons >= 44px, text >= 16px", { minBtn: s.minBtn, minText: s.minText });
+    check(s.minBtn >= 44 && s.minText >= (mobile ? 16 : 14), tag + ": power buttons >= 44px, text >= " + (mobile ? 16 : 14) + "px (v39.2 console: 14px)", { minBtn: s.minBtn, minText: s.minText });
     await shot("card_powers_open");
     // tap the tab again: closes
     await click("#ptab-powers"); s = await ev(state);
@@ -78,8 +78,8 @@ const state = "(() => { " + VIS + " const pw = document.getElementById('powers')
     check(errs.length === 0, tag + " 0 JS errors", errs);
     sock.close();
   }
-  const assetRe = /\.(js|css|png)$/, ver = [...served].filter(u => assetRe.test(u.split("?")[0])), badV = ver.filter(u => !/\?v=39\.1$/.test(u));
+  const assetRe = /\.(js|css|png)$/, ver = [...served].filter(u => assetRe.test(u.split("?")[0])), badV = ver.filter(u => !/\?v=39\.2$/.test(u));
   check(missing.length === 0, "0 missing files (404s)", missing);
-  check(ver.length > 0 && badV.length === 0, "every loaded js / css / png carries ?v=39.1", { loaded: ver.length, bad: badV.slice(0, 5) });
+  check(ver.length > 0 && badV.length === 0, "every loaded js / css / png carries ?v=39.2 (v39.2 retarget)", { loaded: ver.length, bad: badV.slice(0, 5) });
   console.log(pass + " PASS, " + fail + " FAIL"); try { process.kill(-ch.pid); } catch (e) {} srv.close(); process.exit(fail ? 1 : 0);
 })().catch(e => { console.error(e); try { process.kill(-ch.pid); } catch (x) {} process.exit(1); });

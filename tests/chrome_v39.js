@@ -4,7 +4,7 @@
 // Per device: 0 JS errors. Overall: 0 missing files (404s), every new v39 art sheet requested and every js / css / png request carries ?v=39.
 // Run: node --experimental-websocket tests/chrome_v39.js   (screenshots -> /workspace/godsim-previews/v39/)
 const { spawn } = require("child_process"), http = require("http"), fs = require("fs"), path = require("path");
-const root = path.join(__dirname, ".."), out = "/workspace/godsim-previews/v39/"; fs.mkdirSync(out, { recursive: true });
+const root = path.join(__dirname, ".."), out = process.env.SHOT_DIR || "/workspace/godsim-previews/v39/"; fs.mkdirSync(out, { recursive: true });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const types = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png", ".json": "application/json" };
 const missing = [], served = new Set();
@@ -65,7 +65,7 @@ const tapMin = "(() => { let m = 999, at = ''; for (const e of document.querySel
         check(d && d.icons >= 2, tag + " Discoveries: v39 firsts show their disc_* icons", d); await shot("discoveries");
         await ev("(() => { GS.UI.panel = 'log'; GS.UI.update(GS.app); return true; })()"); }
       await ev("(() => { for (let i = 0; i < 60; i++) GS.Sim.step(GS.app.sim); GS.UI.update(GS.app); })()"); await sleep(300);
-      const tx = await ev(textMin); minText = Math.min(minText, tx.m); check(tx.m >= 16, tag + " " + k + ": every visible text >= 16px", tx);
+      const tx = await ev(textMin); minText = Math.min(minText, tx.m); check(tx.m >= (mobile ? 16 : 14), tag + " " + k + ": every visible text >= " + (mobile ? 16 : 14) + "px (v39.2 console: 14px)", tx);
       const tp = await ev(tapMin); minTap = Math.min(minTap, tp.m); check(tp.m >= 44, tag + " " + k + ": person tabs and panel buttons >= 44px", tp);
     }
     console.log("  " + tag + " smallest visible text: " + minText + "px, smallest tab / panel button: " + minTap + "px");

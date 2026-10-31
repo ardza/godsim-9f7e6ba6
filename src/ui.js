@@ -40,19 +40,46 @@
   UI.panelEl = p => document.getElementById(p.el || "panel-" + p.key);
   function initPanels(app) {
     const bar = $("panelbar"), P = UC().panels, pr = prefs();
-    UI.panel = "panel" in pr ? pr.panel : ((P.find(p => p.open) || {}).key || null);
+    UI.panel = "panel" in pr ? pr.panel : UI.console() ? "people" : ((P.find(p => p.open) || {}).key || null);   // v39.2: the console opens on the colonist bar
     if (UI.panel && !P.some(p => p.key === UI.panel)) UI.panel = null;
     P.forEach(p => {
       if (!UI.panelEl(p)) { const d = document.createElement("div"); d.id = "panel-" + p.key; d.className = "panel"; $("side").appendChild(d); }
       const b = document.createElement("button"); b.innerHTML = UI.icon(p.icon) + '<span class="lbl">' + esc(p.label) + '</span>'; b.id = "ptab-" + p.key; b.setAttribute("role", "tab"); b.setAttribute("aria-label", p.label); b.title = p.label;
-      b.onclick = () => { UI.panel = UI.panel === p.key ? null : p.key; savePrefs(Object.assign(prefs(), { panel: UI.panel })); UI._logKey = null;
+      b.onclick = () => { if (UI.console() && UI.rowOpen()) UI.powerRow(app, false);   // v39.2 console: a panel and the Powers menu never share the screen
+        UI.panel = UI.panel === p.key ? null : p.key; savePrefs(Object.assign(prefs(), { panel: UI.panel })); UI._logKey = null;
         if (UI.panel && isSheet()) UI.openSheet(true);   // phone landscape: opening a panel opens the sheet above the bar (closing one with nothing inspected hides the sheet: #side.bare)
         UI.update(app); };
       bar.appendChild(b);
     });
     // v19: the Powers tab (v39.1: on every layout; was portrait phones only): opens / closes the power row; highlighted while a power waits for its spot
     const PT = UC().powersTab; if (PT && $("powers")) { const b = document.createElement("button"); b.id = "ptab-powers"; b.innerHTML = UI.icon(PT.icon) + '<span class="lbl">' + esc(PT.label) + '</span>';
-      b.setAttribute("aria-label", PT.label); b.title = PT.label; b.setAttribute("aria-expanded", "false"); b.setAttribute("aria-controls", "powers"); b.onclick = () => UI.powerRow(app, !UI.rowOpen()); bar.appendChild(b); }
+      b.setAttribute("aria-label", PT.label); b.title = PT.label; b.setAttribute("aria-expanded", "false"); b.setAttribute("aria-controls", "powers"); b.onclick = () => { const o = !UI.rowOpen();
+        if (o && UI.console() && UI.panel != null) { UI.panel = null; UI._logKey = null; UI.update(app); }   // v39.2 console: opening Powers closes the open panel (not saved)
+        UI.powerRow(app, o); }; bar.appendChild(b); }
+  }
+  // v39.2 "Colony console" (data/ui/console.css): the desktop / laptop layout from 1024px wide (and taller than a landscape phone)
+  UI.consoleMQ = typeof matchMedia === "function" ? matchMedia("(min-width: 1024px) and (min-height: 501px)") : null;
+  UI.console = () => !!(UI.consoleMQ && UI.consoleMQ.matches);
+  // v39.2: the time / weather / population widget (top-right on the console; hidden on narrower layouts, which keep the one-line #clock)
+  function initHud() {
+    const cg = document.querySelector("#top .clockgrp"); if (!cg || $("hud")) return;
+    const hud = document.createElement("span"); hud.id = "hud"; hud.className = "grp"; hud.setAttribute("role", "status"); hud.setAttribute("aria-label", "time and weather");
+    hud.innerHTML = '<span class="hud-cell hud-date"><b id="hud-season">-</b><small id="hud-day">-</small></span>' +
+      '<span class="hud-cell hud-time" id="hud-time">-</span>' +
+      '<span class="hud-cell hud-temp" id="hud-temp">-</span>' +
+      '<span class="hud-cell hud-weather"><span id="hud-wico"></span><span id="hud-weather">Clear</span></span>' +
+      '<span class="hud-cell hud-pop" title="People alive">' + UI.icon("people") + '<span id="hud-pop">0</span></span>';
+    cg.parentNode.insertBefore(hud, cg.nextSibling);
+  }
+  function updateHud(sim, c) {
+    if (!$("hud")) return;
+    const rain = !!(G.Powers && G.Powers.any(sim) && (sim.powers.effects || []).some(e => e.k === "rain" && e.on && sim.tick < e.end));   // any Rain on the map
+    const night = G.Agent && G.Agent.isNight ? G.Agent.isNight(sim.tick) : false, air = G.Climate.airC(sim.tick);
+    const k = [c.season, c.dayOfSeason, c.year, c.day, G.Time.hhmm(c), Math.round(air), rain, night, sim.agents.length].join("|"); if (k === UI._hudKey) return; UI._hudKey = k;
+    $("hud-season").textContent = c.season + " " + c.dayOfSeason; $("hud-day").textContent = "Year " + c.year + " · Day " + c.day;
+    $("hud-time").textContent = G.Time.hhmm(c); $("hud-temp").textContent = G.Time.tempF(air);
+    $("hud-wico").innerHTML = UI.icon(rain ? "rain" : night ? "cool" : "warm"); $("hud-weather").textContent = rain ? "Rain" : night ? "Clear night" : "Clear";
+    $("hud-pop").textContent = sim.agents.length;
   }
   UI.rowOpen = () => document.body.classList.contains("pw-open");
   UI.powerRow = function (app, open) { if (open && pickOpen()) showPick(false);   // v19: opening the row closes an open picker (it sits in the same spot)
@@ -243,7 +270,7 @@
     $("sheet-handle").onclick = () => { const o = !$("side").classList.contains("open");
       if (o && !UI.panel && $("info").hidden) { UI.panel = "log"; savePrefs(Object.assign(prefs(), { panel: "log" })); UI._logKey = null; }   // opening an empty sheet opens the Log
       UI.openSheet(o); UI.update(app); };
-    initPanels(app); initPowers(app);
+    initHud(); initPanels(app); initPowers(app);
     if (isSheet() && prefs().sheet) UI.openSheet(true, true);
     initMap(app);
     window.addEventListener("keydown", e => { if (e.key === "Escape" && (UI.power || pickOpen())) { UI.armPower(app, UI.power || UI.pickFor || "spawn"); return; }
@@ -384,6 +411,7 @@
     const ck = c.year + c.season + c.day + G.Time.hhmm(c) + Math.round(G.Climate.airC(sim.tick));
     if (UI._ck !== ck) { UI._ck = ck;   // phones drop the year and season name (span.wide) so the clock fits next to the World button
       $("clock").innerHTML = '<span class="wide">Year ' + c.year + ' · ' + c.season + ' ' + c.dayOfSeason + ' · </span>Day ' + c.day + ' · ' + G.Time.hhmm(c) + ' · ' + G.Time.tempF(G.Climate.airC(sim.tick)); }
+    updateHud(sim, c);
     $("seedshow").textContent = "seed " + sim.seed; UI.updatePowers(app);
     document.querySelectorAll("#speeds button").forEach(b => { const on = +b.dataset.speed === app.speed; b.classList.toggle("on", on); b.setAttribute("aria-pressed", on); });
     updatePanels(app);

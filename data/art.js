@@ -96,6 +96,6 @@
     tipBone: { src: "data/art/tip_bone_16.png", frame: 16, rows: ["down", "left", "right", "up"] },   // 16x64
     tip: { src: "data/art/tip_16.png", frame: 16, cols: ["tip_stick", "tip_bone"], rows: ["down", "left", "right", "up"] }   // 32x64 convenience
   };
-  G.data.artVersion = "39.1";   // v39.1 (was 39); v39: render.js fetches every art file with ?v=<artVersion>
+  G.data.artVersion = "39.2";   // v39.2 (was 39.1); v39: render.js fetches every art file with ?v=<artVersion>
   G.data.artItems = G.data.art.items.cols;   // which item frames exist (a sharp bone uses bone_shard; other shards use their material)
 })(this.GS = this.GS || {});

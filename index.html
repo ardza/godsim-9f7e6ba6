@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en"><head>
+<html lang="en" class="console"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <title>Godsim (week 1)</title>
@@ -228,7 +228,8 @@
     #info > * { flex-shrink: 0; }   /* the short card scrolls as a whole; her log follows the details */
   }
 </style>
-<link rel="stylesheet" href="data/ui/theme.css?v=39.1">
+<link rel="stylesheet" href="data/ui/theme.css?v=39.2">
+<link rel="stylesheet" href="data/ui/console.css?v=39.2">  <!-- v39.2: the "Colony console" look (desktop / laptop >= 1024px; fonts + accent everywhere) -->
 </head><body>
 <div id="top">
   <span class="grp"><button id="btn-menu" aria-expanded="false" aria-controls="files" title="World: save, load, new world"><span class="ico" data-icon="menu"></span><span class="wide">World</span></button></span>
@@ -248,49 +249,49 @@
 </div>
 <div id="panelbar" role="tablist" aria-label="panels"></div>
 <div id="toast"></div>
-<script src="data/config.js?v=39.1"></script>
-<script src="data/tiles.js?v=39.1"></script>
-<script src="data/names.js?v=39.1"></script>
-<script src="data/words.js?v=39.1"></script>
-<script src="data/group_names.js?v=39.1"></script>
-<script src="data/art.js?v=39.1"></script>
-<script src="data/materials.js?v=39.1"></script>
-<script src="src/rng.js?v=39.1"></script>
-<script src="src/world.js?v=39.1"></script>
-<script src="src/climate.js?v=39.1"></script>
-<script src="src/agent.js?v=39.1"></script>
-<script src="src/animal.js?v=39.1"></script>
-<script src="src/objects.js?v=39.1"></script>
-<script src="src/fire.js?v=39.1"></script>
-<script src="src/learn.js?v=39.1"></script>
-<script src="src/hunt.js?v=39.1"></script>
-<script src="src/cook.js?v=39.1"></script>
-<script src="src/social.js?v=39.1"></script>
-<script src="src/family.js?v=39.1"></script>
-<script src="src/faith.js?v=39.1"></script>
-<script src="src/shelter.js?v=39.1"></script>
-<script src="src/powers.js?v=39.1"></script>
-<script src="src/injury.js?v=39.1"></script>
-<script src="src/wolffear.js?v=39.1"></script>
-<script src="src/speech.js?v=39.1"></script>
-<script src="src/corpse.js?v=39.1"></script>
-<script src="src/moods.js?v=39.1"></script>
-<script src="src/disease.js?v=39.1"></script>
-<script src="src/tools.js?v=39.1"></script>
-<script src="src/hides.js?v=39.1"></script>
-<script src="src/cache.js?v=39.1"></script>
-<script src="src/hut.js?v=39.1"></script>
-<script src="src/farm.js?v=39.1"></script>
-<script src="src/food.js?v=39.1"></script>
-<script src="src/reeds.js?v=39.1"></script>
-<script src="src/bow.js?v=39.1"></script>
-<script src="src/fight39.js?v=39.1"></script>
-<script src="src/wolfmem.js?v=39.1"></script>
-<script src="src/spar.js?v=39.1"></script>
-<script src="src/sim.js?v=39.1"></script>
-<script src="src/save.js?v=39.1"></script>
-<script src="src/icons.js?v=39.1"></script>
-<script src="src/render.js?v=39.1"></script>
-<script src="src/ui.js?v=39.1"></script>
-<script src="src/main.js?v=39.1"></script>
+<script src="data/config.js?v=39.2"></script>
+<script src="data/tiles.js?v=39.2"></script>
+<script src="data/names.js?v=39.2"></script>
+<script src="data/words.js?v=39.2"></script>
+<script src="data/group_names.js?v=39.2"></script>
+<script src="data/art.js?v=39.2"></script>
+<script src="data/materials.js?v=39.2"></script>
+<script src="src/rng.js?v=39.2"></script>
+<script src="src/world.js?v=39.2"></script>
+<script src="src/climate.js?v=39.2"></script>
+<script src="src/agent.js?v=39.2"></script>
+<script src="src/animal.js?v=39.2"></script>
+<script src="src/objects.js?v=39.2"></script>
+<script src="src/fire.js?v=39.2"></script>
+<script src="src/learn.js?v=39.2"></script>
+<script src="src/hunt.js?v=39.2"></script>
+<script src="src/cook.js?v=39.2"></script>
+<script src="src/social.js?v=39.2"></script>
+<script src="src/family.js?v=39.2"></script>
+<script src="src/faith.js?v=39.2"></script>
+<script src="src/shelter.js?v=39.2"></script>
+<script src="src/powers.js?v=39.2"></script>
+<script src="src/injury.js?v=39.2"></script>
+<script src="src/wolffear.js?v=39.2"></script>
+<script src="src/speech.js?v=39.2"></script>
+<script src="src/corpse.js?v=39.2"></script>
+<script src="src/moods.js?v=39.2"></script>
+<script src="src/disease.js?v=39.2"></script>
+<script src="src/tools.js?v=39.2"></script>
+<script src="src/hides.js?v=39.2"></script>
+<script src="src/cache.js?v=39.2"></script>
+<script src="src/hut.js?v=39.2"></script>
+<script src="src/farm.js?v=39.2"></script>
+<script src="src/food.js?v=39.2"></script>
+<script src="src/reeds.js?v=39.2"></script>
+<script src="src/bow.js?v=39.2"></script>
+<script src="src/fight39.js?v=39.2"></script>
+<script src="src/wolfmem.js?v=39.2"></script>
+<script src="src/spar.js?v=39.2"></script>
+<script src="src/sim.js?v=39.2"></script>
+<script src="src/save.js?v=39.2"></script>
+<script src="src/icons.js?v=39.2"></script>
+<script src="src/render.js?v=39.2"></script>
+<script src="src/ui.js?v=39.2"></script>
+<script src="src/main.js?v=39.2"></script>
 </body></html>
