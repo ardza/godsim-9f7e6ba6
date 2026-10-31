@@ -80,8 +80,9 @@
     const den = G.Shelter ? G.Shelter.warmC(sim, a, baseWarm) : 0; c += den;
     // v28: worn / sleep-under hide stacks with fire+shelter, trimmed under shelter.capX × fire.heatC
     const hide = G.Hides ? G.Hides.warmC(sim, a, baseWarm + den) : 0; c += hide;
+    const wrap = G.Fiber && a.wearingWrap != null ? G.Fiber.warmC(sim, a, baseWarm + den + hide) : 0; c += wrap;   // v39: fiber wrap, same cap
     if (a.act.type === "walk") c += Wm.walkingC; else if (a.act.type === "sleep") c += Wm.asleepC;
-    const o = { c: Math.round(c * 100) / 100, sheltered, huddle: hud, heat, bond: bond ? bond.name : null, sleepers, sleepC, den, hide }; if (wet) o.wet = wet; return o;
+    const o = { c: Math.round(c * 100) / 100, sheltered, huddle: hud, heat, bond: bond ? bond.name : null, sleepers, sleepC, den, hide }; if (wrap) o.wrap = wrap; if (wet) o.wet = wet; return o;
   };
   // step 20: is b someone she keeps with (partner, same group, her guardian or the child she guards)?
   Climate.bonded = (a, b) => b !== a && (a.mate === b.id || b.mate === a.id || (a.group != null && a.group === b.group) || a.guard === b.id || b.guard === a.id);

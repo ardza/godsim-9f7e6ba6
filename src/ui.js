@@ -254,7 +254,30 @@
   };
   // ---- person card helpers: trait names, experience scores (step 13-14), chips, and the personal log (.plog, only this person's events) ----
   const TRAIT = { speed: "Speed", appetite: "Appetite", curiosity: "Curiosity", coldFear: "Cold fear", fireFear: "Fire fear", faith: "Faith", corpseFear: "Corpse fear" };
-  const EXP = { fire: "Fire", huddle: "Huddling", shelter: "Shelter" };
+  const EXP = { fire: "Fire", huddle: "Huddling", shelter: "Shelter", melee: "Fighting up close", ranged: "Shooting", spar: "Sparring", bow: "Bow making" };
+  // v39: Skills tab — melee / ranged (everyone has them), sparring and bow once learned; who it was copied from; bow and wrap carried
+  UI.skillsHtml = function (sim, a, ppSkill, chip) {
+    const T = UC().skillsTab, L = G.Learn, rows = Object.keys(T.rows).map(k => {
+      const has = L.has ? L.has(a, k) : !!(a.exp && a.exp[k]), e = a.exp && a.exp[k], c = e && (e.copied || e.seep);
+      return '<div title="' + esc(T.hints[k] || "") + '" data-skill="' + k + '">' + (has || k === "melee" || k === "ranged" ? ppSkill(T.rows[k], L.score(a, k)) : '<div class="pp-skill"><span>' + esc(T.rows[k]) + '</span><i><s style="width:0%"></s></i><em>' + esc(T.notYet) + '</em></div>') +
+        (c && c.name ? '<div class="sub">' + esc((c.how || "copied") + " from " + c.name) + '</div>' : "") + '</div>'; }).join("");
+    const held = G.Items.held(sim, a), gear = [];
+    if (held && held.tool === "bow") gear.push(chip((held.strung ? "strung bow" : "unstrung bow") + " · " + (held.arrows || []).length + " arrow" + ((held.arrows || []).length === 1 ? "" : "s")));
+    const w = G.Fiber && G.Fiber.wrapItem(sim, a); if (w) gear.push(chip("fiber wrap · " + (w.layers || 1) + " layer" + ((w.layers || 1) === 1 ? "" : "s") + " · " + Math.round(w.dur) + "/100"));
+    return '<div class="pp-sub">' + esc(T.title) + '</div>' + rows + '<div class="pp-sub">' + esc(T.gear) + '</div><div class="chips">' + (gear.length ? gear.join("") : chip(esc(T.none))) + '</div>';
+  };
+  // v39: wolf memory card (deviation from spec section 11): caution, wounded, each remembered person / group with its strength now
+  UI.wolfMemHtml = function (sim, w) {
+    const T = UC().wolfCard, WM = G.WolfMem, MC = G.data.config.wolfMemory; if (!WM || w.species !== "wolves") return "";
+    const nm = id => { const p = sim.agents.find(q => q.id === id) || (sim.bodies || []).find(b => b.of === id); return p ? p.name : "someone"; };
+    const rows = (w.memory || []).map(e => { const s = WM.sNow(sim, e), word = s >= MC.avoidAt ? T.avoid : s >= MC.forgetBelow * 2 ? T.wary : T.fading;
+      const lab = e.who != null ? nm(e.who) : fill(T.group, { name: e.members && e.members.length ? nm(e.members[0]) : "someone" });
+      return '<div class="row need" data-wmem="' + (e.who != null ? e.who : "g") + '"><span>' + esc(lab) + '</span>' + bar(s, 100, s >= MC.avoidAt ? "hot" : "trait").replace('</div>', '<em>' + esc(word) + '</em></div>') + '<b>' + Math.round(s) + '/100</b></div>' +
+        (e.near ? '<div class="sub">' + esc(T.near) + '</div>' : ""); }).join("");
+    const c = WM.cNow(sim, w), wd = WM.wounded(sim, w), h = wd ? Math.max(1, Math.round((w.woundedUntil - sim.tick) * G.data.config.time.tickGameMinutes / 60)) : 0;
+    return '<div class="sec">' + esc(T.title) + '</div>' + '<div class="row need" data-wcaution="1"><span>' + esc(T.caution) + '</span>' + bar(c, 100, "trait") + '<b>' + Math.round(c) + '/100</b></div>' +
+      '<div class="sub" data-wwounded="' + (wd ? 1 : 0) + '">' + (wd ? esc(T.wounded) + " " + esc(fill(T.woundedFor, { h })) : esc(T.sound)) + '</div>' + (rows || '<div class="sub">' + esc(T.empty) + '</div>');
+  };
   const traitName = k => TRAIT[k] || k;
   const chip = (t, cls) => '<span class="chip' + (cls ? " " + cls : "") + '">' + t + '</span>';
   // step 18: group line + Relations (top 5 by familiarity; liking word warm 70+, neutral 40-69, wary under 40; the two numbers 0-100)
@@ -407,7 +430,7 @@
         '<div class="sec">Needs (0-100, full = good)</div>' +
         need("Fullness", f, f < low ? "hot" : "", f <= 0 ? "starving" : f < low ? "hungry" : "fed", (an.species === "grazer" ? "grazes" : "feeds") + " below " + low) +
         '<div class="sec">Behaviour</div><div class="sub">' + beh + '</div>' +
-        '<div class="sub">nearest person ' + (np.p ? np.d.toFixed(1) + ' tiles' : 'none') + ' · fled ' + an.stats.flees + ' time' + (an.stats.flees === 1 ? "" : "s") + ' · ' + an.stats.meals + ' meal' + (an.stats.meals === 1 ? "" : "s") + '</div>';
+        '<div class="sub">nearest person ' + (np.p ? np.d.toFixed(1) + ' tiles' : 'none') + ' · fled ' + an.stats.flees + ' time' + (an.stats.flees === 1 ? "" : "s") + ' · ' + an.stats.meals + ' meal' + (an.stats.meals === 1 ? "" : "s") + '</div>' + UI.wolfMemHtml(sim, an);
     } else if (bd) {
       const BC = G.data.config.body, ago = sim.tick - bd.diedAt, days = Math.floor(ago / 1440), hrs = Math.floor(ago % 1440 / 60);
       const MC = G.data.config.meat;
@@ -491,8 +514,9 @@
           chip("carrying " + (G.Items.held(sim, a) ? esc(G.Items.label(G.Items.held(sim, a))) : "nothing")) +
           (sim.discoveries || []).filter(d => d.who === a.name).map(d => chip(esc(d.action + " " + d.materials.slice(0, 2).join(" / ") + " → " + d.result), "disc")).join("") + "</div>";
       const logPane = '<div class="pp-sub">' + esc(a.name) + "'s log</div>" + plogHtml(sim, a.id);
+      const skillsPane = UI.skillsHtml(sim, a, ppSkill, chip);
       if (UI.pair && (UI.pair.a !== a.id || UI.pair.tab !== UI.personTab)) UI.pair = null;   // v38 (e): another person or tab -> back to the normal pane
-      const pane = UI.pair ? UI.pairHtml(sim, a.id, UI.pair.b, UI.pair.tab) : UI.personTab === "mind" ? mindPane : UI.personTab === "kin" ? kinPane : UI.personTab === "knows" ? knowsPane : UI.personTab === "log" ? logPane : needsPane;
+      const pane = UI.pair ? UI.pairHtml(sim, a.id, UI.pair.b, UI.pair.tab) : UI.personTab === "mind" ? mindPane : UI.personTab === "kin" ? kinPane : UI.personTab === "knows" ? knowsPane : UI.personTab === "skills" ? skillsPane : UI.personTab === "log" ? logPane : needsPane;
       const Sg = G.Social, grp = Sg && Sg.group(sim, a);
       const gname = grp ? Sg.groupName(sim, grp) : "Loner";
       const head = '<div class="pp-cardhead">' +
@@ -557,7 +581,7 @@
     const D = app.sim.discoveries || [], key = D.length + "|" + app.sim.seed;
     if (el._key === key) return; el._key = key;
     el.innerHTML = '<div class="sec">Discoveries</div>' + (D.length ? '<table class="disc"><thead><tr><th>#</th><th>When</th><th>Who</th><th>What</th><th>Result</th><th>Group</th></tr></thead><tbody>' +
-      D.slice().reverse().map(d => '<tr><td>' + d.n + '</td><td>' + G.Time.stamp(d.tick) + '</td><td>' + esc(d.who || "-") + '</td><td>' + esc((d.title ? d.title + ": " : "") + d.action + " " + d.materials[0] + (d.materials[1] ? " on " + d.materials[1] : "") + (d.materials[2] ? ", over " + d.materials[2] : "")) + '</td><td>' + esc(d.result) + '</td><td>' + (esc(d.group) || '<span class="blank">-</span>') + '</td></tr>').join("") +
+      D.slice().reverse().map(d => '<tr><td>' + d.n + '</td><td>' + G.Time.stamp(d.tick) + '</td><td>' + esc(d.who || "-") + '</td><td>' + ((d.title && (UC().discIcons || {})[d.title]) ? '<span class="disc-ico">' + UI.icon(UC().discIcons[d.title]) + '</span>' : '') + esc((d.title ? d.title + ": " : "") + d.action + " " + d.materials[0] + (d.materials[1] ? " on " + d.materials[1] : "") + (d.materials[2] ? ", over " + d.materials[2] : "")) + '</td><td>' + esc(d.result) + '</td><td>' + (esc(d.group) || '<span class="blank">-</span>') + '</td></tr>').join("") +
       '</tbody></table>' : '<div class="empty">Nothing discovered yet.</div>');
   };
   // ---- People tab (v36 §39): Artist pp-* list + group tabs; oldest → youngest; dead collapsed; no portrait strip ----

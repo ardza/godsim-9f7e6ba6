@@ -8,7 +8,7 @@ Locked rules apply throughout:
 - Every person is a unique individual.
 - Nothing is invented by script.
 - Physical things behave realistically. The primitive materials are rock, stick, flint, bone, ore, meat, berry and ember. Any of them can become a tool only through the learning system.
-- Agents only score what they experienced or copied. No speech: people don't talk until language is learned (after step 23), so logs describe actions like watching, gesturing and imitating, never words.
+- Agents only score what they experienced or copied. No speech: people don't talk until language is learned (after step 25), so logs describe actions like watching, gesturing and imitating, never words.
 
 ## 4. Founders
 - Replace the single person with 5-8 founders, each with their own name, age and 0-100 traits.

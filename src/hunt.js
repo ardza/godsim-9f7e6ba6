@@ -38,6 +38,7 @@
       .filter(([px, py]) => G.World.walkable(sim.world, px, py) && !G.Agent.claimed(sim, a, px, py) && !(sim.animals || []).some(q => Math.round(q.pos.x) === px && Math.round(q.pos.y) === py));
     return c.sort((p, q) => dist(a, p[0], p[1]) - dist(a, q[0], q[1]) || p[0] - q[0] || p[1] - q[1]);
   }
+  Hunt.goMeat = (sim, a, b) => goMeat(sim, a, b);   // v39: a bow kill walks to the carcass the same way
   function goMeat(sim, a, b) { for (const [x, y] of freeNear(sim, a, b.x, b.y).slice(0, 4)) if (G.Agent.walkTo(sim, a, x, y, "meat", { body: b.id })) return true; return false; }
 
   // Called when hunger sends her looking for food (before the bushes). Returns true if she set off / started on something.
@@ -87,10 +88,11 @@
       const e = G.Learn.add(a, "hunt", H().gain); e.n++; a.stats.kills = (a.stats.kills || 0) + 1;
       G.Discoveries.note(sim, a, "strike", [base, "grazer"], "deer falls");
       G.Learn.success(sim, a, "hunt");
+      if (G.Skills) G.Skills.gain(sim, a, "melee", "deerKill");   // v39: a melee deer kill (melee +3)
       if (G.Moods) G.Moods.onHuntKill(sim, a);
       if (!goMeat(sim, a, b)) G.Agent.startIdle(sim, a, 0.3);
     } else {
-      S.misses++; G.Learn.add(a, "hunt", -H().missDrop);
+      S.misses++; G.Learn.add(a, "hunt", -H().missDrop); if (G.Skills) G.Skills.gain(sim, a, "melee", "huntMiss");   // v39: missed melee strike (melee +1)
       G.Sim.log(sim, a.name + " strikes at " + G.Animal.name(g) + " with the " + hl + " and misses", a);
       G.Agent.startIdle(sim, a, 0.3);
     }

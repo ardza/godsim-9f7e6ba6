@@ -4,16 +4,19 @@
   const R = {}, H = G.RNG.hash2;
   let cv, cx, terrain, tp, sc = 1, mw = 0, mh = 0, art = { tiles: {} }, artPending = 0;
 
-  function loadImg(src, cb) { if (!src) return; const im = new Image(); artPending++; im.onload = () => { artPending--; cb(im); R.dirty = true; }; im.onerror = () => { artPending--; console.warn("art missing: " + src); }; im.src = src; }
+  function loadImg(src, cb) { if (!src) return; const im = new Image(); artPending++; im.onload = () => { artPending--; cb(im); R.dirty = true; }; im.onerror = () => { artPending--; console.warn("art missing: " + src); }; im.src = R.artUrl(src); }
+  // v39: every art file is fetched with the art version (data/art.js artVersion) so a new sheet is never served stale
+  R.artUrl = src => { const v = G.data.artVersion; return v == null || /[?]v=/.test(src) || /^data:/.test(src) ? src : src + (src.indexOf("?") < 0 ? "?" : "&") + "v=" + v; };
   R.loadArt = function () {
     const A = G.data.art || {};
     for (const [k, src] of Object.entries(A.tiles || {})) loadImg(src, im => art.tiles[k] = im);
     if (A.person && A.person.src) loadImg(A.person.src, im => art.person = im);
     if (A.founders && A.founders.src) loadImg(A.founders.src, im => art.founders = im);
     loadImg(A.bush, im => art.bush = im); loadImg(A.bushEmpty, im => art.bushEmpty = im);
-    for (const k of ["body", "grazer", "scavenger", "wolves", "items", "fx", "food", "carcass", "smoke", "baby", "child", "pray", "childPray", "gesture", "childGesture", "spot", "shelter", "rain", "rainLight", "rainHeavy", "lightning", "burial", "pyre", "ashBones", "reed", "reedBank", "mountain", "flake", "axe", "spear", "tools", "hide", "hideWorn", "cache", "sacred", "hut", "hutTier", "foodKeep", "sprout", "ore", "tipStick", "tipBone", "tip"]) if (A[k] && A[k].src) loadImg(A[k].src, im => art[k] = im);
+    for (const k of ["body", "grazer", "scavenger", "wolves", "items", "fx", "food", "carcass", "smoke", "baby", "child", "pray", "childPray", "gesture", "childGesture", "spot", "shelter", "rain", "rainLight", "rainHeavy", "lightning", "burial", "pyre", "ashBones", "reed", "reedBank", "mountain", "flake", "axe", "spear", "tools", "hide", "hideWorn", "cache", "sacred", "hut", "hutTier", "foodKeep", "sprout", "ore", "tipStick", "tipBone", "tip", "fiber", "wrapWorn", "bow", "arrow", "wolfWounded", "spar"]) if (A[k] && A[k].src) loadImg(A[k].src, im => art[k] = im);
   };
   R.art = () => art;
+  R.seen = { bow: {}, wrap: {}, spar: {} };   // v39 test hook: which new frames have been drawn since load (chrome_v39)
 
   R.init = function (canvas) {
     const M = G.data.config.map;
@@ -168,7 +171,8 @@
   // step 25: Artist gesture_16 / child_gesture_16 — same origin as the person, one column per token; skip once group speech locks that token
   function drawGestureOverlay(a, px, py) {
     if (!G.Speech || !R.sim) return;
-    const g = G.Speech.gestureNow(R.sim, a); if (!g) return;
+    const st = a.act && a.act.type === "sparStance" ? { col: "play_stance" } : null;   // v39: the play-wrestle stance (invite), same origin as gestures
+    const g = st || G.Speech.gestureNow(R.sim, a); if (!g) return;
     const kid = G.Family && G.Family.isChild(a), GA = G.data.art.gesture, im = kid ? art.childGesture : art.gesture;
     if (!im || !GA) return;
     const c = GA.cols.indexOf(g.col); if (c < 0) return;
@@ -190,7 +194,19 @@
         if (e && e.x != null) { const dx = e.x - a.pos.x, dy = e.y - a.pos.y; if (dx || dy) facing = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : (dy > 0 ? "down" : "up"); } } }
     return { step, col, item: k === "offer" ? step.slice(6) : null, facing, frame };
   };
+  // v39: a sparring bout = the Artist's spar pose (row = founder look, right-facing); the one standing to the right of her partner is mirrored; children at 75%
+  function drawSpar(a, px, py, time) {
+    const S = G.data.art.spar, act = a.act; if (!art.spar || !S || !act || act.type !== "spar" || !R.sim) return false;
+    const b = R.sim.agents.find(q => q.id === act.with), mirror = b ? (b.pos.x < a.pos.x || (b.pos.x === a.pos.x && !act.lead)) : !act.lead;
+    const c = Math.floor((time || 0) / ((G.data.config.render.sparFrameSec) || 0.4) + (act.lead ? 0 : 1)) % S.cols.length, row = (a.look || 0) % (S.variants || 8);
+    const k = G.Family && G.Family.isChild(a) ? 0.75 : 1, w = tp * k;
+    cx.save(); cx.translate(px + (tp - w) / 2 + (mirror ? w : 0), py - 2 + (tp - w)); cx.scale(mirror ? -k : k, k);
+    cx.drawImage(art.spar, c * S.frame, row * S.frame, S.frame, S.frame, 0, 0, tp, tp); cx.restore();
+    R.lastSpar = { id: a.id, col: S.cols[c], mirror, kid: k < 1 }; R.seen.spar[(k < 1 ? "kid_" : "") + S.cols[c] + (mirror ? "_m" : "")] = 1; return true;
+  }
+  R.drawSpar = drawSpar;
   function drawPersonBody(a, px, py, frame, facing, time, asleep, F, A) {
+    if (drawSpar(a, px, py, time)) return;
     const kid = G.Family && G.Family.isChild(a), CA = G.data.art.child; R.lastKid = kid ? (art.child && CA ? "sheet" : "scaled") : R.lastKid;
     const pose = R.prayPose(a, time);
     if (pose && pose.col === "walk" && pose.facing) { facing = pose.facing; frame = pose.frame; R.lastPray = pose.step.split(":")[0] + ":" + facing; }
@@ -252,6 +268,7 @@
       const C = G.data.art.carcass, col = G.Body.carcassFrame(b);
       if (art.carcass && C) cx.drawImage(art.carcass, Math.max(0, C.cols.indexOf(col)) * C.frame, 0, C.frame, C.frame, px, py, tp, tp);
       else { cx.fillStyle = col === "bones" ? "#e8e0c8" : col === "fresh" ? "#8a6a44" : "#7a3a2a"; cx.fillRect(px + 3, py + 8, 10, col === "bones" ? 2 : 4); }
+      if (b.arrows && b.arrows.length && col !== "bones") { const c7 = sheetCol("arrow", "arrow_body"); if (c7 >= 0) cx.drawImage(art.arrow, c7 * 16, 0, 16, 16, px, py, tp, tp); }   // v39: shot down
       if (b.lightning && col !== "bones" && b.stage === "fresh") { const c2 = sheetCol("food", "cooked"), hs = tp / 2;   // v38 (d): a bolt-cooked carcass shows the food "cooked" frame on it
         if (art.food && c2 >= 0) cx.drawImage(art.food, c2 * 16, 0, 16, 16, px + hs / 2, py, hs, hs); else { cx.fillStyle = "#7a4a22"; cx.fillRect(px + 5, py + 3, 6, 4); } }
       cx.globalAlpha = 1; return; }
@@ -267,6 +284,8 @@
   function drawAnimal(a, x, y, frame, facing) {
     const px = x * tp, py = y * tp, A = G.data.art[a.species], im = art[a.species], gz = a.species === "grazer", wk = a.species === "wolves";
     cx.fillStyle = "rgba(0,0,0,0.3)"; cx.beginPath(); cx.ellipse(px + 8, py + 14, gz ? 5.5 : 4, 1.8, 0, 0, 7); cx.fill();
+    if (wk && art.wolfWounded && G.WolfMem && R.sim && G.WolfMem.wounded(R.sim, a)) { const W = G.data.art.wolfWounded;   // v39: limp frame while wounded
+      cx.drawImage(art.wolfWounded, 0, Math.max(0, W.rows.indexOf(facing)) * W.frame, W.frame, W.frame, px, py - 1, tp, tp); R.lastWolfWounded = a.id; return; }
     if (im && A) { cx.drawImage(im, (frame % A.frames) * A.frame, Math.max(0, A.rows.indexOf(facing)) * A.frame, A.frame, A.frame, px, py - 1, tp, tp); return; }
     const bob = frame % 2 ? 1 : 0, side = facing === "left" || facing === "right", dir = facing === "left" ? -1 : 1;
     cx.fillStyle = gz ? "#8a6a44" : wk ? "#4a4a55" : "#5a5550";
@@ -293,7 +312,15 @@
     if (it.material === "meat") { const c2 = sheetCol("food", ({ raw: "raw", cooked: "cooked", charred: "burnt" })[G.Cook.of(it)]);   // step 17: raw / cooked / charred (the "burnt" frame)
       if (c2 >= 0) { cx.drawImage(art.food, c2 * 16, 0, 16, 16, px, py, size, size); return; }
       const f2 = size / 16; cx.fillStyle = "#a8383a"; cx.fillRect(px + 4 * f2, py + 7 * f2, 8 * f2, 5 * f2); return; }
-    if (it.material === "reed") { const c2 = sheetCol("reed", it.form === "shard" ? "reed" : "reed");
+    if (it.material === "fiber") { const fc = it.form === "cord" ? (size >= 16 ? "coil" : "cord") : "bundle", c4 = sheetCol("fiber", fc);   // v39: bundle / cord in hand / coil on the ground
+      if (c4 >= 0) { cx.drawImage(art.fiber, c4 * 16, 0, 16, 16, px, py, size, size); return; }
+      const f4 = size / 16; cx.fillStyle = it.form === "cord" ? "#b89a5a" : "#8aa05a"; cx.fillRect(px + 4 * f4, py + 7 * f4, 8 * f4, 4 * f4); return; }
+    if (it.material === "stick" && it.form === "arrow") { const ac = it.tip ? "arrow_tip" : it.missed ? "arrow_ground" : "arrow", c5 = sheetCol("arrow", ac);   // v39 arrows
+      if (c5 >= 0) { cx.drawImage(art.arrow, c5 * 16, 0, 16, 16, px, py, size, size); return; }
+      const f5 = size / 16; cx.fillStyle = "#7a5230"; cx.fillRect(px + 3 * f5, py + 8 * f5, 10 * f5, Math.max(1, f5)); return; }
+    if (it.tool === "bow" && art.bow && G.data.art.bow) { const B = G.data.art.bow, c6 = B.cols.indexOf(it.strung ? "strung" : "unstrung");   // v39: a bow on the ground = its down-facing frame
+      cx.drawImage(art.bow, c6 * 16, 0, 16, 16, px, py, size, size); return; }
+    if (it.material === "reed") { const c2 = sheetCol("reed", it.soaked ? "reed_soaked" : "reed");
       if (c2 >= 0) { cx.drawImage(art.reed, c2 * 16, 0, 16, 16, px, py, size, size); return; }
       const f2 = size / 16; cx.fillStyle = "#5a7a3a"; cx.fillRect(px + 7 * f2, py + 3 * f2, 2 * f2, 11 * f2); cx.fillRect(px + 5 * f2, py + 5 * f2, 2 * f2, 2 * f2); return; }
     if (it.material === "hide") { const c2 = sheetCol("hide", "hide");
@@ -314,10 +341,16 @@
   }
   R.drawItemAt = drawItemAt;
   // step 29: carried tool hand overlay (flake / axe / spear sheets; fallback tools_16 cols). Returns true if drawn.
-  function drawToolOverlay(it, px, py, facing) {
+  function drawToolOverlay(it, px, py, facing, who) {
     const typ = it.tool; if (!typ) return false;
     const face = facing || "down";
     const A = G.data.art;
+    if (typ === "bow") {   // v39: unstrung / strung / draw (string pulled just after a shot), rows by facing, tools origin
+      if (!art.bow || !A.bow) return false; const r = A.bow.rows.indexOf(face); if (r < 0) return false;
+      const drawn = it.strung && who && who.shotAt != null && R.sim && R.sim.tick - who.shotAt <= ((G.data.config.render.bowDrawTicks) || 2);
+      const c = A.bow.cols.indexOf(!it.strung ? "unstrung" : drawn ? "draw" : "strung");
+      cx.drawImage(art.bow, c * 16, r * 16, 16, 16, px, py, 8, 8); R.lastBow = A.bow.cols[c]; R.seen.bow[R.lastBow] = 1; return true;
+    }
     // prefer dedicated sheet (flake_16 / axe_16 / spear_16)
     if (art[typ] && A[typ] && A[typ].rows) {
       const r = A[typ].rows.indexOf(face); if (r < 0) return false;
@@ -339,6 +372,13 @@
       if (c >= 0 && r >= 0) { cx.drawImage(art.tip, c * 16, r * 16, 16, 16, px, py, 8, 8); return true; }
     }
     return false;
+  }
+  // v39: fiber wrap overlay (rows by facing; cols layer_1..3, worn when dur < wrap.wornBelow), drawn before (under) the hide
+  function drawWrapWorn(sim, a, px, py, facing) {
+    const A = G.data.art.wrapWorn; if (!art.wrapWorn || !A) return false;
+    const w = G.Fiber && G.Fiber.wrapItem(sim, a); if (!w) return false;
+    const r = A.rows.indexOf(facing || "down"), col = (w.dur != null && w.dur < G.data.config.wrap.wornBelow) ? "worn" : "layer_" + Math.max(1, Math.min(3, w.layers || 1)), c = A.cols.indexOf(col);
+    if (r < 0 || c < 0) return false; cx.drawImage(art.wrapWorn, c * 16, r * 16, 16, 16, px, py, tp, tp); R.lastWrap = col; R.seen.wrap[col] = 1; return true;
   }
   // v28: worn hide cloak overlay (16×64 facing rows). Returns true if drawn.
   function drawHideWorn(a, px, py, facing) {
@@ -410,14 +450,16 @@
   }
   // step 21b: natural shelters over the tile beneath (cave / overhang blend into the hill, thicket over the woods); code fallback = dark mouth / brush
   function drawShelters(sim) {
-    const S = G.data.art.shelter, H = G.data.art.hut; R.sheltersDrawn = 0; R.hutsDrawn = 0;
+    const S = G.data.art.shelter, H = G.data.art.hut; R.sheltersDrawn = 0; R.hutsDrawn = 0; R.lashedDrawn = 0;
     for (const q of sim.shelters || []) for (const [x, y] of q.tiles) { const px = x * tp, py = y * tp; R.sheltersDrawn++;
       // §35: crude hut / pile overlay (Artist hut_16: cols pile | hut)
       if (q.type === "hut") {
         R.hutsDrawn++;
         const col = (q.stage === "pile") ? 0 : 1, HT = G.data.art.hutTier;
         // v38 (a): a built hut shows its material tier (hutTier: sticks|reeds|hide, <tier>_worn under hut.dur.wornBelow); a pile still uses the hut pile frame
-        if (q.stage !== "pile" && art.hutTier && HT && G.Hut) { const tc = HT.cols.indexOf(G.Hut.artCol(q)); if (tc >= 0) { cx.drawImage(art.hutTier, tc * HT.frame, 0, HT.frame, HT.frame, px, py, tp, tp); continue; } }
+        if (q.stage !== "pile" && art.hutTier && HT && G.Hut) { const tc = HT.cols.indexOf(G.Hut.artCol(q)); if (tc >= 0) { cx.drawImage(art.hutTier, tc * HT.frame, 0, HT.frame, HT.frame, px, py, tp, tp);
+          const lc = q.lashed ? HT.cols.indexOf("lashed") : -1; if (lc >= 0) { cx.drawImage(art.hutTier, lc * HT.frame, 0, HT.frame, HT.frame, px, py, tp, tp); R.lashedDrawn = (R.lashedDrawn || 0) + 1; }   // v39: cord overlay on top of any tier
+          continue; } }
         if (art.hut && H) { cx.drawImage(art.hut, col * H.frame, 0, H.frame, H.frame, px, py, tp, tp); continue; }
         cx.fillStyle = "rgba(90,70,40,0.7)"; cx.fillRect(px + 2, py + 4, tp - 4, tp - 6);
         cx.strokeStyle = "rgba(60,45,25,0.9)"; cx.strokeRect(px + 2, py + 4, tp - 4, tp - 6); continue;
@@ -427,8 +469,26 @@
       if (q.type === "thicket") { cx.fillStyle = "rgba(20,50,20,0.55)"; cx.fillRect(px + 1, py + 2, tp - 2, tp - 3); continue; }
       cx.fillStyle = "#6e6558"; cx.fillRect(px + 1, py + 2, tp - 2, tp - 4); cx.fillStyle = "#1c1814"; cx.fillRect(px + 4, py + (q.type === "cave" ? 6 : 9), tp - 8, tp - (q.type === "cave" ? 8 : 11)); }
   }
+  // v39: reed beds by how many reeds stand (bed_0 cut stubs .. bed_3 three standing reeds)
+  function drawReedBeds(sim) {
+    const RA = G.data.art.reedBank; R.bedsDrawn = 0; if (!art.reedBank || !RA) return;
+    for (const b of sim.reedBeds || []) { const mx = b.max || 1, k = b.n <= 0 ? 0 : Math.max(1, Math.min(3, Math.ceil(b.n / mx * 3))), c = RA.cols.indexOf("bed_" + k); if (c < 0) continue;
+      cx.drawImage(art.reedBank, c * RA.frame, 0, RA.frame, RA.frame, b.x * tp, b.y * tp, tp, tp); R.bedsDrawn++; }
+  }
+  // v39: arrows in flight (render only, G.Bow.flights; not saved): arrow_fly_0/1 point right, rotated to the shot, over flySec of real time
+  const flown = new Map();
+  function drawFlights(sim, time) {
+    const L = (G.Bow && G.Bow.flights) || [], FS = (G.data.config.render.arrowFlySec) || 0.35; R.flightsDrawn = 0;
+    for (const f of L) { if (!flown.has(f)) flown.set(f, time); const t = (time - flown.get(f)) / FS; if (t > 1 || t < 0) continue;
+      const x = f.x0 + (f.x1 - f.x0) * t, y = f.y0 + (f.y1 - f.y0) * t, c = sheetCol("fx", Math.floor(time * 20) % 2 ? "arrow_fly_1" : "arrow_fly_0");
+      if (c < 0) { cx.fillStyle = "#e8dcc0"; cx.fillRect(x * tp + 6, y * tp + 7, 4, 1); continue; }
+      cx.save(); cx.translate(x * tp + tp / 2, y * tp + tp / 2); cx.rotate(Math.atan2(f.y1 - f.y0, f.x1 - f.x0)); cx.drawImage(art.fx, c * 16, 0, 16, 16, -tp / 2, -tp / 2, tp, tp); cx.restore(); R.flightsDrawn++; }
+    if (flown.size > 64) for (const k of flown.keys()) if (L.indexOf(k) < 0) flown.delete(k);
+  }
   function drawItems(sim, selectedId) {
+    drawReedBeds(sim);
     for (const it of sim.items || []) { if (it.heldBy != null || it.wornBy != null) continue;   // v28: worn hide is person overlay
+      if (it.stand && art.reedBank && G.Reeds && G.Reeds.bedAt(sim, it.x, it.y)) continue;   // v39: standing reeds = the bed overlay
       if (it.id === selectedId) { cx.strokeStyle = "#fff6b0"; cx.lineWidth = 1.5; cx.strokeRect(it.x * tp + 0.5, it.y * tp + 0.5, tp - 1, tp - 1); cx.lineWidth = 1; }
       drawBrand(it, it.x * tp, it.y * tp, 16, R.time || 0); }
   }
@@ -476,11 +536,12 @@
       // shivering: a 1 px shake while cold and awake (render only)
       const shiver = a.needs.warmth != null && a.needs.warmth < 30 && a.act.type !== "sleep" ? (Math.floor(time * 18 + a.id) % 2 ? 1 : -1) / tp : 0;
       drawPerson(a, x + shiver, y, st.frame, st.facing, time);
+      if (a.wearingWrap != null) drawWrapWorn(sim, a, Math.round((x + shiver) * tp), Math.round(y * tp), st.facing);   // v39: fiber wrap UNDER the hide
       if (a.wearingHide != null) drawHideWorn(a, Math.round((x + shiver) * tp), Math.round(y * tp), st.facing);
       const held = G.Items && G.Items.held(sim, a);
       if (held && a.act.type !== "sleep") {
         const hx = Math.round((x + shiver) * tp + (st.facing === "left" ? 0 : 8)), hy = Math.round(y * tp + 5);
-        if (held.tool && drawToolOverlay(held, hx, hy, st.facing)) { /* tool sheet replaces item */ }
+        if (held.tool && drawToolOverlay(held, hx, hy, st.facing, a)) { /* tool sheet replaces item */ }
         else drawBrand(held, hx, hy, 8, time);   // half size over the hand
       }
       let k = 0; for (const b of sim.babies || []) if (b.carrier === a.id && b.orphanAt == null) {   // step 19: her baby (babies) on top of her, or beside her asleep
@@ -489,7 +550,7 @@
     }
     for (const b of sim.babies || []) if (b.orphanAt != null) { R.screen[b.id] = { x: b.pos.x, y: b.pos.y }; drawBaby(b, Math.round(b.pos.x * tp), Math.round(b.pos.y * tp), "lying");   // left alone on the ground
       if (b.id === selectedId) { cx.strokeStyle = "#fff6b0"; cx.lineWidth = 1.5; cx.strokeRect(b.pos.x * tp + 0.5, b.pos.y * tp + 0.5, tp - 1, tp - 1); cx.lineWidth = 1; } }
-    drawSparks(sim, time);
+    drawSparks(sim, time); drawFlights(sim, time);
     drawPowers(sim, time);   // step 22: rain falling and warm / cool tint over the circles (view only)
     const dk = G.Time.darkness(sim.tick); if (dk > 0) { cx.fillStyle = "rgba(8,14,40," + (dk * 0.55).toFixed(3) + ")"; cx.fillRect(0, 0, mw, mh); }
     cx.setTransform(1, 0, 0, 1, 0, 0);

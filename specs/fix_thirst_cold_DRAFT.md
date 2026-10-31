@@ -76,7 +76,7 @@ It isn't the water need rate, finding water, or settling far from water. People 
 - **Wolves become the main killer.** With thirst fixed, seeds 1, 6 and 7 still die out, all to wolves (people ran 0 stands in 2 years: `"stands":0`). 5 of 8 just meets "most". If the Commissioner wants a wider margin, that's a separate wolf tune, not part of this fix.
 - **Cold gets real.** Drops and day-sleep start happening, so a bad Deep Cold could kill more. But drowsy people also start looking for warmth again (line 653). In the 2-year runs nobody reached stage 2+, so survival there didn't change. Watch cold deaths in the 2-year check.
 - **Fewer stashes while needy.** Items get put down at the shore or bush instead. That's the intended fix, but stash counts in old tests may drop a little.
-- Logs stay action-only, with no words before language (step 23). No new lines are added, and the existing ones just start appearing.
+- Logs stay action-only, with no words before language (step 25). No new lines are added, and the existing ones just start appearing.
 
 ## Not confirmed
 - No population growth showed up in any 2-year run (counts only go down or stay flat). I didn't look into births.

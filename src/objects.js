@@ -193,7 +193,7 @@
       const soft = h.hardness < t.hardness ? "held" : t.hardness < h.hardness ? "target" : null;
       if (soft) { const s = soft === "held" ? h : t, o = soft === "held" ? t : h, B = P.break;
         const p = Math.min(B.max, B.scale * (o.hardness - s.hardness) / 100 * (100 - s.durability) / 100);
-        if (s.whole !== false && rng.chance(p)) { out.broke = soft; s.sharpness = Math.max(s.sharpness, Math.min(100, Math.round(s.hardness * B.edgeFromHardness))); s.durability = Math.round(s.durability * B.shardDurability); s.whole = false;
+        if (s.whole !== false && rng.chance(p) && !(B.noBreakFlex != null && (s.flex || 0) >= B.noBreakFlex && (s.hardness || 0) <= B.noBreakMaxHardness)) { out.broke = soft; s.sharpness = Math.max(s.sharpness, Math.min(100, Math.round(s.hardness * B.edgeFromHardness))); s.durability = Math.round(s.durability * B.shardDurability); s.whole = false;
           res.push((soft === "held" ? "@held" : "@target") + " breaks" + (s.sharpness >= PH().sharpAt ? ": sharp shard" : "")); } }
     } else if (action === "rub") {
       const R = P.rub, gap = h.hardness - t.hardness;
@@ -229,11 +229,13 @@
   Items.arriveTry = function (sim, a) { const t = Items.byId(sim, a.act.target), it = Items.held(sim, a);
     if (!t || t.heldBy || !it || Math.hypot(t.x - a.pos.x, t.y - a.pos.y) > 1.5) return false; startTry(sim, a, t, a.act.action); return true; };
   // the try action itself: after tryMinutes the outcome is applied, logged, and checked for a Discoveries first
+  Items.startTry = (sim, a, target, action) => startTry(sim, a, target, action);   // v39: deliberate fiber acts reuse the try act
   Items.stepTry = function (sim, a) {
+    if (G.Fiber) { const r = G.Fiber.stepTry(sim, a); if (r !== undefined) return r; }   // v39: beat / bend / twist / arrows ride on the try act
     const act = a.act; if (++act.t < act.n) return true;
     const it = Items.held(sim, a), t = Items.byId(sim, act.target);
     if (!it || !t || t.heldBy) return false;
-    const hp = Object.assign({ whole: it.form === "whole" }, it.props), tp = Object.assign({ whole: t.form === "whole" }, t.props);
+    const hp = Object.assign({ whole: it.form !== "shard" }, it.props), tp = Object.assign({ whole: t.form !== "shard" }, t.props);   // v39 fix: a bundle / cord / wrap / arrow is unbroken too (was form === "whole": any generic try turned a cord into "cut fiber" shards)
     const hl = Items.matLabel(it), tl = Items.matLabel(t), o = Physics.outcome(act.action, hp, tp, sim.orng);
     const st = sim.physStats || (sim.physStats = { tries: 0, byAction: {}, sparks: 0, shards: 0, breaks: 0, results: {} });
     st.tries++; st.byAction[act.action] = (st.byAction[act.action] || 0) + 1;

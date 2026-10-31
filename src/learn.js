@@ -10,8 +10,10 @@
   const stats = sim => sim.learnStats || (sim.learnStats = Learn.newStats());
   const bump = (sim, what, key) => { const S = stats(sim); S[what] = (S[what] || 0) + 1; if (key) { const k = S.byKey[key] || (S.byKey[key] = {}); k[what] = (k[what] || 0) + 1; } };
   Learn.bump = bump;
-  Learn.score = (a, key) => a.exp && a.exp[key] ? a.exp[key].score : L().start;
-  Learn.rec = (a, key) => { const E = a.exp || (a.exp = {}); return E[key] || (E[key] = { score: L().start, n: 0, burns: 0, copied: null }); };
+  Learn.startOf = key => { const o = L().startOf; return o && o[key] != null ? o[key] : L().start; };   // v39: per-key start (melee / ranged 20)
+  Learn.score = (a, key) => a.exp && a.exp[key] ? a.exp[key].score : Learn.startOf(key);
+  Learn.has = (a, key) => !!(a.exp && a.exp[key]);
+  Learn.rec = (a, key) => { const E = a.exp || (a.exp = {}); return E[key] || (E[key] = { score: Learn.startOf(key), n: 0, burns: 0, copied: null }); };
   Learn.add = (a, key, d) => { const e = Learn.rec(a, key); e.score = r2(clamp(e.score + d, 0, 100)); return e; };
   Learn.label = key => (L().actions[key] && L().actions[key].label) || key;
   Learn.short = key => (L().actions[key] && L().actions[key].short) || key;
@@ -21,6 +23,8 @@
     if (key === "hunt") return CF().hunt.gain; if (key === "cook") return CF().cook.gain;
     const Cg = CF().corpse && CF().corpse.gain; if (Cg && Cg[key] != null) return Cg[key];
     const Tg = CF().tools && CF().tools.gain; if (Tg && Tg[key] != null) return Tg[key];
+    if (["fiber", "twist", "lash"].indexOf(key) >= 0) return CF().fiber.gain; if (key === "bow") return CF().bow.killGain;   // v39
+    if (key === "spar") return CF().spar.gain; if (key === "melee") return CF().melee.gain.spar; if (key === "ranged") return CF().ranged.gain.shotMiss;
     return 0;
   };
   // step 20: who taught her what: [{key, from, name, how: "copied" | "watched"}] (a copy wins over watching)
@@ -46,6 +50,7 @@
     if (felt.sheltered) parts.push(["shelter", Wm.shelterC, C.shelter.warmGain]);
     if (felt.den > 0 && C.den) parts.push(["den", felt.den, C.den.warmGain]);   // step 21b: warmed inside a cave / overhang / thicket
     if (felt.hide > 0 && C.hide) parts.push(["hide", felt.hide, C.hide.warmGain]);   // v28: worn / sleep-under hide
+    if (felt.wrap > 0 && C.wrap) parts.push(["wrap", felt.wrap, C.wrap.warmGain]);   // v39: fiber wrap
     for (const [key, dC, gain, src] of parts) {
       const got = (rate(felt.c, w0) - rate(felt.c - dC, w0)) * TM(); if (got <= 0) continue;
       const e = Learn.add(a, key, got * gain), ep = a.learnEp || (a.learnEp = {});

@@ -1,0 +1,36 @@
+seed 1  season ends deer/dogs/wolves/people: 13/4/4/2  12/4/4/2  12/2/4/2  11/2/4/0  people deaths {"wolves":3,"wounds":2}
+    v39 {"fiberStats":{"regrown":49,"burntBeds":1,"soaked":0,"laid":0,"beats":0,"bends":0,"twists":0,"wraps":0,"rewraps":0,"patches":0,"wrapFalls":0,"lashedHuts":0,"lashedCaches":0,"cordBinds":0,"arrowsCut":0},"fightStats":{"melee":61,"ranged":0,"desperate":12,"wounds":2,"desperateKills":1,"spar":0},"wolfMem":{"wounds":2,"avoids":3581,"cautions":0,"keeps":217,"wary":3},"spar":{"invites":4,"wordInvites":0,"refused":3,"bouts":1,"invented":3},"bows":0,"arrows":0,"cords":0,"wraps":0,"lashedHuts":0,"row":{"cord":0,"wrap":0,"bow":0,"arrowsCut":0,"shots":0,"spar":1,"wolfDeaths":3,"woundDeaths":2,"survivors":0}}
+seed 2  season ends deer/dogs/wolves/people: 18/4/3/7  17/4/3/7  15/4/3/6  14/4/3/5  people deaths {"wolves":2}
+    v39 {"fiberStats":{"regrown":71,"burntBeds":3,"soaked":18,"laid":12,"beats":13,"bends":13,"twists":2,"wraps":6,"rewraps":1,"patches":0,"wrapFalls":0,"lashedHuts":0,"lashedCaches":0,"cordBinds":0,"arrowsCut":0,"invented":2},"fightStats":{"melee":20,"ranged":0,"desperate":5,"wounds":0,"desperateKills":0,"spar":0},"wolfMem":null,"spar":{"invites":2,"wordInvites":0,"refused":1,"bouts":1,"invented":2},"bows":0,"arrows":0,"cords":2,"wraps":3,"lashedHuts":0,"row":{"cord":2,"wrap":6,"bow":0,"arrowsCut":0,"shots":0,"spar":1,"wolfDeaths":2,"woundDeaths":0,"survivors":5}}
+seed 3  season ends deer/dogs/wolves/people: 16/3/3/3  14/3/3/3  11/3/2/2  6/3/2/2  people deaths {"wolves":2,"wounds":1}
+    v39 {"fiberStats":{"regrown":54,"burntBeds":0,"soaked":13,"laid":12,"beats":11,"bends":5,"twists":1,"wraps":2,"rewraps":4,"patches":1,"wrapFalls":1,"lashedHuts":0,"lashedCaches":0,"cordBinds":0,"arrowsCut":6,"invented":2,"bowFails":1,"bows":1,"loaded":16,"shots":13,"missed":4,"hits":9,"bowKills":9,"lost":1,"recovered":8},"fightStats":{"melee":36,"ranged":31,"desperate":7,"wounds":2,"desperateKills":1,"spar":0},"wolfMem":{"wounds":2,"avoids":749,"cautions":0,"keeps":22,"wary":0},"spar":null,"bows":1,"arrows":2,"cords":0,"wraps":1,"lashedHuts":0,"row":{"cord":1,"wrap":2,"bow":1,"arrowsCut":6,"shots":13,"spar":0,"wolfDeaths":2,"woundDeaths":1,"survivors":2}}
+seed 4  season ends deer/dogs/wolves/people: 15/4/4/3  11/4/4/3  9/4/4/3  6/3/4/3  people deaths {"wolves":2}
+    v39 {"fiberStats":{"regrown":117,"burntBeds":3,"soaked":7,"laid":2,"beats":4,"bends":4,"twists":0,"wraps":3,"rewraps":0,"patches":0,"wrapFalls":0,"lashedHuts":0,"lashedCaches":0,"cordBinds":0,"arrowsCut":0,"invented":3},"fightStats":{"melee":24,"ranged":0,"desperate":4,"wounds":0,"desperateKills":0,"spar":0},"wolfMem":null,"spar":{"invites":4,"wordInvites":0,"refused":1,"bouts":3,"invented":1},"bows":0,"arrows":0,"cords":0,"wraps":2,"lashedHuts":0,"row":{"cord":0,"wrap":3,"bow":0,"arrowsCut":0,"shots":0,"spar":3,"wolfDeaths":2,"woundDeaths":0,"survivors":3}}
+seed 5  season ends deer/dogs/wolves/people: 15/4/5/5  14/4/4/2  14/4/4/2  12/4/4/1  people deaths {"wounds":1,"wolves":3}
+    v39 {"fiberStats":{"regrown":111,"burntBeds":0,"soaked":11,"laid":6,"beats":4,"bends":13,"twists":1,"wraps":1,"rewraps":1,"patches":0,"wrapFalls":1,"lashedHuts":0,"lashedCaches":0,"cordBinds":0,"arrowsCut":3,"invented":2,"bowFails":1,"bows":1,"soakPending":false},"fightStats":{"melee":175,"ranged":0,"desperate":33,"wounds":8,"desperateKills":1,"spar":0},"wolfMem":{"wounds":8,"avoids":10671,"cautions":0,"keeps":413,"wary":2},"spar":{"invites":1,"wordInvites":0,"refused":0,"bouts":1,"invented":1},"bows":1,"arrows":3,"cords":0,"wraps":0,"lashedHuts":0,"row":{"cord":1,"wrap":1,"bow":1,"arrowsCut":3,"shots":0,"spar":1,"wolfDeaths":3,"woundDeaths":1,"survivors":1}}
+seed 6  season ends deer/dogs/wolves/people: 21/4/5/3  20/4/5/2  19/4/5/1  16/4/5/1  people deaths {"wolves":6,"wounds":1}
+    v39 {"fiberStats":{"regrown":112,"burntBeds":1,"soaked":6,"laid":0,"beats":5,"bends":5,"twists":1,"wraps":1,"rewraps":0,"patches":0,"wrapFalls":0,"lashedHuts":0,"lashedCaches":0,"cordBinds":0,"arrowsCut":0,"invented":4,"bowFails":1,"bows":1},"fightStats":{"melee":85,"ranged":0,"desperate":18,"wounds":4,"desperateKills":0,"spar":0},"wolfMem":{"wounds":4,"avoids":3425,"cautions":0,"keeps":193,"wary":1},"spar":null,"bows":1,"arrows":0,"cords":0,"wraps":0,"lashedHuts":0,"row":{"cord":1,"wrap":1,"bow":1,"arrowsCut":0,"shots":0,"spar":0,"wolfDeaths":6,"woundDeaths":1,"survivors":1}}
+seed 7  season ends deer/dogs/wolves/people: 12/4/5/4  10/4/4/3  9/4/4/2  8/4/4/2  people deaths {"wolves":3}
+    v39 {"fiberStats":{"regrown":72,"burntBeds":1,"soaked":17,"laid":9,"beats":10,"bends":19,"twists":3,"wraps":3,"rewraps":1,"patches":0,"wrapFalls":0,"lashedHuts":0,"lashedCaches":0,"cordBinds":0,"arrowsCut":3,"invented":6,"bowFails":1,"bows":1},"fightStats":{"melee":111,"ranged":0,"desperate":21,"wounds":2,"desperateKills":1,"spar":0},"wolfMem":{"wounds":2,"avoids":6638,"cautions":0,"keeps":341,"wary":2},"spar":{"invites":3,"wordInvites":0,"refused":1,"bouts":2,"invented":2},"bows":1,"arrows":3,"cords":1,"wraps":1,"lashedHuts":0,"row":{"cord":3,"wrap":3,"bow":1,"arrowsCut":3,"shots":0,"spar":2,"wolfDeaths":3,"woundDeaths":0,"survivors":2}}
+seed 8  season ends deer/dogs/wolves/people: 20/4/2/4  18/4/2/4  18/4/2/1  18/4/2/1  people deaths {"wounds":2,"wolves":3}
+    v39 {"fiberStats":{"regrown":102,"burntBeds":0,"soaked":0,"laid":0,"beats":0,"bends":2,"twists":0,"wraps":0,"rewraps":0,"patches":0,"wrapFalls":0,"lashedHuts":0,"lashedCaches":0,"cordBinds":0,"arrowsCut":0},"fightStats":{"melee":142,"ranged":0,"desperate":27,"wounds":5,"desperateKills":1,"spar":0},"wolfMem":{"wounds":5,"avoids":3892,"cautions":0,"keeps":696,"wary":3},"spar":null,"bows":0,"arrows":0,"cords":0,"wraps":0,"lashedHuts":0,"row":{"cord":0,"wrap":0,"bow":0,"arrowsCut":0,"shots":0,"spar":0,"wolfDeaths":3,"woundDeaths":2,"survivors":1}}
+
+seed   cord  wrap   bow  arrows  shots  spar  wolfDeaths  woundDeaths  survivors   (cord/wrap/bow/spar = times made in the year: twists, wraps put on, bows strung, bouts)
+   1      0     0     0       0      0     1           3            2          0
+   2      2     6     0       0      0     1           2            0          5
+   3      1     2     1       6     13     0           2            1          2
+   4      0     3     0       0      0     3           2            0          3
+   5      1     1     1       3      0     1           3            1          1
+   6      1     1     1       0      0     0           6            1          1
+   7      3     3     1       3      0     2           3            0          2
+   8      0     0     0       0      0     0           3            2          1
+ all      8    16     4      12     13     8          24            7         15
+PASS cord on >= 5 seed(s): 5 (2,3,5,6,7)
+PASS wrap on >= 4 seed(s): 6 (2,3,4,5,6,7)
+PASS bow on >= 2 seed(s): 4 (3,5,6,7)
+PASS shots on >= 1 seed(s): 1 (3)
+PASS spar on >= 2 seed(s): 5 (1,2,4,5,7)
+PASS wolf deaths not up: 24 (baseline 25)
+INFO wound deaths 7 (baseline 5); wolf + wound deaths 31 (baseline 30); other deaths {}
+PASS deer and Wolves alive at every season end on 8 of 8 seeds (1 year)  [27 s]
+EXIT 0

@@ -46,6 +46,7 @@
     fireFixture: (opts) => { const r = G.Fire.fixture(app.sim, opts); G.UI.update(app); return r; },   // v38 (g): one fire of a case (meadow / wet / rain / nearwater / sand / cold / woods)
     sproutFixture: () => { const r = G.Farm.fixture(app.sim); if (r) { app.select(r.a.id); G.UI.update(app); } return r; },   // v38 (b): one plant per stage (seed / sprout / sapling) by person 1
     cacheFixture: () => { const r = G.Food.fixture(app.sim); if (r) { app.select(r.fresh.id); G.UI.update(app); } return r; },   // v38 (c): person 1's cache with fresh, dried and rotten meat, the fresh piece's card open
+    v39Fixture: (kind) => { const r = G.Spar.fixture(app.sim, kind || "fiber"); if (r) { app.setSpeed(0); const id = r.wolf || r.hut || (kind === "bow" ? r.people[0] : r.people[0]); if (id != null) { app.select(id); if (r.people.length && !r.wolf && !r.hut) { G.UI.personTab = "skills"; G.UI._personCardKey = null; } } G.UI.update(app); } return r; },   // v39: ?fixture=v39&kind=fiber|bow|spar|wolf|hut|beds (paused; person cards open on Skills)
     ageTo: (id, years) => { const a = person(id); if (a) a.age = years; return a ? a.lifespan : null; }   // e.g. ageTo(id, lifespan - 0.001) to see an old-age death
   };
   function person(id) { return app.sim.agents.find(a => a.id === (id == null ? app.selected : id)); }
@@ -62,6 +63,7 @@
     if (q.get("fixture") === "fire") G.debug.fireFixture({ kind: q.get("kind") || undefined });   // v38 (g): ?fixture=fire[&kind=meadow|wet|rain|nearwater|sand|cold|woods]
     if (q.get("fixture") === "hut") { if (q.get("kind") === "tiers") G.debug.hutTiersFixture(); else G.debug.hutFixture(); }   // ?fixture=hut[&kind=tiers]
     if (q.get("fixture") === "sprout") G.debug.sproutFixture();   // v38 (b): ?fixture=sprout
+    if (q.get("fixture") === "v39") G.debug.v39Fixture(q.get("kind") || "fiber");   // v39: ?fixture=v39&kind=fiber|bow|spar|wolf|hut|beds
     if (q.get("fixture") === "cache") G.debug.cacheFixture();   // v38 (c): ?fixture=cache   // v38 (a): ?fixture=hut opens a worn sturdy hut's card
     // the world pauses while closed: save on hide/close, continue from the saved tick on load (no catch-up)
     document.addEventListener("visibilitychange", () => { if (document.hidden) app.save(false); });

@@ -55,6 +55,7 @@
     if (G.Hut) G.Hut.init(sim);  // §35 / v32: built crude huts
     if (G.Farm) G.Farm.init(sim);  // v38 (b): berry seeds / sprouts / saplings
     if (G.Food) G.Food.init(sim);  // v38 (c): spoilage / preservation
+    if (G.Reeds) G.Reeds.init(sim);  // v39: reed beds (no random draws; regrowth / fiber use their own stream rbrng, made on first use)
     return sim;
   };
   // Seeded names with no repeats until the list is used up, then a fresh shuffle (reuse is fine past the list).
@@ -251,6 +252,18 @@
     for (const b of s.babies || []) b.wolfFear = Math.max(b.wolfFear || 0, base);   // (f): babies too
     s.version = 38; return s;
   };
+  // v38 -> v39 (specs/reed_fiber_DRAFT.md §8): reed beds rebuilt from the seed's reed placement (fallback: tiles that hold reeds now),
+  //   melee / ranged seeded from each person's history, nobody knows sparring, wolves remember nobody, no wraps / bows / fiber, nothing lashed.
+  Sim.migrate39 = function (o) {
+    if (!o || o.version !== 38) return o; const s = JSON.parse(JSON.stringify(o));
+    if (G.Reeds && G.Reeds.migrate) G.Reeds.migrate(s);
+    if (G.Skills && G.Skills.migrate) G.Skills.migrate(s);
+    if (G.WolfMem && G.WolfMem.migrate) G.WolfMem.migrate(s);
+    for (const a of s.agents || []) { a.wearingWrap = null; a.sparNext = null; }
+    for (const h of s.shelters || []) if (h.type === "hut") h.lashed = false;
+    s.cacheLash = {}; s.fiberStats = G.Fiber ? G.Fiber.newStats() : null; s.fightStats = null; s.rbrng = null; s.fgrng = null; s.sprng = null;
+    s.version = 39; return s;
+  };
   Sim.migrate37 = function (o) {
     if (!o || o.version !== 36) return o; const s = JSON.parse(JSON.stringify(o)), C = G.data.config;
     for (const a of s.agents || []) { if (a.health == null) a.health = C.health.max; if (!Array.isArray(a.injuries)) a.injuries = []; if (a.wolfFear == null) a.wolfFear = 0; }
@@ -306,6 +319,7 @@
     G.Fire.lightning(sim);
     G.Fire.step(sim);
     if (G.Farm) G.Farm.step(sim);   // v38 (b): seeds sprout / grow / burn
+    if (G.V39) G.V39.step(sim);   // v39: reed beds regrow / burn, soaking, wrap wear, bows, wolf memory decay
     if (G.Hut && G.Hut.step) G.Hut.step(sim, ((sim.fireStats && sim.fireStats.lightning) || 0) > fl0 && sim.fx ? sim.fx[fx0] : null);   // v38 (a): hut wear / damage / collapse
   };
   // this season's bush numbers: {yield, regrowMinutes}
@@ -349,7 +363,9 @@
       toolStats: sim.toolStats || null, hideStats: sim.hideStats || null, cacheStats: sim.cacheStats || null,
       hutStats: sim.hutStats || null, hrng: sim.hrng ? sim.hrng.s : null,
       plants: sim.plants || [], farmStats: sim.farmStats || null, plrng: sim.plrng ? sim.plrng.s : null, plantNext: sim.plantNext || 0, bushNext: sim.bushNext || 0,
-      foodStats: sim.foodStats || null, fdrng: sim.fdrng ? sim.fdrng.s : null };
+      foodStats: sim.foodStats || null, fdrng: sim.fdrng ? sim.fdrng.s : null,
+      reedBeds: sim.reedBeds || [], fiberStats: sim.fiberStats || null, fightStats: sim.fightStats || null, cacheLash: sim.cacheLash || {},
+      rbrng: sim.rbrng ? sim.rbrng.s : null, fgrng: sim.fgrng ? sim.fgrng.s : null, sprng: sim.sprng ? sim.sprng.s : null };
   };
   Sim.deserialize = function (o) {
     if (o && o.version === 13) o = Sim.migrate(o);
@@ -377,6 +393,7 @@
     if (o && o.version === 35) o = Sim.migrate36(o);
     if (o && o.version === 36) o = Sim.migrate37(o);
     if (o && o.version === 37) o = Sim.migrate38(o);
+    if (o && o.version === 38) o = Sim.migrate39(o);
     if (!o || o.version !== CFG().saveVersion) throw new Error("unsupported save version " + (o && o.version));
     const s = JSON.parse(JSON.stringify(o));
     const world = { w: s.world.w, h: s.world.h, seed: s.seed, attempt: s.world.attempt, spawn: s.world.spawn, hills: s.world.hills, mountain: s.world.mountain || "0".repeat(s.world.w * s.world.h), info: s.world.info, tiles: s.world.tiles.split("").map(c => TILE_CH.indexOf(c)) };
@@ -399,7 +416,9 @@
       hutStats: s.hutStats || (G.Hut ? G.Hut.newStats() : null),
       hrng: s.hrng != null ? new G.RNG(s.hrng) : undefined,
       plants: s.plants || [], farmStats: s.farmStats || (G.Farm ? G.Farm.newStats() : null), plrng: s.plrng != null ? new G.RNG(s.plrng) : undefined, plantNext: s.plantNext || 0, bushNext: s.bushNext || 0,
-      foodStats: s.foodStats || (G.Food ? G.Food.newStats() : null), fdrng: s.fdrng != null ? new G.RNG(s.fdrng) : undefined };
+      foodStats: s.foodStats || (G.Food ? G.Food.newStats() : null), fdrng: s.fdrng != null ? new G.RNG(s.fdrng) : undefined,
+      reedBeds: s.reedBeds || [], fiberStats: s.fiberStats || (G.Fiber ? G.Fiber.newStats() : null), fightStats: s.fightStats || null, cacheLash: s.cacheLash || {},
+      rbrng: s.rbrng != null ? new G.RNG(s.rbrng) : undefined, fgrng: s.fgrng != null ? new G.RNG(s.fgrng) : undefined, sprng: s.sprng != null ? new G.RNG(s.sprng) : undefined };
     // §36: after tiles are numeric, seed ore onto migrated v32 worlds that had none (one-shot rng; do not advance save orng)
     if (s.seedOre && G.Items && G.Items.seedMaterial) {
       const keep = sim.orng.s;

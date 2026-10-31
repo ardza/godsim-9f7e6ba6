@@ -111,6 +111,7 @@
   .pfilt { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; } .pfilt button { min-height: 44px; min-width: 44px; padding: 0 12px; font-size: 16px; } .pfilt button.on { outline: 2px solid var(--wheat); }
   .prl { font-size: 16px; padding: 6px 0; border-bottom: 1px solid var(--line); } .prl time { color: var(--dim); margin-right: 8px; }
   table.disc td { padding: 4px; border-bottom: 1px solid var(--line); vertical-align: top; } table.disc .blank { color: var(--dim); }
+  table.disc .disc-ico { display: inline-block; width: 20px; height: 20px; vertical-align: -4px; margin-right: 4px; color: var(--wheat); } table.disc .disc-ico svg { width: 20px; height: 20px; }
   .panel { min-height: 0; overflow-y: auto; }
   /* 26b People tab: All + group tabs (pill, ≥16px / ≥44px); oldest→youngest; collapsed Dead list */
   .peop-tabs { display: flex; gap: 4px; overflow-x: auto; padding: 4px 0 8px; margin: 0 0 4px; border-bottom: 1px solid rgba(241,230,207,.10); }
@@ -176,8 +177,9 @@
     #top { position: absolute; left: 0; right: 0; top: 0; pointer-events: none; } #top > * { pointer-events: auto; }
     #side { position: absolute; inset: 0; display: block; pointer-events: none; }
     #side > * { pointer-events: auto; }
-    #info { position: absolute; left: var(--gap); top: 68px; width: 340px; max-height: calc(100% - 68px - var(--gap)); overflow: hidden; }
-    #info-body { flex: 1 1 auto; min-height: min(380px, 46vh); overflow-y: auto; }   /* card details scroll; personal log is a tab pane */
+    /* v39 (Judge): the card stops a gap above the Powers menu (--pw-h = its 2-row height 228px + its 8px bottom offset), so the menu no longer covers the card's last lines (Gear); the card scrolls instead */
+    #info { --pw-h: 236px; position: absolute; left: var(--gap); top: 68px; width: 340px; max-height: calc(100% - 68px - 2 * var(--gap) - var(--pw-h)); overflow: hidden; }
+    #info-body { flex: 1 1 auto; min-height: min(380px, 46vh, calc(100vh - 71px - 68px - 2 * var(--gap) - var(--pw-h) - 34px)); overflow-y: auto; }   /* 71px: the tab bar; 34px: the body's padding */   /* card details scroll; personal log is a tab pane */
     #logwrap { position: absolute; right: var(--gap); bottom: var(--gap); width: 380px; height: min(320px, calc(100% - 68px - var(--gap))); }
     /* v19: People joins them on the right (it sat across the top, over the card and its Find button) */
     #panel-discoveries, #panel-prayers, #panel-people { position: absolute; right: var(--gap); bottom: var(--gap); width: min(620px, calc(100% - 340px - 3 * var(--gap))); max-height: calc(100% - 68px - var(--gap)); }
@@ -222,7 +224,7 @@
     #info > * { flex-shrink: 0; }   /* the short card scrolls as a whole; her log follows the details */
   }
 </style>
-<link rel="stylesheet" href="data/ui/theme.css?v=38.1">
+<link rel="stylesheet" href="data/ui/theme.css?v=39">
 </head><body>
 <div id="top">
   <span class="grp"><button id="btn-menu" aria-expanded="false" aria-controls="files" title="World: save, load, new world"><span class="ico" data-icon="menu"></span><span class="wide">World</span></button></span>
@@ -242,44 +244,49 @@
 </div>
 <div id="panelbar" role="tablist" aria-label="panels"></div>
 <div id="toast"></div>
-<script src="data/config.js?v=38.1"></script>
-<script src="data/tiles.js?v=38.1"></script>
-<script src="data/names.js?v=38.1"></script>
-<script src="data/words.js?v=38.1"></script>
-<script src="data/group_names.js?v=38.1"></script>
-<script src="data/art.js?v=38.1"></script>
-<script src="data/materials.js?v=38.1"></script>
-<script src="src/rng.js?v=38.1"></script>
-<script src="src/world.js?v=38.1"></script>
-<script src="src/climate.js?v=38.1"></script>
-<script src="src/agent.js?v=38.1"></script>
-<script src="src/animal.js?v=38.1"></script>
-<script src="src/objects.js?v=38.1"></script>
-<script src="src/fire.js?v=38.1"></script>
-<script src="src/learn.js?v=38.1"></script>
-<script src="src/hunt.js?v=38.1"></script>
-<script src="src/cook.js?v=38.1"></script>
-<script src="src/social.js?v=38.1"></script>
-<script src="src/family.js?v=38.1"></script>
-<script src="src/faith.js?v=38.1"></script>
-<script src="src/shelter.js?v=38.1"></script>
-<script src="src/powers.js?v=38.1"></script>
-<script src="src/injury.js?v=38.1"></script>
-<script src="src/wolffear.js?v=38.1"></script>
-<script src="src/speech.js?v=38.1"></script>
-<script src="src/corpse.js?v=38.1"></script>
-<script src="src/moods.js?v=38.1"></script>
-<script src="src/disease.js?v=38.1"></script>
-<script src="src/tools.js?v=38.1"></script>
-<script src="src/hides.js?v=38.1"></script>
-<script src="src/cache.js?v=38.1"></script>
-<script src="src/hut.js?v=38.1"></script>
-<script src="src/farm.js?v=38.1"></script>
-<script src="src/food.js?v=38.1"></script>
-<script src="src/sim.js?v=38.1"></script>
-<script src="src/save.js?v=38.1"></script>
-<script src="src/icons.js?v=38.1"></script>
-<script src="src/render.js?v=38.1"></script>
-<script src="src/ui.js?v=38.1"></script>
-<script src="src/main.js?v=38.1"></script>
+<script src="data/config.js?v=39"></script>
+<script src="data/tiles.js?v=39"></script>
+<script src="data/names.js?v=39"></script>
+<script src="data/words.js?v=39"></script>
+<script src="data/group_names.js?v=39"></script>
+<script src="data/art.js?v=39"></script>
+<script src="data/materials.js?v=39"></script>
+<script src="src/rng.js?v=39"></script>
+<script src="src/world.js?v=39"></script>
+<script src="src/climate.js?v=39"></script>
+<script src="src/agent.js?v=39"></script>
+<script src="src/animal.js?v=39"></script>
+<script src="src/objects.js?v=39"></script>
+<script src="src/fire.js?v=39"></script>
+<script src="src/learn.js?v=39"></script>
+<script src="src/hunt.js?v=39"></script>
+<script src="src/cook.js?v=39"></script>
+<script src="src/social.js?v=39"></script>
+<script src="src/family.js?v=39"></script>
+<script src="src/faith.js?v=39"></script>
+<script src="src/shelter.js?v=39"></script>
+<script src="src/powers.js?v=39"></script>
+<script src="src/injury.js?v=39"></script>
+<script src="src/wolffear.js?v=39"></script>
+<script src="src/speech.js?v=39"></script>
+<script src="src/corpse.js?v=39"></script>
+<script src="src/moods.js?v=39"></script>
+<script src="src/disease.js?v=39"></script>
+<script src="src/tools.js?v=39"></script>
+<script src="src/hides.js?v=39"></script>
+<script src="src/cache.js?v=39"></script>
+<script src="src/hut.js?v=39"></script>
+<script src="src/farm.js?v=39"></script>
+<script src="src/food.js?v=39"></script>
+<script src="src/reeds.js?v=39"></script>
+<script src="src/bow.js?v=39"></script>
+<script src="src/fight39.js?v=39"></script>
+<script src="src/wolfmem.js?v=39"></script>
+<script src="src/spar.js?v=39"></script>
+<script src="src/sim.js?v=39"></script>
+<script src="src/save.js?v=39"></script>
+<script src="src/icons.js?v=39"></script>
+<script src="src/render.js?v=39"></script>
+<script src="src/ui.js?v=39"></script>
+<script src="src/main.js?v=39"></script>
 </body></html>

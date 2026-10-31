@@ -49,7 +49,7 @@
   };
   // Whole stick that can lock as a long stick
   Tools.canSpear = function (it) {
-    if (!it || it.tool || it.lit || it.form === "shard") return false;
+    if (!it || it.tool || it.lit || it.form === "shard" || it.form === "arrow") return false;   // v39: an arrow is not a long stick
     return it.material === "stick";
   };
   Tools.isTipPoint = function (it) {
@@ -60,6 +60,7 @@
   Tools.isTipShaft = function (it) {
     if (!it || it.lit || it.form === "shard") return false;
     if (it.tool && !Tools.is(it, "spear")) return false;   // plain stick/bone or long stick OK
+    if (it.form === "arrow" && it.tip) return false;   // v39: an arrow takes one tip
     const mats = (TC().tip && TC().tip.shafts) || ["stick", "bone"];
     return mats.indexOf(it.material) >= 0;
   };
@@ -68,8 +69,11 @@
     const mats = (TC().axe && TC().axe.head) || ["rock", "flint", "bone"];
     return mats.indexOf(it.material) >= 0 && G.Items.sharp(it);
   };
+  // v39: a binder is a reed or a cord (fiber form cord); tools.binders names them ("cord" stands for any fiber cord)
+  Tools.binderName = it => !it ? null : (it.material === "fiber" && it.form === "cord") ? "cord" : it.material;
+  Tools.isBinder = it => !!it && !it.lit && !it.wornBy && !it.tool && !it.soaked && ((TC().binders) || ["reed"]).indexOf(Tools.binderName(it)) >= 0 && (it.material !== "fiber" || it.form === "cord");
   Tools.isStickPart = function (it) {
-    return !!(it && !it.lit && it.material === "stick" && it.form !== "shard" && !it.tool);
+    return !!(it && !it.lit && it.material === "stick" && it.form !== "shard" && it.form !== "arrow" && !it.tool);
   };
 
   Tools.digOk = function (it) {
@@ -183,6 +187,7 @@
 
   Tools.finishTip = function (sim, a, shaft, point, how) {
     if (!shaft || !point || !Tools.scoreOk(a, ["strike", "cut", "rub", "bind"])) return null;
+    if (shaft.form === "arrow" && G.Bow) return G.Bow.tipArrow(sim, a, shaft, point, how);   // v39: the v34 tip rule on an arrow -> tipped arrow (no tool lock)
     const type = Tools.tipTypeFor(shaft);
     const hard = Math.round(Math.max(shaft.props.hardness || 25, point.props.hardness || 80));
     const sharp = Math.max(shaft.props.sharpness || 0, point.props.sharpness || 0, 40);
@@ -262,12 +267,13 @@
     if (!stick || !head) return false;
     // binder: reed on the tile / in hand; else friction-fit
     const binders = (TC().binders) || ["reed"];
+    const isB = Tools.isBinder;
     let binder = null;
     const held = G.Items.held(sim, a);
-    if (held && binders.indexOf(held.material) >= 0 && held !== stick && held !== head) binder = held;
+    if (held && isB(held) && held !== stick && held !== head) binder = held;
     if (!binder) {
       const R = (TC().bindReach != null ? TC().bindReach : 1.5);
-      binder = sim.items.find(i => !i.heldBy && binders.indexOf(i.material) >= 0
+      binder = sim.items.find(i => !i.heldBy && !i.wornBy && isB(i) && i !== stick && i !== head
         && Math.hypot(i.x - a.pos.x, i.y - a.pos.y) <= R + 1e-9) || null;
     }
     const S = Tools.ensure(sim);
@@ -285,7 +291,8 @@
     stick.props.durability = clamp(Math.round(hard * (TC().durFromHardness != null ? TC().durFromHardness : 1)), 1, 100);
     stick.form = "whole";
     stick.tool = "axe";
-    stick.boundWith = binder ? binder.material : "friction";
+    stick.boundWith = binder ? Tools.binderName(binder) : "friction";
+    if (binder && Tools.binderName(binder) === "cord") stick.props.durability = clamp(Math.round(stick.props.durability * ((CF().rope || {}).binderDurX || 1)), 1, 100);   // v39: cord-bound
     stick.craftedAt = sim.tick; stick.craftedBy = a.id;
     // remove head from world
     if (head.heldBy) { const h = sim.agents.find(q => q.id === head.heldBy); if (h) { h.carry = null; h.carryUntil = null; } }

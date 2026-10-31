@@ -2,7 +2,7 @@
 (function (G) {
   G.data = G.data || {};
   G.data.config = {
-    saveVersion: 38,                // v38: Living off the land (a huts tiers+durability ...); v37: §40 bundle (rain/wolves, wolf fear, sex dot, Bless, health+injuries, Resurrect, Heal, Powers menu); v36: People UI polish; v35: hard seasons; v34: hard tips; v33: ore finds; v32: built shelters; v31: group identity; v30: sacred places; v29: caching
+    saveVersion: 39,                // v39: reed fiber + melee/ranged skills + wolf memory; v38: Living off the land (a huts tiers+durability ...); v37: §40 bundle (rain/wolves, wolf fear, sex dot, Bless, health+injuries, Resurrect, Heal, Powers menu); v36: People UI polish; v35: hard seasons; v34: hard tips; v33: ore finds; v32: built shelters; v31: group identity; v30: sacred places; v29: caching
     saveKey: "godsim.save",
     map: {
       w: 60, h: 40, tilePx: 16,      // map is 960x640 art px, scaled to fit the screen
@@ -235,7 +235,7 @@
       tryCooldown: 360,                              // ...at most once per 6 game h each
       // Per-piece property jitter (±jitterPct of type base for hardness/sharpness/dryness/durability; flex uses flexJitter)
       jitterPct: [0.10, 0.20],
-      flexJitter: { stick: 25, rock: 3, flint: 3, bone: 8, reed: 20, berry: 5, meat: 8, ore: 2, hide: 10 }
+      flexJitter: { stick: 25, rock: 3, flint: 3, bone: 8, reed: 20, berry: 5, meat: 8, ore: 2, hide: 10, fiber: 4 }
     },
     // Step 10 physics: outcome rules over the material properties (data/materials.js). Actions: strike, rub, cut. "Held" = the thing in hand, "target" = the thing on the ground.
     physics: {
@@ -244,7 +244,7 @@
       // strike: hard on hard with a keen edge throws a spark (steel-free flint sparks: an edge of a hard stone shaves hot grains off another hard stone)
       spark: { minHardness: 65, minEdge: 35, chance: 0.6 },
       // break (strike only): the softer of the two may break. p = scale x (harder - softer hardness)/100 x (100 - durability)/100, at most max
-      break: { scale: 6, max: 0.8, edgeFromHardness: 1.4, shardDurability: 0.6 }, // a broken piece: sharpness = max(old, hardness x 1.4); "sharp shard" from physics.sharpAt
+      break: { scale: 6, max: 0.8, edgeFromHardness: 1.4, shardDurability: 0.6, noBreakFlex: 85, noBreakMaxHardness: 8 }, // v39: a piece this soft AND flexible (fiber: flex 90, hardness 5) frays, it does not snap into shards (reeds, hardness 12+, still snap); // a broken piece: sharpness = max(old, hardness x 1.4); "sharp shard" from physics.sharpAt
       // rub: the softer one is abraded; a hard-enough softer thing gets keener (sharpens); soft dry on soft dry grows warm (friction)
       rub: { hardnessGap: 10, sharpenMinHardness: 45, sharpenBy: 4, wear: 3, warmMaxHardness: 40, warmMinDryness: 60 },
       // cut: a keen edge drawn across a softer thing notches it
@@ -370,6 +370,7 @@
       copyX: { child: 2, youth: 1.5 }, seepX: 0.5, youthKillX: 0.5, startBond: { f: 100, l: 75 } },
     learn: {
       start: 50,                      // score before any experience
+      startOf: { melee: 20, ranged: 20 },   // v39: per-key start override (fighting skills start low)
       // fire: a cold person (warmth < coldBelow) within emberTiles of an ember (or heatTiles of a fire) whose warmth the heat is helping gains
       //   warmGain points per warmth point the heat gave them. Stepping onto a burning (or smouldering) tile is a burn: score - burnDrop, she moves away. No health damage.
       fire: { coldBelow: 60, emberTiles: 2, warmGain: 4, burnDrop: 35, burnCooldown: 30, fireSight: 10,
@@ -377,7 +378,7 @@
         approachChance: 0.5, sitTiles: [1, 2], fireSitTiles: 3, stayMin: 30 },   // stays sitting near it while her score is >= stayMin
       // huddle / shelter: warmth felt from others close by / from the trees raises those scores the same way (warmGain per warmth point);
       // the score scales the pull of company / trees when seeking warmth: weight x (0.5 + score/100)  (= the old weights at 50)
-      huddle: { warmGain: 1 }, shelter: { warmGain: 1 }, den: { warmGain: 3 }, hide: { warmGain: 1 },   // 21b: den = warmed inside a cave / overhang / thicket
+      huddle: { warmGain: 1 }, shelter: { warmGain: 1 }, den: { warmGain: 3 }, hide: { warmGain: 1 }, wrap: { warmGain: 1 },   // v39: wrap = wrap.warmGain   // 21b: den = warmed inside a cave / overhang / thicket
       // v28: hide wear / sleep-under raises Learn "hide" via warmGain when cold
       successWarmth: 3, fireSuccessGain: 10,   // Director (call 11 on 19): each warming success at a fire also raises the fire score by 10
                    // every 3 warmth points gained this way is one visible "success" others nearby can see
@@ -404,7 +405,16 @@
         strike: { label: "striking things together", short: "striking", fear: null },
         cut: { label: "cutting with an edge", short: "cutting", fear: null },
         rub: { label: "rubbing things together", short: "rubbing", fear: null },
-        bind: { label: "binding a tool", short: "binding", fear: null } }
+        bind: { label: "binding a tool", short: "binding", fear: null },
+        // v39 reed fiber + fighting skills (melee / ranged start at learn.startOf; spar is the know-how, absent until learned)
+        fiber: { label: "beating reeds into fiber", short: "fiber", fear: null },
+        twist: { label: "twisting cord", short: "twisting", fear: null },
+        wrap: { label: "wrapping in fiber", short: "fiber wrap", fear: null },
+        lash: { label: "lashing with cord", short: "lashing", fear: null },
+        bow: { label: "shooting a bow", short: "bow", fear: null },
+        melee: { label: "fighting up close", short: "melee", fear: null },
+        ranged: { label: "fighting at range", short: "ranged", fear: null },
+        spar: { label: "play-wrestling", short: "sparring", fear: null } }
     },
     // Step 16 hunting. A hungry person (fullness under actAt, the normal "goes to eat" point) holding a thing hard enough to strike with
     // (hardness >= minHardness: rock 70, stick 25, flint 80, bone 55; meat 5 is not) who sees a grazer within sightTiles may go after it instead of a bush:
@@ -673,7 +683,7 @@
       durFromHardness: 1,
       dullPerUse: 3,
       dullBelow: 15,
-      binders: ["reed"],
+      binders: ["reed", "cord"],     // v39: cord joins (a cord-bound axe gets rope.binderDurX durability)
       bindChance: 0.55,
       bindCooldown: 360,
       bindMinutes: 15,
@@ -752,10 +762,59 @@
     //   (goal wolfHunt) until it falls, gets away (giveUpMinutes) or someone needs food or water. Cooldown per person after a try.
     // Kill: +learnGain wolf_hunt score to each attacker, success (watchers copy like hunting), first one a Discoveries entry;
     //   awake people within wolves.watchTiles lose killWatchDrop fear (never below baseline).
-    wolfFight: { held: { spear: 25, tip_stick: 25, tip_bone: 25, axe: 20, flake: 10 }, hide: 5, perAlly: 10, allyTiles: 3, exhaustedBelow: 20,
+    // v39: WolfFight.stands / the hunt start use the group judgment R (config.fight); perAlly and hunt.minAllies are retired (kept, unread, for old fixtures).
+    //   held.bow 20 counts at range, scaled by min(bowMaxX, ranged / 50).
+    wolfFight: { held: { spear: 25, tip_stick: 25, tip_bone: 25, axe: 20, flake: 10, bow: 20 }, bowMaxX: 1.5, hide: 5, perAlly: 10, allyTiles: 3, exhaustedBelow: 20,
       standMinutes: 20, heldOffMinutes: 15, strikeTiles: 1.5, oddsX: 0.8, maxChance: 0.8, biteChance: 0.35,
       hunt: { minAllies: 2, seekTiles: 12, checkMinutes: 10, startChance: 0.05, pullBase: 0.5, pullPer: 50, giveUpMinutes: 120, cooldownMinutes: 720, repathMinutes: 10 },
       killWatchDrop: 5, learnGain: 15 },
+    // ---- v39 reed fiber + melee/ranged skills + wolf memory (specs/reed_fiber_DRAFT.md §7) ----
+    // reed beds: every seeded reed tile is a bed of up to bedMax standing reeds; one regrows every regrowDays[season] (null = none), x rainX in rain.
+    //   Fire on the bed burns its standing reeds; the bed returns (one reed) when the ground regrows (fire.regrowMinutes), then regrows as usual.
+    reeds: { bedMax: 3, regrowDays: [3, 4, 5, null], rainX: 1.5, nearSoakTiles: 3 },
+    // soak a reed by water (or hold it standing on the bank) soakMinutes -> soaked; strike it with hardness >= beatMinHardness (beatMinutes) -> a fiber bundle;
+    //   rub two bundles together (twistMinutes) -> one cord (twistPer bundles). gain = the learn success; scoreMin = on purpose (tools.scoreMin).
+    fiber: { soakMinutes: 240, beatMinutes: 20, beatMinHardness: 40, twistMinutes: 30, twistPer: 2, twistAlone: 50, gain: 12, scoreMin: 45, tryChance: 0.8,
+      tryEveryMinutes: 30, soakWalkTiles: 8, bendFlex: 60, bendMaxHardness: 19,
+      setDownChance: 0.5,   // v39 tune (Judge): a fiber knower holding a lone bundle (no 2nd bundle within objects.tryReach) puts it down, p per tryEveryMinutes (was: held it forever, so twist never had its 2nd bundle)
+      inventHardTiles: 20,   // v39 tune (Judge): an inventor with a soaked reed and nothing hard within objects.tryReach walks to a hard thing within this many tiles
+      gatherChance: 0.8,   // v39 tune (Judge): a fiber knower with empty hands and no soaked reed in sight picks up a dry reed within soakWalkTiles (to soak it), p per tryEveryMinutes
+      inventChance: 1,   // v39 tune (Judge): before anyone knows fiber, a curious person holding a soaked reed strikes it on something hard close by, x curiosity/50 per tryEveryMinutes (was: only the rare random try)
+      lines: { soak: "lays a reed in the shallows", soaked: "lifts a soaked reed from the shallows", beat: "beats a soaked reed into strands", bend: "bends", twist: "twists strands into cord",
+        wrap: "wraps fiber about {her} shoulders", rewrap: "wraps more fiber about {her} shoulders", wrapFall: "lets a worn fiber wrap fall apart", lash: "lashes the hut with cord",
+        bow: "bends a stick with a cord", restring: "strings the bow with a new cord", arrows: "cuts the stick into arrows", shoot: "looses an arrow at the {prey}", snap: "the bow cord snaps" } },
+    // fiber clothes: each bundle one layer (max layerC.length); warmth per layer layerC; dur 0-100 wears wearPerDay (x rainX in rain, x coldX in Deep Cold);
+    //   under wornBelow the wrap gives wornX; at 0 it falls apart (one bundle left); a bundle onto a full wrap patches +patch.
+    wrap: { tryBelowWarmth: 75, layerC: [2, 1.5, 1.5], wearPerDay: 4, rainX: 2, coldX: 1.5, wornBelow: 50, wornX: 0.7, patch: 35, warmGain: 1 },
+    rope: { hutDecayX: 0.7, hutPatchAdd: 5, cachePileAdd: 1, binderDurX: 1.5 },
+    // bow: cord bound on a whole stick of flex >= minFlex (bind >= bindMin, twist >= twistMin); arrows = cut a whole stick with an edge >= arrowEdge.
+    //   hit = hunt.odds.base + oddsAdd + learned (+ tip) x farX past hunt.strikeTiles x rainX in heavy rain x (0.5 + bow score / 100).
+    bow: { minFlex: 65, bindMin: 45, twistMin: 50, arrowEdge: 45,   /* v39 tune (Judge): was 55 - above every edge in a normal year (flint jitters to ~53, no knapped shards), so arrows were unreachable; 45 = physics.sharpAt, "sharp" everywhere */ arrowsPerStick: 3, quiverMax: 6, shootTiles: 6, oddsAdd: 0.15, farX: 0.7,
+      rainX: 0.6, recoverHit: 0.8, recoverMiss: 0.6, snapChance: 0.02, cooldownMinutes: 10, killGain: 20, gatherTiles: 6, loadTiles: 1, missPast: [1, 3],
+      seekStickTiles: 15,   // v39 tune (Judge): a cord holder with no whole stick within objects.tryReach walks to one within this many tiles (was: only a stick already in reach); also how far she keeps track of her own bow and the arrows she cut
+      arrowChance: 1,   // v39 tune (Judge): p per try of each arrow-errand step: put an empty bow down when an edge + whole stick are in sight, fetch the edge, walk to a stick, put the edge down once arrows are cut (was: unreachable, the bow hand could never hold the edge)
+      keepReady: true,   // v39 tune (Judge): a loaded bow she made stays in hand through thirst / cold / the carry timer (sleep still puts it down) (was: put down at every need, so hunger never found it in hand)
+      fetchHungryTiles: 15 },   // v39 tune (Judge): hungry with empty hands, she walks back for her own loaded bow within this many tiles before the bushes (0 = off) (was: none)
+    // group judgment: strength = base + skill x skillX + held (+ hide); wolves = wolfStrength per wolf within packTiles; R = group / wolves x (1 - fear / fearDiv)
+    //   + commitBoost per person seen committing - fleeDrop per person seen running (within seeTiles, momentumMinutes). Stand at standAt, hunt at engageAt.
+    fight: { base: 5, skillX: 0.3, wolfStrength: 60, packTiles: 6, fearDiv: 150, standAt: 0.7, engageAt: 1.2,
+      commitBoost: 0.15, fleeDrop: 0.15, momentumMinutes: 10, rangedX: 0.6, woundMinutes: 720, fleeSteps: 2,
+      desperate: { wound: 0.10, woundSkill: 0.20, kill: 0.02, killSkill: 0.05 } },
+    melee: { start: 20, sparCap: 50,
+      gain: { deerKill: 3, huntMiss: 1, animalStrike: 4, wolfKill: 10, survived: 5, desperateWound: 8, spar: 2 } },
+    ranged: { start: 20, gain: { deerKill: 3, shotMiss: 1, animalShot: 4, wolfKill: 10 } },
+    skillMigrate: { start: 20, perKill: 2, perWolfKill: 10, perSurvived: 5, wolfHuntX: 0.3, huntX: 0.2, min: 10, max: 60 },
+    // sparring (by agreement only): stance -> the other copies it within answerMinutes (or, after language, a shared word) -> a bout of minutes.
+    spar: { minWords: 1, answerMinutes: 10, like: 60, needMin: 40, agreeBase: 0.5, retryMinutes: 240, minMelee: 21, recentDays: 3,
+      inventChance: 1, inviteChance: 0.05, gain: 12, minutes: 20, perDay: 1, nearTiles: 8,
+      groupOnly: false, partnerWander: true, needRecentFight: false,   // v39 tune (Judge): was minMelee 30, inventChance 0.01, nearTiles 2, partner = idle group-mate only, and a fight within recentDays required (the fighters were loners 20-45 tiles from anyone liked: never met in a 1-year run)
+      lines: { stance: "crouches in a play-wrestle stance before {who}", copy: "copies the stance", word: "calls out \"{word}\" and crouches before {who}", bout: "wrestles with {who} in the grass", boutBare: "wrestles with {who} on the bare ground", end: "and {who} get up from the grass" } },
+    // wolves remember who hurt them (person ids, and the member ids of her group at the time) and grow cautious of armed groups.
+    wolfMemory: { max: 8, personS: 60, groupS: 50, seenX: 0.5, killedX: 0.8, halfLifeDays: 10, forgetBelow: 10, avoidAt: 30,
+      keepMin: 2, keepMax: 7, keepFullAt: 100, keepMargin: 0.5,   // v39 (Judge): keep = keepMin + (keepMax - keepMin) x (s - avoidAt) / (keepFullAt - avoidAt), clamped keepMin..keepMax, no rounding; below avoidAt no avoidance (was keepTiles 2 + floor(s / keepPer 20), a cliff 0 -> 3 at s 30)
+      woundCaution: 15, seenCaution: 10, killedCaution: 20, defeatCaution: 5,
+      cautionHalfLifeDays: 20, armedW: 2, threatBase: 8, nearKillMargin: 0.05, nearKillX: 2, wary: 10, waryRecheckMinutes: 30, logCoolMinutes: 120,
+      lines: { keep: "The wolf keeps its distance from {who}", circle: "The wolf circles wide of the group", wounded: "limps back toward its den" } },
     // §40 / v37 health (0..max) + RimWorld-style body parts. Health falls lossPerZeroNeed per game hour for each need at 0 and by each injury's
     //   bleedPerHour; it climbs regenPerHour when no need is under regenAbove and nothing bleeds. Health 0 = death ("wounds").
     //   The older need-zero death timers still apply; the two coexist.
@@ -785,8 +844,17 @@
       powersTab: { label: "Powers", icon: "powers" },   // v19: portrait phones (< 700px): the bottom-bar tab that slides up the power row (CSS in index.html)
       find: { label: "Find", icon: "locate", pulseMs: 3000, zoom: 2, ringScale: 1.7 },   // v19 (step 24): the Find button on a person's card: centre the map on them (zoom at least 2), pulse their group ring brighter and bigger for pulseMs, follow until a pan or a tap elsewhere
       personTabs: [   // v25: Needs / Mind / Kin / Knows / Log (personal events in Log tab only; header + Find outside; no under-card strip)
-        { key: "needs", label: "Needs" }, { key: "mind", label: "Mind" }, { key: "kin", label: "Kin" }, { key: "knows", label: "Knows" }, { key: "log", label: "Log" }
-      ],
+        { key: "needs", label: "Needs" }, { key: "mind", label: "Mind" }, { key: "kin", label: "Kin" }, { key: "knows", label: "Knows" }, { key: "skills", label: "Skills" }, { key: "log", label: "Log" }
+      ],   // v39: Skills tab (melee / ranged / sparring / bow scores, wrap and bow carried)
+      skillsTab: { title: "Fighting skills (0-100)", rows: { melee: "Up close", ranged: "Shooting", spar: "Sparring", bow: "Bow making" },
+        notYet: "not yet", gear: "Gear", none: "no bow, no wrap",
+        hints: { melee: "spear, stick and hands against animals; sparring raises it a little", ranged: "bow shots (and later throws) at animals", spar: "play-wrestling with a friend", bow: "stringing a bow and cutting arrows" } },
+      // v39 (deviation from spec section 11, Director): what a wolf remembers, shown on its inspect card
+      wolfCard: { title: "Memory", caution: "Caution", wounded: "Wounded, limping", woundedFor: "for about {h} h more", sound: "Not wounded",
+        empty: "Remembers nobody", group: "{name}'s group", near: "nearly killed it", avoid: "avoids", wary: "wary", fading: "fading" },
+      // v39: Discoveries icons (data/ui/icons/disc_*.svg) by the discovery title
+      discIcons: { "First soaked reed": "disc_fiber", "First fiber": "disc_fiber", "First cord": "disc_cord", "First lashed hut": "disc_cord", "First fiber wrap": "disc_wrap",
+        "First bow": "disc_bow", "First bow kill": "disc_bow", "First wolf shot down": "disc_bow", "First arrows": "disc_arrow", "First tipped arrow": "disc_arrow", "First sparring": "disc_spar" },
       panels: [{ key: "log", label: "Log", icon: "log", el: "logwrap", open: true },
                { key: "discoveries", label: "Discoveries", icon: "discoveries" },
                { key: "prayers", label: "Prayers", icon: "prayers" },
@@ -794,6 +862,7 @@
       speedIcons: ["pause", "play", "fast", "superfast"] },   // one per time.speeds entry (0, 1x, 10x, 60x); data/ui/icons via src/icons.js
     render: {                         // view only: nothing here is saved or affects the sim
       stepsPerTile: 2,                // walk frame flips every 0.5 tile actually covered; standing = frame 0
+      sparFrameSec: 0.4, bowDrawTicks: 2, arrowFlySec: 0.35,   // v39: spar_0/spar_1 swap, bow "draw" frame just after a shot, arrow flight (real seconds; render only)
       zoom: { max: 4, wheelStep: 50, pinchStep: 1.35, tapSlop: 8 }  // whole-number zoom 1x (fit) .. 4x; wheel deltaY per step; pinch distance ratio per step; px of movement before a press becomes a pan
     }
   };

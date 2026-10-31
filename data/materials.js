@@ -21,6 +21,8 @@
     meat:  { label: "meat",  hardness: 5,  sharpness: 0,  dryness: 10,  durability: 20, flex: 30, burns: false },  // step 16: raw flesh (wet: does not catch)
     rotten: { label: "rotten food", hardness: 3, sharpness: 0, dryness: 5, durability: 5, flex: 20, burns: false },  // v38 (c): spoiled meat
     hide:  { label: "hide",  hardness: 8,  sharpness: 0,  dryness: 40,  durability: 45, flex: 65, burns: false },  // §31 / v28: soft grazer skin; wear / sleep-under for warmth
-    ore:   { label: "ore",   hardness: 88, sharpness: 15, dryness: 100, durability: 85, flex: 3,  burns: false }   // §36 / v33: harder than rock; hill/mountain deposits; pickup/strike only
+    ore:   { label: "ore",   hardness: 88, sharpness: 15, dryness: 100, durability: 85, flex: 3,  burns: false },  // §36 / v33: harder than rock; hill/mountain deposits; pickup/strike only
+    // v39: beaten reed strands. Forms: bundle (loose strands), cord (twisted), wrap (worn). Later uses ask "is it a fiber item?", never "is it a reed".
+    fiber: { label: "fiber", hardness: 5,  sharpness: 0,  dryness: 60,  durability: 40, flex: 90, burns: true, isFiber: true }
   };
 })(this.GS = this.GS || {});

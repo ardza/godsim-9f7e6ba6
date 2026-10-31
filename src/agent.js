@@ -303,7 +303,7 @@
   Agent._keepNear = keepNear;
   function wander(sim, a) {
     // Director (step 17 call 2): cold comes first - a fire in sight, else trees / company, before any early trip, hunt or wander
-    if (a.needs.warmth < Agent.warmthSeekBelow(a)) { if (seekWarmth(sim, a)) return; if (Agent.goodSpot(sim, a) || a.fireStay === sim.tick) return startIdle(sim, a); }   // cold: stay huddled / under the trees
+    if (a.needs.warmth < Agent.warmthSeekBelow(a)) { if (G.V39 && G.V39.coldTry(sim, a)) return; if (seekWarmth(sim, a)) return; if (Agent.goodSpot(sim, a) || a.fireStay === sim.tick) return startIdle(sim, a); }   // cold: stay huddled / under the trees
     if (waterIsFar(sim, a)) { G.Sim.log(sim, a.name + " set off early for water", a); return seekWater(sim, a); }
     if (foodIsFar(sim, a)) { G.Sim.log(sim, a.name + " set off early for a far bush", a); return seekFood(sim, a, null, true); }
     if (keepNear(sim, a)) return;   // step 20: a child walks back to within keepTiles of her guardian
@@ -313,6 +313,7 @@
     if (G.Corpse && G.Corpse.maybe(sim, a)) return;   // step 26: corpse choices (leave/drag/bury/burn/eat/ritual)
     if (G.Tools && (!G.Injury || G.Injury.canUseTools(a)) && G.Tools.maybe(sim, a)) return;   // §40: a broken arm blocks tool use   // step 29: bind / chop / poke / ready long stick
     if (G.Hides && G.Hides.maybe(sim, a)) return;   // v28: wear / sleep-under hide when cold
+    if (G.V39 && G.V39.maybe(sim, a)) return;   // v39: wrap / lash / soak / beat / twist / string a bow / gather arrows / spar
     if (G.Faith && G.Faith.maybeDriftSacred(sim, a)) return;   // §33: idle drift to known sacred marker
     if (G.Hut && G.Hut.tend && G.Hut.tend(sim, a)) return;   // v38 (a): patch a worn hut nearby / add a better piece to it
     if (G.Items.maybeTry(sim, a) || G.Items.maybePickUp(sim, a)) return;   // idle curiosity (step 9-10)
@@ -365,6 +366,7 @@
   function tookBush(sim, a, b) { if (b && b.ateBy != null && b.ateBy !== a.id && sim.tick - b.ateAt <= 240) G.Social.took(sim, a, sim.agents.find(q => q.id === b.ateBy), "bush"); }
   function arrive(sim, a) {
     const g = a.act.goal;
+    if (G.V39 && G.V39.arrive(sim, a, g)) return;   // v39: soak / bow / spar goals
     if (g === "food") {
       const b = sim.bushes.find(q => q.id === a.act.bush);
       const reach = G.Tools ? G.Tools.reachTiles(sim, a) : 0;
@@ -580,6 +582,7 @@
         (sim.tick % (H.drowsyCheckMinutes || 10) === 0) && sim.rng.float() < (H.drowsyChance || 0.03)) {
       G.Sim.log(sim, a.name + (sim.rng.float() < 0.5 ? " is nodding off" : " is slowing further"), a); return startSleep(sim, a);
     }
+    if (G.V39 && G.V39.stepAct(sim, a)) return;   // v39: string a bow / spar bout / stance
     if (a.act.type === "try") { if (!G.Items.stepTry(sim, a)) startIdle(sim, a); return; }
     if (a.act.type === "pray") { if (!G.Faith.stepPray(sim, a)) startIdle(sim, a); return; }   // step 21: a prayer bout (10-40 min); step 26 ritual at a body also uses pray
     if (a.act.type === "dig") { G.Corpse.stepDig(sim, a); return; }   // step 26 bury

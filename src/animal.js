@@ -26,6 +26,8 @@
   Animal.fullnessDrainPerTick = a => 100 / AC()[a.species].fullness.minutesFullToEmpty * TM();
   Animal.packOf = (sim, a) => packOf(sim, a);
   Animal.flee = (sim, a, from) => flee(sim, a, from);
+  Animal.walkTo = (sim, a, x, y, goal, extra) => walkTo(sim, a, x, y, goal, extra);   // v39: wolf memory (keep distance, wounded wolf to den)
+  Animal.free = (sim, a, x, y) => free(sim, a, x, y);
   Animal.doing = a => ({ graze: "grazing", feed: "feeding on a body", hunt: "hunting", threaten: "threatening" })[a.act.type]
     || ({ flee: "fleeing", wander: "wandering", meadow: "looking for grass", body: "going to a body", hunt: "stalking prey", threaten: "chasing", pack: "staying with the pack", den: "near the den" })[a.act.goal] || "resting";
 
@@ -153,11 +155,13 @@
     const stood = markChaseFright(sim, a, p, pack);
     if (sim.animals.indexOf(a) < 0) return;   // v38 (f): the people standing their ground brought it down
     // v38 (f): an armed person standing her ground holds the wolf off - it does not press its own strike (it can still bite on the group's misses), backs off a while
-    if (stood && d <= T.strikeTiles + 0.2 && G.WolfFight.armed(sim, p)) { idle(sim, a); if (a.act.type === "idle") { a.act.until = sim.tick + Math.max(1, Math.round(CF().wolfFight.heldOffMinutes / TM())); a.act.goal = "heldOff"; } return; }
+    if (stood && d <= T.strikeTiles + 0.2 && G.WolfFight.armed(sim, p, a)) { if (G.WolfMem) G.WolfMem.defeat(sim, a); idle(sim, a); if (a.act.type === "idle") { a.act.until = sim.tick + Math.max(1, Math.round(CF().wolfFight.heldOffMinutes / TM())); a.act.goal = "heldOff"; } return; }
     if (d > T.strikeTiles + 0.2) {
       if (!walkTo(sim, a, Math.round(p.pos.x), Math.round(p.pos.y), "threaten", { target: p.id })) idle(sim, a);
       return;
     }
+    // v39: struck or cornered, she fights for her life (one desperate roll per wolf strike): a wounded wolf breaks off
+    if (G.WolfFight.desperate && G.WolfFight.desperate(sim, a, p)) return;
     // close and person stays inside: damage / rare kill
     p.needs.energy = r9(Math.max(0, p.needs.energy - T.damageEnergy));
     if (sim.arng.chance(T.killChance)) {
@@ -277,6 +281,7 @@
   // ---- Wolves: one pack, den + territory; hunt deer; threaten people only inside territory ----
   function wolfDecide(sim, a) {
     const S = AC().wolves, pack = packOf(sim, a), t = tileOf(a);
+    if (G.WolfMem && G.WolfMem.decide(sim, a, pack)) return;   // v39: a wounded wolf goes to its den; a remembered person is given a wide berth
     if (!pack) { // orphan: roam like a scavenger without hunting people
       if (a.needs.fullness < S.fullness.feedBelow) {
         const c = nearestCorpse(sim, a, 10, 0); if (c && goFeed(sim, a, c)) return;
@@ -289,7 +294,7 @@
     let intruder = null;
     for (const p of sim.agents) {
       const dDen = Math.hypot(p.pos.x - pack.den.x, p.pos.y - pack.den.y);
-      if (dDen <= S.territory) { const d = Math.hypot(p.pos.x - a.pos.x, p.pos.y - a.pos.y); if (d <= thr.chaseTiles && (!intruder || d < intruder.d)) intruder = { p, d }; }
+      if (dDen <= S.territory) { const d = Math.hypot(p.pos.x - a.pos.x, p.pos.y - a.pos.y); if (d <= thr.chaseTiles && (!intruder || d < intruder.d) && (!G.WolfMem || G.WolfMem.mayTarget(sim, a, p))) intruder = { p, d }; }
     }
     if (intruder) {
       if (intruder.d <= thr.strikeTiles + 0.2 && whole(a)) { tryThreaten(sim, a, intruder.p); return; }
@@ -350,7 +355,7 @@
         for (const p of sim.agents) {
           if (Math.hypot(p.pos.x - pack.den.x, p.pos.y - pack.den.y) <= S.territory) {
             const d = Math.hypot(p.pos.x - a.pos.x, p.pos.y - a.pos.y);
-            if (d <= thr.chaseTiles && (!inv || d < inv.d)) inv = { p, d };
+            if (d <= thr.chaseTiles && (!inv || d < inv.d) && (!G.WolfMem || G.WolfMem.mayTarget(sim, a, p))) inv = { p, d };
           }
         }
         if (inv) { wolfDecide(sim, a); }
