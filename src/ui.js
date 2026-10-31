@@ -50,7 +50,7 @@
         UI.update(app); };
       bar.appendChild(b);
     });
-    // v19: the Powers tab (shown only on portrait phones < 700px, by CSS): opens / closes the power row; highlighted while a power waits for its spot
+    // v19: the Powers tab (v39.1: on every layout; was portrait phones only): opens / closes the power row; highlighted while a power waits for its spot
     const PT = UC().powersTab; if (PT && $("powers")) { const b = document.createElement("button"); b.id = "ptab-powers"; b.innerHTML = UI.icon(PT.icon) + '<span class="lbl">' + esc(PT.label) + '</span>';
       b.setAttribute("aria-label", PT.label); b.title = PT.label; b.setAttribute("aria-expanded", "false"); b.setAttribute("aria-controls", "powers"); b.onclick = () => UI.powerRow(app, !UI.rowOpen()); bar.appendChild(b); }
   }
@@ -493,7 +493,7 @@
         ppMeter("Warmth", n.warmth, A.warmthWord(n.warmth), n.warmth < 30) +
         (a.zero && (a.zero.water > 0 || a.zero.fullness > 0 || a.zero.warmth > 0 || a.zero.energy > 0) ? '<div class="sub hot">' + [a.zero.water > 0 ? "no water for " + (a.zero.water / 60).toFixed(1) + " h" : "", a.zero.fullness > 0 ? "no food for " + (a.zero.fullness / 60).toFixed(1) + " h" : "", a.zero.energy > 0 ? "no sleep for " + (a.zero.energy / 60).toFixed(1) + " h" : "", a.zero.warmth > 0 ? "hypothermia for " + (a.zero.warmth / 60).toFixed(1) + " h" + (a.hypo ? " (stage " + a.hypo + ")" : "") : ""].filter(Boolean).join(" · ") + "</div>" : "") +
         (a.act.type === "sleep" ? '<div class="sub">asleep since ' + G.Time.hhmm(G.Time.at(a.act.since)) + "</div>" : "") +
-        (a.felt ? '<div class="sub">feels like ' + G.Time.tempF(a.felt.c) + (a.felt.sheltered ? ", under trees" : "") + (a.felt.huddle ? ", huddled with " + a.felt.huddle : "") + (a.felt.bond ? ", close to " + esc(a.felt.bond) : "") + (a.felt.heat ? ", fire nearby" : "") + "</div>" : "") +
+        (a.felt ? '<div class="sub">feels like ' + G.Time.tempF(a.felt.c) + (a.felt.sheltered ? ", under trees" : "") + (a.felt.huddle ? ", huddled with " + a.felt.huddle : "") + (a.felt.bond ? ", close to " + esc(a.felt.bond) : "") + (a.felt.heat ? ", fire nearby" : "") + (a.felt.wet ? ", in the rain" : "") + (a.wet >= 60 ? ", soaked" : a.wet >= 15 ? ", wet" : a.wet > 0 ? ", damp" : "") + "</div>" : "") +
         '<div class="sub">' + a.stats.meals + " meal" + (a.stats.meals === 1 ? "" : "s") + " · " + (a.stats.drinks || 0) + " drink" + (a.stats.drinks === 1 ? "" : "s") + " · " + (a.stats.sleeps || 0) + " sleep" + (a.stats.sleeps === 1 ? "" : "s") + "</div>" + sickLine;
       const mindPane =
         sickLine +

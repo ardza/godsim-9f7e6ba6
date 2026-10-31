@@ -167,7 +167,11 @@
     const x = Math.round(a.pos.x), y = Math.round(a.pos.y); if (!Powers.raining(sim, x, y)) return 0;
     const sh = (G.Shelter && G.Shelter.inside(sim, a)) || (G.Shelter && G.Shelter.at(sim, x, y)), SC = G.data.config.shelter;
     if (sh) { const b = SC && SC[sh.type] && SC[sh.type].rain != null ? SC[sh.type].rain : sh.rain; if (b != null) return Math.max(0, 1 - b); }   // a thicket keeps half off, even in the woods
-    return G.World.tile(sim.world, x, y) === G.data.T.WOODS ? 0 : 1; };
+    if (G.World.tile(sim.world, x, y) !== G.data.T.WOODS) return 1;
+    const ko = PC().rain.woodsKeepOff; return ko == null ? 0 : Math.max(0, 1 - ko); };   // v39.1: trees keep woodsKeepOff (0.5) off, not all of it
+  // v39.1: exposure above this = out in the rain (not under cover); woods / thicket / huts sit at or below it
+  Powers.coverAbove = () => PC().rain.coverAbove != null ? PC().rain.coverAbove : 0;
+  Powers.outInRain = (sim, a) => Powers.exposure(sim, a) > Powers.coverAbove();
   // active puddles within d tiles of (x, y): [{k, x, y, d, kind: "puddle"}]
   Powers.puddlesNear = function (sim, x, y, d) { const out = []; if (!Powers.any(sim)) return out;
     for (const e of sim.powers.effects) if (e.puddles && sim.tick < e.pudEnd) for (const [px, py] of e.puddles) { const dd = Math.hypot(px - x, py - y); if (dd <= d) out.push({ k: px + "," + py, x: px, y: py, d: dd, kind: "puddle" }); }
@@ -195,10 +199,10 @@
     const R = PC().rain; return !!Powers.any(sim) && (a.rainExposedMinutes || 0) >= (R.exposeUrgentAt || 240);
   };
   // called from Agent.step (after needs): awake person out in the rain heads for cover. Progressive by rainExposedMinutes (26b).
-  Powers.seekCover = function (sim, a, act) {
-    if (!Powers.any(sim) || Powers.exposure(sim, a) <= 0) return false;
+  Powers.seekCover = function (sim, a, act, wake) {
+    if (!Powers.any(sim) || !Powers.outInRain(sim, a)) return false;   // v39.1: under trees / in a hut is cover enough (exposure <= coverAbove)
     const R = PC().rain, exposed = a.rainExposedMinutes || 0;
-    const force = exposed >= (R.exposeForceAt || 120), raised = exposed >= (R.exposeRaiseAt || 30), urgent = exposed >= (R.exposeUrgentAt || 240);
+    const force = !!wake || exposed >= (R.exposeForceAt || 120), raised = exposed >= (R.exposeRaiseAt || 30), urgent = exposed >= (R.exposeUrgentAt || 240);
     const idleLike = act.type === "idle" || (act.type === "walk" && act.goal === "wander");
     const snackLike = act.type === "walk" && (act.goal === "food" || act.goal === "explore");
     if (!(idleLike || (urgent && snackLike))) return false;
@@ -212,7 +216,8 @@
     if (!c && (force || raised)) c = coverFor(sim, a, R.coverTilesLong || 16);
     if (!c) return false;
     a.act = { type: "walk", goal: "cover", path: c.p, i: 0 }; st(sim).stats.covers++;
-    if ((force || raised) && !a.rainCoverLogged) {
+    if (wake) G.Sim.log(sim, a.name + " gets up and heads " + (c.fire ? "for the fire" : c.sh ? "for the " + G.Shelter.word(c.sh) : "for the trees"), a);   // v39.1: woken by the rain
+    else if ((force || raised) && !a.rainCoverLogged) {
       a.rainCoverLogged = true;
       G.Sim.log(sim, a.name + " has been in the rain too long and heads for cover", a);
     } else {
@@ -238,7 +243,8 @@
       if (sim.items.some(it => it.lit)) sticksOut(sim);
       for (const a of sim.agents) { const e = Powers.rainAt(sim, a.pos.x, a.pos.y); if (!e || a.rainSeen === e.id) continue; a.rainSeen = e.id;
         if (a.act.type === "sleep" || Powers.exposure(sim, a) <= 0) continue;
-        if (Powers.roll(sim) < R.faceChance * (a.traits.curiosity || 50) / 50) { S.stats.faces++; G.Sim.log(sim, a.name + " turns " + G.Family.poss(a) + " face up into the rain", a); } }
+        if (Powers.roll(sim) < R.faceChance * (a.traits.curiosity || 50) / 50) { S.stats.faces++; G.Sim.log(sim, a.name + " turns " + G.Family.poss(a) + " face up into the rain", a); }
+        else { S.stats.notices = (S.stats.notices || 0) + 1; G.Sim.log(sim, a.name + (Powers.outInRain(sim, a) ? " feels the rain start" : " hears the rain overhead"), a); } }   // v39.1: awake people notice it
     }
     for (const e of S.effects) if (e.k !== "rain" && !e.done && sim.tick >= e.end) { e.done = true; G.Sim.log(sim, "The air near " + e.place + " settles"); }
     S.effects = S.effects.filter(e => e.k === "rain" ? (e.on || sim.tick < Math.max(e.wetEnd, e.bushEnd, e.pudEnd)) : sim.tick < e.end || !e.done);

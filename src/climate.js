@@ -67,7 +67,9 @@
     // step 22/26: rain on her (0..1): no sun; v22 per-strength chillC × exposure (L3/M6/H10); warmth loss × lossX in Agent.step
     const wet = G.Powers ? G.Powers.exposure(sim, a) : 0, rainy = wet > 0 || (G.Powers && G.Powers.any(sim) && G.Powers.raining(sim, x, y));
     let c = Climate.airAt(sim, x, y); const sheltered = G.World.tile(sim.world, x, y) === T().WOODS; if (sheltered) c += Wm.shelterC; else if (!rainy) c += Wm.sunC * (1 - G.Time.darkness(sim.tick));
-    if (wet) c -= (G.Powers.chillCAt ? G.Powers.chillCAt(sim, x, y) : 0) * wet;
+    const gear = wet || a.wet ? Climate.rainGear(a) : 0;
+    if (wet) c -= (G.Powers.chillCAt ? G.Powers.chillCAt(sim, x, y) : 0) * wet * (1 - gear);   // v39.1: a hide / wrap keeps some of the rain chill off
+    const wetC = a.wet > 0 && Wm.wet ? Wm.wet.chillC * a.wet / 100 : 0; c -= wetC;            // v39.1: wet skin stays cold after the rain stops
     let hud = 0; for (const b of sim.agents) if (b !== a && Math.hypot(b.pos.x - a.pos.x, b.pos.y - a.pos.y) <= Wm.huddleTiles) hud++;
     hud = Math.min(hud, Wm.huddleMax); c += hud * Wm.huddleC;
     // step 20: at night a partner / group member / guardian (or ward) within bondTiles adds bondC (once)
@@ -82,8 +84,12 @@
     const hide = G.Hides ? G.Hides.warmC(sim, a, baseWarm + den) : 0; c += hide;
     const wrap = G.Fiber && a.wearingWrap != null ? G.Fiber.warmC(sim, a, baseWarm + den + hide) : 0; c += wrap;   // v39: fiber wrap, same cap
     if (a.act.type === "walk") c += Wm.walkingC; else if (a.act.type === "sleep") c += Wm.asleepC;
-    const o = { c: Math.round(c * 100) / 100, sheltered, huddle: hud, heat, bond: bond ? bond.name : null, sleepers, sleepC, den, hide }; if (wrap) o.wrap = wrap; if (wet) o.wet = wet; return o;
+    const o = { c: Math.round(c * 100) / 100, sheltered, huddle: hud, heat, bond: bond ? bond.name : null, sleepers, sleepC, den, hide }; if (wrap) o.wrap = wrap; if (wet) o.wet = wet; if (wetC) o.wetC = Math.round(wetC * 100) / 100; if (gear) o.gear = gear; return o;
   };
+  // v39.1: share of the rain her gear keeps off (worn hide, sleeping under a hide, worn wrap), capped at wet.gearMax
+  Climate.rainGear = function (a) { const Wt = CF().person.warmth.wet; if (!Wt || !Wt.gear) return 0; const g = Wt.gear; let v = 0;
+    if (a.wearingHide != null) v += g.hide || 0; else if (a.act && a.act.type === "sleep" && a.sleepHide != null) v += g.sleepHide || 0;
+    if (a.wearingWrap != null) v += g.wrap || 0; return Math.min(Wt.gearMax != null ? Wt.gearMax : 1, v); };
   // step 20: is b someone she keeps with (partner, same group, her guardian or the child she guards)?
   Climate.bonded = (a, b) => b !== a && (a.mate === b.id || b.mate === a.id || (a.group != null && a.group === b.group) || a.guard === b.id || b.guard === a.id);
   Climate.bondNear = function (sim, a) { const R = CF().person.warmth.bondTiles;

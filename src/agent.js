@@ -35,7 +35,7 @@
   Agent.energyWord = v => { const E = P().energy; return v <= 0 ? "sleep-deprived" : v < E.sleepBelow ? "tired" : v < E.restedAt ? "fine" : "rested"; };
   Agent.warmthWord = v => v <= 0 ? "hypothermic" : v < 30 ? "cold" : v < 60 ? "chilly" : "warm";
   // seeks shelter / company below this warmth (cold-fear trait)
-  Agent.warmthSeekBelow = a => P().warmth.seekBelow + a.traits.coldFear * P().warmth.seekPerFear;
+  Agent.warmthSeekBelow = a => P().warmth.seekBelow + a.traits.coldFear * P().warmth.seekPerFear + (a.wet > 0 && P().warmth.wet ? P().warmth.wet.seekAdd * a.wet / 100 : 0);   // v39.1: wet → seeks warmth sooner
   Agent.waterWord = v => v <= 0 ? "dehydrated" : v < P().water.threshold ? "thirsty" : "watered";
   Agent.energyDrainPerTick = a => 100 / P().energy.drainMinutes * G.data.config.time.tickGameMinutes * (G.Disease ? G.Disease.energyX(a) : 1);  // step 28 sick ×1.5
   Agent.energyRefillPerTick = a => 100 / P().energy.refillMinutes * G.data.config.time.tickGameMinutes;
@@ -191,9 +191,35 @@
     return best;
   }
   function startSleep(sim, a, again) { a.topUp = null; a.act = { type: "sleep", since: sim.tick }; if (!again) a.stats.sleeps++; G.Sim.log(sim, a.name + " lies down to sleep", a); if (G.Hides) G.Hides.onSleep(sim, a); }
+  // v39.1: wetness 0-100. Rain soaks her toward 100 x exposure x (1 - gear) at soakPerHour[strength]; above that she dries (faster under cover / by a fire)
+  function stepWet(sim, a, felt, asleep) {
+    const Wt = P().warmth.wet; if (!Wt) return; const tm = G.data.config.time.tickGameMinutes, w0 = a.wet || 0, ex = felt.wet || 0;
+    const gear = felt.gear || 0, target = 100 * ex * (1 - gear) * (felt.heat > 0 ? 1 - (Wt.fireKeep || 0) : 1);   // by a fire she gets only so wet let w = w0;
+    if (ex > 0 && w0 < target) { const e = G.Powers.rainAt(sim, Math.round(a.pos.x), Math.round(a.pos.y)), soak = (Wt.soakPerHour[e && e.str] || Wt.soakPerHour.medium) * (1 - gear);
+      w = Math.max(0, Math.min(target, w0 + (soak - (felt.heat > 0 ? Wt.dryPerHour * Wt.fireX : 0)) * tm / 60)); }   // fire heat dries her even while it rains
+    else { const t = Agent.tilePos(a), cov = (G.Shelter && (G.Shelter.inside(sim, a) || G.Shelter.at(sim, t.x, t.y))) || W.tile(sim.world, t.x, t.y) === G.data.T.WOODS;
+      const x = felt.heat > 0 ? Wt.fireX : cov ? Wt.shelterX : 1; w = Math.max(ex > 0 ? target : 0, w0 - Wt.dryPerHour * x * tm / 60); }
+    w = Math.round(w * 1e6) / 1e6; a.wet = w > 1e-6 ? w : 0;
+    if (!asleep && w >= Wt.soakedAt && !a.soakLogged) { a.soakLogged = true; G.Sim.log(sim, a.name + " is soaked through", a); }
+    else if (a.soakLogged && w < Wt.driedBelow) { a.soakLogged = false; if (!asleep) G.Sim.log(sim, a.name + (felt.heat > 0 ? " has dried off by the fire" : " has dried off"), a); }
+  }
+  Agent.stepWet = stepWet;
+  // v39.1: a sleeper out in the rain wakes (once per rain) when soaked or getting cold, and heads for cover / a fire
+  function rainWake(sim, a) {
+    const Wt = P().warmth.wet; if (!Wt || !G.Powers || !G.Powers.any(sim) || a.hypoUnconscious || (a.hypo || 0) >= 4) return false;
+    if (!G.Powers.outInRain(sim, a)) return false; const e = G.Powers.rainAt(sim, Math.round(a.pos.x), Math.round(a.pos.y)); if (!e || a.rainWoke === e.id) return false;
+    const cold = Wt.wakeColdBelow + (a.traits.coldFear - 50) * P().warmth.seekPerFear * 0.5, soaked = (a.wet || 0) >= Wt.wakeWetAt;
+    if (!soaked && a.needs.warmth > cold) return false;
+    a.rainWoke = e.id; if (sim.powers && sim.powers.stats) sim.powers.stats.rainWakes = (sim.powers.stats.rainWakes || 0) + 1; G.Sim.log(sim, a.name + (soaked ? " wakes up soaked in the rain" : " wakes up cold in the rain"), a);
+    startIdle(sim, a, 0); a.act.until = sim.tick; a.wokeEarly = true; a.rainExposedMinutes = 0;
+    if (G.Powers.seekCover(sim, a, a.act, true)) return true;
+    if (seekWarmth(sim, a)) { a.act.coldWake = true; return true; }
+    G.Sim.log(sim, a.name + " finds no cover and curls up again", a); startSleep(sim, a, true); return true;
+  }
   function sleep(sim, a) {
     const E = P().energy, n = a.needs;
     const night = G.Time.at(sim.tick + 720).day;
+    if (rainWake(sim, a)) return;
     if (n.warmth < P().warmth.wakeBelow && a.coldWoke !== night && !Agent.goodSpot(sim, a)) { a.coldWoke = night; G.Sim.log(sim, a.name + " wakes up cold", a);
       if (seekWarmth(sim, a)) { a.wokeEarly = true; a.act.coldWake = true; return; } }
     // step 20: on a Deep Cold night a cold sleeper is not woken by hunger (no night food trips: she would only lie down again)
@@ -500,7 +526,7 @@
     let wr = wr0;
     if (felt.wet > 0) {
       if (wr0 < 0) wr = wr0 * (1 + (lossX - 1) * felt.wet);
-      else if (wr0 > 0 && !(felt.heat > 0)) wr = wr0 * (G.Powers.climbXAt ? G.Powers.climbXAt(sim, ax, ay) : 0);   // rain chill blocks day climb (climbX, 0 = none); fire may still warm
+      else if (wr0 > 0 && !(felt.heat > 0)) wr = wr0 * (1 - felt.wet * (1 - (G.Powers.climbXAt ? G.Powers.climbXAt(sim, ax, ay) : 0)));   // rain chill blocks day climb (climbX, 0 = none) in the open; v39.1: by exposure share (a hut keeps most of the climb); fire may still warm
       // §40 / v37: soaked skin keeps losing warmth (drainPerHour by strength x exposure) unless fire heat reaches her
       if (!(felt.heat > 0) && G.Powers.drainAt) { const d = G.Powers.drainAt(sim, ax, ay) * felt.wet / 60; if (d > 0) { wr -= d; felt.rainDrain = d; } }
     } else if (softWet) {
@@ -509,6 +535,7 @@
       if (softWet) felt.wetGround = true;
     }
     n.warmth = Math.round(clamp(w0 + wr * G.data.config.time.tickGameMinutes, p.warmth.min, 100) * 1e9) / 1e9;
+    if (felt.wet > 0 || a.wet > 0) stepWet(sim, a, felt, asleep);   // v39.1: soak / dry (no field written on a dry person)
     if (a.hold) n[a.hold] = 0;   // test-only (GS.debug.drainWater / drainFullness / drainWarmth): hold that need at 0
     const tm = G.data.config.time.tickGameMinutes, z = a.zero || (a.zero = { water: 0, fullness: 0, warmth: 0, energy: 0 });
     if (z.energy == null) z.energy = 0;
@@ -519,7 +546,7 @@
     if (n.energy > 0) { a.energyConfused = false; a.energyHallucAt = null; }
     // 26b rain exposure clock (awake + exposed); reset under cover / when rain ends
     if (G.Powers) {
-      if (!asleep && G.Powers.exposure(sim, a) > 0) a.rainExposedMinutes = (a.rainExposedMinutes || 0) + tm * (G.Powers.exposeXAt ? G.Powers.exposeXAt(sim, ax, ay) : 1);   // §40: heavy rain runs the clock faster
+      if (!asleep && G.Powers.outInRain(sim, a)) a.rainExposedMinutes = (a.rainExposedMinutes || 0) + tm * (G.Powers.exposeXAt ? G.Powers.exposeXAt(sim, ax, ay) : 1);   // §40: heavy rain runs the clock faster
       else { a.rainExposedMinutes = 0; a.rainCoverLogged = false; }
     }
     G.Learn.stepWarmth(sim, a, felt, w0);   // steps 13-14: what warmed her when cold raises that action's score (and may be copied)

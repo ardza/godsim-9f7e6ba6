@@ -105,6 +105,13 @@
         shelterTiles: 15,             // looks this far for a woods tile / company when seeking warmth
         wakeBelow: 10,                // a sleeper this cold, not under trees with company, wakes once a night to find a better spot
         seekBelow: 35, seekPerFear: 0.5,   // seeks warmth (shelter, others) below 35 + coldFear x 0.5
+        // v39.1 wetness (a.wet 0-100, saved on the person; absent = dry). Rain soaks her toward 100 x exposure x (1 - gear) at soakPerHour[strength];
+        //   above that target she dries at dryPerHour (x shelterX under trees / in a shelter, x fireX in fire heat; in fire heat the target is also x (1 - fireKeep)). Wet skin feels chillC x wet/100 colder,
+        //   even after the rain stops. gear: worn hide / sleeping under a hide / worn wrap keep that share of the soaking off (summed, capped at gearMax).
+        //   seekAdd: she looks for warmth seekAdd x wet/100 sooner. A sleeper out in the rain (exposure > powers.rain.coverAbove) wakes once per rain
+        //   when wet >= wakeWetAt or warmth <= wakeColdBelow and heads for cover / a fire. soakedAt / driedBelow: the "soaked through" / "dried off" log lines.
+        wet: { soakPerHour: { light: 30, medium: 60, heavy: 120 }, dryPerHour: 6, shelterX: 1.5, fireX: 5, fireKeep: 0.5, chillC: 4,
+               gear: { hide: 0.35, sleepHide: 0.35, wrap: 0.2 }, gearMax: 0.5, seekAdd: 10, wakeWetAt: 70, wakeColdBelow: 25, soakedAt: 60, driedBelow: 10 },
         start: [80, 100], min: 0      // hypothermia stage logs (Story Writer): shivering → stumbling/looking lost → moving slow/dropping things → nodding off → collapsed; then death at warmthZeroMinutes (3 days)
       },
       // 26b hypothermia (warmth 0): stages by minutes at 0; death only after warmthZeroMinutes (3 days, full ladder first). Unconscious can be rescued when warmth > rescueAbove.
@@ -649,6 +656,9 @@
       rain: { checkMinutes: 30, coverChance: 0.5, coverTiles: 10, coverTilesLong: 16, waitMinutes: 180, faceChance: 0.3,
               exposeRaiseAt: 30, exposeRaiseCheck: 10, exposeRaiseChance: 0.85,
               exposeForceAt: 120, exposeUrgentAt: 240, coverFire: true, coverMinRain: 0.85,
+              // v39.1 rain warmth fix: trees keep only woodsKeepOff of the rain off (spec v22: woods 0.5; v39 had 1 = trees blocked all rain).
+              //   Below coverAbove exposure (woods, thicket, huts) people count as under cover: they don't walk off looking for better cover.
+              woodsKeepOff: 0.5, coverAbove: 0.5,
               strengthOrder: ["light", "medium", "heavy"],
               strengths: {
                 light:  { label: "Light",  minutes: 180, bushX: 1.5, bushMinutes: 1440, chillC: 3,  lossX: 1.25, drainPerHour: 0.5, climbX: 0, exposeX: 1,   wetMinutes: 720,  holdOutMinutes: null, douse: "small", puddles: { count: 2,   minutes: 720 } },
@@ -841,7 +851,7 @@
       pairView: { title: "{a} & {b}", back: "Back", backAria: "Back to {a}'s {tab}", empty: "Nothing logged with both of them yet.",
         nameAria: "Show what {a} and {b} did together", fixtureGapMinutes: 20 },
       sexDot: { m: "#5aa9e6", f: "#e78ac3" },   // §40 / v37 People list: small coloured dot next to each name (Kin display unchanged)
-      powersTab: { label: "Powers", icon: "powers" },   // v19: portrait phones (< 700px): the bottom-bar tab that slides up the power row (CSS in index.html)
+      powersTab: { label: "Powers", icon: "powers" },   // v19 / v39.1: the bottom-bar tab that opens the power menu (every layout; closed by default) (CSS in index.html)
       find: { label: "Find", icon: "locate", pulseMs: 3000, zoom: 2, ringScale: 1.7 },   // v19 (step 24): the Find button on a person's card: centre the map on them (zoom at least 2), pulse their group ring brighter and bigger for pulseMs, follow until a pan or a tap elsewhere
       personTabs: [   // v25: Needs / Mind / Kin / Knows / Log (personal events in Log tab only; header + Find outside; no under-card strip)
         { key: "needs", label: "Needs" }, { key: "mind", label: "Mind" }, { key: "kin", label: "Kin" }, { key: "knows", label: "Knows" }, { key: "skills", label: "Skills" }, { key: "log", label: "Log" }

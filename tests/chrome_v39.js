@@ -48,7 +48,7 @@ const tapMin = "(() => { let m = 999, at = ''; for (const e of document.querySel
     let minText = 99, minTap = 999;
     for (const [q, k, st, pts] of pages) {
       await cmd("Page.navigate", { url: base + "?seed=3871" + q }); await sleep(2500);
-      check(await ev("!!(window.GS && GS.app && GS.app.sim && GS.data.config.saveVersion === 39 && GS.app.sim.version === 39 && GS.data.artVersion === 39)"), tag + " " + k + ": loads v39");
+      check(await ev("!!(window.GS && GS.app && GS.app.sim && GS.data.config.saveVersion === 39 && GS.app.sim.version === 39 && /^39(\\.\\d+)?$/.test(String(GS.data.artVersion)))"), tag + " " + k + ": loads v39");
       if (k !== "plain") await ev("(() => { const s = GS.app.sim, a = s.agents[0]; GS.Spar._fx = { at: { x: Math.round(a.pos.x) + 1, y: Math.round(a.pos.y) }, kids: s.agents.filter(q => q.act.type === 'spar' && GS.Family.isChild(q)).map(q => q.id) }; return true; })()");   // close-up centre: person 1 (the fixture puts its scene around her)
       if (k === "spar") { await ev("(() => { const s = GS.app.sim, F = GS.data.config.family || {}; const ad = s.agents.filter(q => q.act.type !== 'spar' && q.act.type !== 'sparStance' && !GS.Family.isChild(q)).slice(-2); if (ad.length < 2) return false; for (const q of ad) { q.age = 6; } if (!GS.Family.isChild(ad[0])) return 'age'; const a = GS.app.sim.agents[0]; ad[0].pos = { x: a.pos.x + 3, y: a.pos.y + 1 }; ad[1].pos = { x: a.pos.x + 4, y: a.pos.y + 1 }; GS.Spar.startBout(s, ad[0], ad[1]); ad[0].act.until = ad[1].act.until = s.tick + 1e6; GS.Spar._fx.kids = ad.map(q => q.id); return true; })()"); await sleep(1000); }   // seed 3871 starts with no children: two adults made 6 for the kid bout (test-only)
       if (k === "bow") { await ev("(() => { GS.data.config.render.arrowFlySec = 60; const a = GS.app.sim.agents[0]; GS.Bow.flight(GS.app.sim, a, a.pos.x + 4, a.pos.y - 1, false); return true; })()"); await sleep(400); }
@@ -72,8 +72,8 @@ const tapMin = "(() => { let m = 999, at = ''; for (const e of document.querySel
     check(errs.length === 0, tag + " 0 JS errors", errs);
     sock.close();
   }
-  const assetRe = /\.(js|css|png)$/, ver = [...served].filter(u => assetRe.test(u.split("?")[0])), badV = ver.filter(u => !/\?v=39$/.test(u));
-  const artV = V39_ART.map(f => ({ f, req: [...served].filter(u => u.split("?")[0] === f) })), artBad = artV.filter(x => !x.req.length || x.req.some(u => !/\?v=39$/.test(u)));
+  const assetRe = /\.(js|css|png)$/, ver = [...served].filter(u => assetRe.test(u.split("?")[0])), badV = ver.filter(u => !/\?v=39(\.\d+)?$/.test(u));
+  const artV = V39_ART.map(f => ({ f, req: [...served].filter(u => u.split("?")[0] === f) })), artBad = artV.filter(x => !x.req.length || x.req.some(u => !/\?v=39(\.\d+)?$/.test(u)));
   check(artBad.length === 0, "all 12 new / updated v39 art sheets requested, each with ?v=39", artBad.length ? artBad : artV.map(x => x.req[0]));
   check(missing.length === 0, "0 missing files (404s)", missing);
   check(ver.length > 0 && badV.length === 0, "every loaded js / css / png carries ?v=39", { loaded: ver.length, bad: badV });
